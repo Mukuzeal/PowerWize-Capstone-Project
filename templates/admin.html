@@ -960,9 +960,18 @@
             background: #D1FAE5;
             color: #065F46
         }
-        
+
         .btn-restore:hover {
             background: #A7F3D0
+        }
+
+        .btn-delete {
+            background: #FEE2E2;
+            color: #991B1B
+        }
+
+        .btn-delete:hover {
+            background: #FECACA
         }
         /* ── Table toolbar ── */
         
@@ -1165,6 +1174,11 @@
   </button>
         <button class="nav-item" onclick="showSection('registrations', this)">
     <span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span> Registrations
+  </button>
+
+        <span class="nav-section">Learning</span>
+        <button class="nav-item" onclick="showSection('modules', this)">
+    <span class="nav-icon"><i class="fa-solid fa-book-open"></i></span> Modules
   </button>
     </nav>
 
@@ -1376,11 +1390,16 @@
                                 </td>
                                 <td style="color:#9CA3AF">{{ u.company_name or '—' }}</td>
                                 <td style="color:var(--gray);font-size:12px">{{ u.archived_at.strftime('%b %d, %Y') }}</td>
-                                <td>
+                                <td style="white-space:nowrap;display:flex;gap:6px">
                                     <form method="POST" action="/admin/user/unarchive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Restore {{ u.fname }} {{ u.lname }}?','Restore')">
                                         <button type="submit" class="btn-action btn-restore">
-                    <i class="fa-solid fa-rotate-left"></i> Restore
-                  </button>
+                                            <i class="fa-solid fa-rotate-left"></i> Restore
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="/admin/user/delete/{{ u.id }}" style="margin:0" onsubmit="return swalDelete(event,'{{ u.fname }} {{ u.lname }}')">
+                                        <button type="submit" class="btn-action btn-delete">
+                                            <i class="fa-solid fa-trash"></i> Delete
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
@@ -1475,6 +1494,52 @@
                 </div>
 
             </div>
+
+            {% if past_schedules %}
+            <details class="archived-panel" style="margin-top:1.5rem">
+                <summary>
+                    <i class="fa-solid fa-clock-rotate-left"></i> Previous Schedules
+                    <span class="count-badge">{{ past_schedules|length }}</span>
+                    <i class="fa-solid fa-chevron-down chevron"></i>
+                </summary>
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in past_schedules %}
+                            <tr>
+                                <td><span class="ref">{{ loop.index }}</span></td>
+                                <td style="font-weight:600;color:#374151">{{ s.name }}</td>
+                                <td>
+                                    {% if s.type == 'training' %}
+                                    <span class="badge b-online">Training</span>
+                                    {% else %}
+                                    <span class="badge b-renewal">Recertification</span>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size:12px;color:var(--gray)">{{ s.start_date.strftime('%b %d, %Y') }}</td>
+                                <td style="font-size:12px;color:var(--gray)">{{ s.end_date.strftime('%b %d, %Y') }}</td>
+                                <td>
+                                    <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
+                                        <button type="submit" class="btn-del-sched" style="color:#D1D5DB"><i class="fa-solid fa-trash-can"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+            {% endif %}
         </div>
 
         <!-- ═══ REGISTRATIONS ═══ -->
@@ -1569,6 +1634,21 @@
             </div>
         </div>
 
+        <!-- ═══ MODULES ═══ -->
+        <div id="section-modules" class="section">
+            <div class="page-head">
+                <h1>Modules</h1>
+                <span class="count-badge">Coming Soon</span>
+            </div>
+            <div class="panel-card" style="text-align:center;padding:3rem 2rem">
+                <i class="fa-solid fa-book-open" style="font-size:48px;color:var(--green-lt);margin-bottom:1rem;display:block"></i>
+                <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px">Training Modules</div>
+                <div style="font-size:13px;color:var(--gray);max-width:420px;margin:0 auto;line-height:1.7">
+                    The LMS module management system is under development. Instructors will be able to create subjects, modules, lessons, quizzes, and practical exams here.
+                </div>
+            </div>
+        </div>
+
     </div>
     <!-- end .main -->
 
@@ -1620,6 +1700,27 @@
                 customClass: {
                     popup: 'swal-font'
                 }
+            }).then(function(result) {
+                if (result.isConfirmed) form.submit();
+            });
+            return false;
+        }
+
+        function swalDelete(event, name) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            Swal.fire({
+                title: 'Delete User?',
+                html: '<p style="color:#374151">You are about to permanently delete <strong>' + name + '</strong>.<br><span style="color:#991B1B;font-size:13px">This action cannot be undone.</span></p>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#DC2626',
+                cancelButtonColor: '#6B7280',
+                confirmButtonText: '<i class="fa-solid fa-trash"></i> Yes, Delete',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: { popup: 'swal-font' }
             }).then(function(result) {
                 if (result.isConfirmed) form.submit();
             });
@@ -2089,7 +2190,7 @@
         // Restore active section from URL hash on load
         (function() {
             const hash = location.hash.replace('#', '');
-            const validSections = ['dashboard', 'users', 'schedules', 'registrations'];
+            const validSections = ['dashboard', 'users', 'schedules', 'registrations', 'modules'];
             if (validSections.includes(hash)) {
                 const btn = [...document.querySelectorAll('.nav-item')]
                     .find(b => b.getAttribute('onclick').includes("'" + hash + "'"));
