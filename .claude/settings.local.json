@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:e-wizesolutions.com)",
+      "Bash(venv/Scripts/pip list *)",
+      "PowerShell(& \"e:\\\\CAPSTONE PROJECT\\\\PowerWize\\\\venv\\\\Scripts\\\\python.exe\" \"e:\\\\CAPSTONE PROJECT\\\\PowerWize\\\\migrate_email.py\")",
+      "Bash('e:/CAPSTONE PROJECT/PowerWize/venv/Scripts/python.exe' -c ' *)",
+      "Bash(\"e:/CAPSTONE PROJECT/PowerWize/venv/Scripts/pip.exe\" show requests)",
+      "Bash(\"e:/CAPSTONE PROJECT/PowerWize/venv/Scripts/pip.exe\" install requests)",
+      "Bash(rm \"e:/CAPSTONE PROJECT/PowerWize/.vscode/launch.json\")",
+      "Bash(rmdir \"e:/CAPSTONE PROJECT/PowerWize/.vscode\")",
+      "PowerShell(Get-Process python -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(Start-Process python -ArgumentList \"app.py\" -WorkingDirectory \"e:\\\\CAPSTONE PROJECT\\\\PowerWize\" -WindowStyle Normal)"
+    ]
+  }
+}

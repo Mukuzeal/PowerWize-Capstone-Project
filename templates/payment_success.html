@@ -1,0 +1,122 @@
+{% from "macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Successful – EnergyWize</title>
+{{ form_styles() }}
+<style>
+.success-wrap{max-width:560px;margin:0 auto}
+.success-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+.success-header{background:linear-gradient(135deg,#166534 0%,var(--green-md) 100%);padding:28px;text-align:center}
+.success-icon{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;margin:0 auto 12px}
+.success-header h2{font-size:20px;font-weight:700;color:#fff;margin-bottom:4px}
+.success-header p{font-size:13px;color:rgba(255,255,255,0.75)}
+.success-body{padding:24px 28px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--gray);font-weight:500}
+.info-row .value{font-weight:600;color:#111827}
+.qr-section{text-align:center;padding:20px 28px 28px}
+.qr-section h3{font-size:14px;font-weight:700;color:var(--green-dk);margin-bottom:4px}
+.qr-section p{font-size:12px;color:var(--gray);margin-bottom:16px}
+.qr-img{width:180px;height:180px;border:3px solid var(--green-lt);border-radius:12px;padding:8px;background:#fff}
+.chain-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;background:var(--green-lt);color:var(--green-pr);padding:5px 14px;border-radius:20px;margin-top:12px;text-decoration:none}
+.chain-badge:hover{background:var(--green-md);color:#fff}
+.action-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:var(--green-pr);color:#fff;font-family:inherit;font-size:14px;font-weight:600;border:none;border-radius:10px;text-decoration:none;margin-bottom:10px;transition:background 0.15s}
+.action-btn:hover{background:var(--green-md)}
+.action-btn.secondary{background:var(--green-lt);color:var(--green-pr);border:1px solid var(--green-md)}
+.action-btn.secondary:hover{background:var(--green-md);color:#fff}
+</style>
+</head>
+<body>
+{{ header("Payment Successful") }}
+
+<div class="hero">
+  <span class="hero-tag">Transaction Complete</span>
+  <h1>Payment <em>Confirmed</em></h1>
+  <p>Your payment has been verified and recorded on the Polygon blockchain.</p>
+</div>
+
+<div class="page-body">
+  <div class="success-wrap">
+
+    <div class="success-card">
+      <div class="success-header">
+        <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <h2>Payment Successful</h2>
+        <p>Your receipt has been secured on the blockchain.</p>
+      </div>
+
+      {% if receipt %}
+      <div class="success-body">
+        {% if receipt.receipt_id %}
+        <div class="info-row">
+          <span class="label">Receipt ID</span>
+          <span class="value">{{ receipt.receipt_id }}</span>
+        </div>
+        {% endif %}
+        <div class="info-row">
+          <span class="label">Reference</span>
+          <span class="value" style="font-size:11px">{{ receipt.paymongo_id }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Amount Paid</span>
+          <span class="value">₱{{ "%.2f"|format(receipt.amount_php) }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Payment Method</span>
+          <span class="value">{{ receipt.method | upper }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Date</span>
+          <span class="value">{{ receipt.paid_at.strftime("%B %d, %Y %I:%M %p") if receipt.paid_at else "—" }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Blockchain Status</span>
+          <span class="value" style="color:{% if receipt.tx_hash %}#166534{% else %}#854D0E{% endif %}">
+            <i class="fa-solid fa-{% if receipt.tx_hash %}link{% else %}clock{% endif %}"></i>
+            {% if receipt.tx_hash %}Verified on Polygon{% else %}Pending — check back shortly{% endif %}
+          </span>
+        </div>
+      </div>
+
+      {% if receipt.qr_code_path %}
+      <div class="qr-section">
+        <h3>Your Verification QR Code</h3>
+        <p>Save this QR code to verify your payment anytime.</p>
+        <img class="qr-img" src="/{{ receipt.qr_code_path }}" alt="Receipt QR Code">
+        {% if receipt.tx_hash %}
+        <br>
+        <a class="chain-badge" href="https://amoy.polygonscan.com/tx/{{ receipt.tx_hash }}" target="_blank">
+          <i class="fa-solid fa-cube"></i> View on PolygonScan
+        </a>
+        {% endif %}
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:20px;font-size:13px;color:#854D0E">
+        <i class="fa-solid fa-clock"></i> Blockchain QR is being generated. Refresh in a moment.
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div style="text-align:center;padding:24px;font-size:13px;color:var(--gray)">
+        Payment recorded. Receipt details are loading...
+      </div>
+      {% endif %}
+    </div>
+
+    <a href="/portal" class="action-btn">
+      <i class="fa-solid fa-house"></i> Go to My Portal
+    </a>
+    <a href="/verify" class="action-btn secondary">
+      <i class="fa-solid fa-qrcode"></i> Verify Receipt
+    </a>
+
+  </div>
+</div>
+
+<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
+</body>
+</html>

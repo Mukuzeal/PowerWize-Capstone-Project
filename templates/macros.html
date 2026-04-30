@@ -1,0 +1,122 @@
+{% macro form_styles() %}
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--green-dk:#0D3B27;--green-pr:#16583C;--green-md:#1E7A4B;--green-lt:#E2F5EC;--gold:#D4A72A;--gold-lt:#FEF3C7;--gold-dk:#8A6318;--white:#FAFAF8;--gray:#6B7280;--gray-lt:#F3F4F6;--red:#B91C1C;--green:#166534;--green-slt:#DCFCE7;--border:#D1D5DB;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,0.08),0 8px 32px rgba(13,59,39,0.10)}
+body{font-family:'DM Sans',sans-serif;background:var(--green-dk);color:#1F2937;min-height:100vh}
+.site-header{background:var(--green-dk);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:68px;border-bottom:1px solid rgba(212,167,42,0.25)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:38px;height:38px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:18px;color:var(--green-dk)}
+.logo-text{font-family:'DM Serif Display',serif;font-size:20px;color:#fff}
+.logo-text span{color:var(--gold)}
+.header-badge{font-size:12px;color:rgba(255,255,255,0.45);letter-spacing:0.06em;text-transform:uppercase}
+.hero{background:linear-gradient(135deg,var(--green-dk) 0%,var(--green-pr) 100%);padding:3rem 2rem 2.5rem;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(212,167,42,0.12) 0%,transparent 70%);pointer-events:none}
+.hero::after{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;pointer-events:none}
+.hero-tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(212,167,42,0.4);padding:4px 14px;border-radius:20px;margin-bottom:1rem;position:relative;z-index:1}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(1.6rem,3.5vw,2.5rem);color:#fff;line-height:1.2;margin-bottom:0.6rem;position:relative;z-index:1}
+.hero h1 em{font-style:italic;color:var(--gold)}
+.hero p{font-size:14px;color:rgba(255,255,255,0.65);max-width:520px;margin:0 auto;line-height:1.7;position:relative;z-index:1}
+.hero-back{font-size:13px;color:rgba(255,255,255,0.45);text-decoration:none;display:inline-block;margin-bottom:1rem;position:relative;z-index:1}
+.hero-back:hover{color:var(--gold)}
+.page-body{max-width:780px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.error-banner{background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem}
+.error-banner strong{color:var(--red);font-size:14px;display:block;margin-bottom:6px}
+.error-banner ul{padding-left:1.2rem}
+.error-banner li{font-size:13px;color:var(--red);margin:2px 0}
+.form-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.section-header{padding:1.25rem 1.75rem 0.9rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.section-icon{width:32px;height:32px;border-radius:8px;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:15px}
+.section-header h2{font-size:15px;font-weight:600;color:var(--green-pr)}
+.section-header p{font-size:12px;color:var(--gray);margin-top:1px}
+.form-body{padding:1.4rem 1.75rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px}
+.field label .req{color:var(--gold-dk);margin-left:2px}
+.field label .hint{font-size:11px;font-weight:400;color:var(--gray);margin-left:6px}
+input[type=text],input[type=tel],input[type=date],input[type=number],input[type=email],select,textarea{width:100%;padding:9px 13px;font-family:'DM Sans',sans-serif;font-size:14px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:#111827;outline:none;transition:border-color 0.15s,box-shadow 0.15s;appearance:none}
+.input-icon-wrap{position:relative}.input-icon-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--gray);font-size:13px;pointer-events:none}.input-icon-wrap input{padding-left:32px}
+input:focus,select:focus,textarea:focus{border-color:var(--green-md);box-shadow:0 0 0 3px rgba(30,122,75,0.12)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:560px){.row-2,.row-3{grid-template-columns:1fr}}
+.upload-zone{border:1.5px dashed var(--border);border-radius:var(--radius);padding:1rem;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.15s,background 0.15s}
+.upload-zone:hover{border-color:var(--green-md);background:var(--green-lt)}
+.upload-zone.has-file{border-color:#16A34A;background:#F0FDF4}
+.upload-icon{width:34px;height:34px;border-radius:8px;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.upload-zone.has-file .upload-icon{background:var(--green-slt)}
+.upload-text{flex:1;min-width:0}
+.upload-text strong{font-size:13px;display:block;color:#111827}
+.upload-text .hint-txt{font-size:11px;color:var(--gray)}
+.upload-text .file-chosen{font-size:12px;color:var(--green);font-weight:500;margin-top:2px;display:none}
+.upload-zone.has-file .file-chosen{display:block}
+.upload-zone.has-file .hint-txt{display:none}
+input[type=file]{display:none}
+.radio-group{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.radio-opt{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.15s,background 0.15s;font-size:14px}
+.radio-opt:hover{border-color:var(--green-md);background:var(--green-lt)}
+.radio-opt input[type=radio]{accent-color:var(--green-md);width:16px;height:16px}
+.radio-opt.danger{color:var(--red)}
+.radio-opt.success{font-weight:500}
+.form-divider{height:1px;background:var(--border);margin:1.25rem 0}
+.terms-link{color:var(--green-md);text-decoration:underline;cursor:pointer}
+.form-footer{padding:1.25rem 1.75rem;border-top:1px solid var(--border);background:var(--gray-lt);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.form-footer p{font-size:12px;color:var(--gray)}
+.btn-submit{background:var(--green-pr);color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;padding:11px 32px;border:none;border-radius:var(--radius);cursor:pointer;transition:background 0.15s,transform 0.1s;display:flex;align-items:center;gap:8px}
+.btn-submit:hover{background:var(--green-md)}
+.btn-submit:active{transform:scale(0.98)}
+.site-footer{text-align:center;padding:1.5rem;font-size:12px;color:rgba(255,255,255,0.3)}
+</style>
+{% endmacro %}
+
+{% macro header(badge) %}
+<header class="site-header">
+  <a href="/" class="logo">
+    <div class="logo-mark">E</div>
+    <span class="logo-text">Energy<span>Wize</span></span>
+  </a>
+  <span class="header-badge">{{ badge }}</span>
+</header>
+{% endmacro %}
+
+{% macro upload_field(id, name, label, hint, icon, accept, pdf_only=false, existing=None) %}
+<div class="field">
+  <label>{{ label }} <span class="req">*</span></label>
+  <label class="upload-zone{% if existing %} has-file{% endif %}" id="zone-{{ id }}" for="{{ id }}">
+    <div class="upload-icon">{% if existing %}<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>{% else %}<i class="fa-solid {{ icon }}"></i>{% endif %}</div>
+    <div class="upload-text">
+      <strong>{% if existing %}Change file{% else %}Click to upload{% endif %}</strong>
+      <span class="hint-txt">{{ hint }}</span>
+      <span class="file-chosen" id="name-{{ id }}"{% if existing %} style="display:block"{% endif %}>
+        {% if existing %}<i class="fa-solid fa-check"></i> Previously uploaded{% endif %}
+      </span>
+    </div>
+  </label>
+  <input type="file" id="{{ id }}" name="{{ name }}" accept="{{ accept }}" onchange="fileChosen(this,'zone-{{ id }}','name-{{ id }}')">
+  {% if existing %}<input type="hidden" name="{{ name }}_existing" value="{{ existing }}">{% endif %}
+</div>
+{% endmacro %}
+
+{% macro errors_block(errors) %}
+{% if errors %}
+<div class="error-banner">
+  <strong><i class="fa-solid fa-triangle-exclamation"></i> Please correct the following before submitting:</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro file_js() %}
+<script>
+function fileChosen(input,zoneId,nameId){
+  const zone=document.getElementById(zoneId),nameEl=document.getElementById(nameId);
+  if(input.files&&input.files[0]){
+    zone.classList.add('has-file');
+    nameEl.innerHTML='<i class="fa-solid fa-check"></i> '+input.files[0].name;
+    zone.querySelector('.upload-icon').innerHTML='<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>';
+  }
+}
+</script>
+{% endmacro %}

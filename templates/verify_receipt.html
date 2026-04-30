@@ -1,0 +1,159 @@
+{% from "macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify Receipt – EnergyWize</title>
+{{ form_styles() }}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+.verify-wrap{max-width:580px;margin:0 auto}
+.verify-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);padding:24px 28px;margin-bottom:16px}
+.verify-card h3{font-size:15px;font-weight:700;color:var(--green-dk);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.verify-card p{font-size:13px;color:var(--gray);margin-bottom:14px;line-height:1.6}
+#qr-reader{width:100%;border-radius:10px;overflow:hidden;background:#000}
+#qr-reader video{width:100%!important;border-radius:10px}
+.scan-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;font-family:inherit;font-size:14px;font-weight:600;border:none;border-radius:var(--radius);cursor:pointer;transition:background 0.15s}
+.scan-btn.start{background:var(--green-pr);color:#fff}
+.scan-btn.start:hover{background:var(--green-md)}
+.scan-btn.stop{background:#FEF2F2;color:#991B1B;border:1px solid #FECACA}
+.scan-status{text-align:center;font-size:12px;padding:8px;border-radius:8px;margin-top:8px;display:none}
+.scan-status.scanning{display:block;background:var(--green-lt);color:var(--green-pr)}
+textarea{width:100%;padding:10px 13px;font-family:'DM Sans',sans-serif;font-size:13px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:#111827;outline:none;resize:vertical;min-height:80px;transition:border-color 0.15s}
+textarea:focus{border-color:var(--green-md);box-shadow:0 0 0 3px rgba(30,122,75,0.12)}
+.btn-verify{width:100%;padding:12px;background:var(--green-pr);color:#fff;font-family:inherit;font-size:14px;font-weight:600;border:none;border-radius:var(--radius);cursor:pointer;transition:background 0.15s;margin-top:8px}
+.btn-verify:hover{background:var(--green-md)}
+.result-card{border-radius:16px;box-shadow:var(--shadow);padding:24px 28px;margin-bottom:16px;text-align:center}
+.result-card.verified{background:#F0FDF4;border:2px solid #86EFAC}
+.result-card.unverified{background:#FEF2F2;border:2px solid #FECACA}
+.result-icon{font-size:40px;margin-bottom:10px}
+.result-title{font-size:18px;font-weight:700;margin-bottom:6px}
+.result-card.verified .result-title{color:#166534}
+.result-card.unverified .result-title{color:#991B1B}
+.result-meta{font-size:12px;color:var(--gray);margin-top:10px;text-align:left;background:rgba(0,0,0,0.03);border-radius:8px;padding:10px 12px}
+.result-meta div{padding:3px 0;border-bottom:1px solid var(--border)}
+.result-meta div:last-child{border-bottom:none}
+.chain-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;background:var(--green-lt);color:var(--green-pr);padding:5px 14px;border-radius:20px;margin-top:10px;text-decoration:none}
+.chain-link:hover{background:var(--green-md);color:#fff}
+</style>
+</head>
+<body>
+{{ header("Verify Receipt") }}
+
+<div class="hero">
+  <span class="hero-tag">Blockchain Verification</span>
+  <h1>Verify <em>Receipt</em></h1>
+  <p>Scan a receipt QR code or paste the Receipt ID to verify payment on the Polygon blockchain.</p>
+</div>
+
+<div class="page-body">
+  <div class="verify-wrap">
+
+    {% if result %}
+    <div class="result-card {{ 'verified' if result.verified else 'unverified' }}">
+      <div class="result-icon">
+        {% if result.verified %}<i class="fa-solid fa-circle-check" style="color:#166534"></i>
+        {% else %}<i class="fa-solid fa-circle-xmark" style="color:#991B1B"></i>{% endif %}
+      </div>
+      <div class="result-title">
+        {{ "Payment is in Blockchain ✓" if result.verified else "Payment not in Blockchain ✗" }}
+      </div>
+      <div style="font-size:13px;color:var(--gray)">{{ result.reason }}</div>
+
+      {% if receipt %}
+      <div class="result-meta">
+        <div><strong>Receipt ID:</strong> {{ receipt.receipt_id }}</div>
+        <div><strong>Name:</strong> {{ receipt.fname }} {{ receipt.lname }}</div>
+        <div><strong>Amount:</strong> ₱{{ "%.2f"|format(receipt.amount_php) }}</div>
+        <div><strong>Paid:</strong> {{ receipt.paid_at.strftime("%B %d, %Y %I:%M %p") if receipt.paid_at else "—" }}</div>
+        {% if result.block_number %}<div><strong>Block:</strong> #{{ result.block_number }}</div>{% endif %}
+      </div>
+      {% endif %}
+
+      {% if result.explorer_url %}
+      <a class="chain-link" href="{{ result.explorer_url }}" target="_blank">
+        <i class="fa-solid fa-cube"></i> View on PolygonScan
+      </a>
+      {% endif %}
+
+      <div style="margin-top:16px">
+        <a href="/verify" style="font-size:13px;color:var(--green-pr);font-weight:600;text-decoration:underline">
+          <i class="fa-solid fa-qrcode"></i> Scan another QR code
+        </a>
+      </div>
+    </div>
+
+    {% else %}
+
+    <div class="verify-card">
+      <h3><i class="fa-solid fa-camera" style="color:var(--green-pr)"></i> Scan QR Code</h3>
+      <p>Click Start Scanner and point your camera at the receipt QR code. It will verify automatically.</p>
+      <div id="qr-reader"></div>
+      <div class="scan-status scanning" id="scan-status" style="display:none">
+        <i class="fa-solid fa-circle-notch fa-spin"></i> Scanning — point camera at QR code...
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="scan-btn start" id="btn-start" onclick="startScanner()">
+          <i class="fa-solid fa-camera"></i> Start Scanner
+        </button>
+        <button class="scan-btn stop" id="btn-stop" style="display:none" onclick="stopScanner()">
+          <i class="fa-solid fa-stop"></i> Stop
+        </button>
+      </div>
+    </div>
+
+    <div class="verify-card">
+      <h3><i class="fa-solid fa-keyboard" style="color:var(--green-pr)"></i> Manual Entry</h3>
+      <p>No camera? Paste your Receipt ID (e.g. <code>RCP-20260501-A1B2C3D4</code>) or the full QR data.</p>
+      <form method="POST" action="/verify" id="verify-form">
+        <textarea name="qr_data" id="qr-data-input" placeholder="Paste Receipt ID or QR data here..."></textarea>
+        <button type="submit" class="btn-verify">
+          <i class="fa-solid fa-shield-check"></i> Verify on Blockchain
+        </button>
+      </form>
+    </div>
+
+    {% endif %}
+
+    <a href="/portal" style="display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;margin-bottom:16px">
+      ← Back to Portal
+    </a>
+
+  </div>
+</div>
+
+<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
+
+<script>
+var scanner = null;
+
+function startScanner() {
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('btn-stop').style.display  = 'flex';
+  document.getElementById('scan-status').style.display = 'block';
+
+  scanner = new Html5Qrcode("qr-reader");
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    function(decodedText) {
+      document.getElementById('qr-data-input').value = decodedText;
+      stopScanner();
+      document.getElementById('verify-form').submit();
+    },
+    function(error) {}
+  ).catch(function() {
+    document.getElementById('scan-status').innerHTML =
+      '<i class="fa-solid fa-triangle-exclamation"></i> Camera not available. Use manual entry below.';
+  });
+}
+
+function stopScanner() {
+  if (scanner) { scanner.stop().catch(function(){}); scanner = null; }
+  document.getElementById('btn-start').style.display = 'flex';
+  document.getElementById('btn-stop').style.display  = 'none';
+}
+</script>
+</body>
+</html>

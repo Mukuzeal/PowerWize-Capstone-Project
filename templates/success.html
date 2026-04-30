@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registration Confirmed – EnergyWize</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold: #D4A72A;
+    --green-dk: #0D3B27;
+    --green-pr: #16583C;
+    --green-md: #1E7A4B;
+    --green-lt: #E2F5EC;
+    --green: #166534;
+    --green-slt: #DCFCE7;
+    --border: #D1D5DB;
+    --gray: #6B7280;
+    --white: #FAFAF8;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--green-dk); color: #1F2937; min-height: 100vh; display: flex; flex-direction: column; }
+  .site-header {
+    background: var(--green-dk); padding: 0 2rem;
+    display: flex; align-items: center; height: 68px;
+    border-bottom: 1px solid rgba(212,167,42,0.25);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .logo-mark { width: 38px; height: 38px; border-radius: 8px; background: var(--gold); display: flex; align-items: center; justify-content: center; font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--green-dk); }
+  .logo-text { font-family: 'DM Serif Display', serif; font-size: 20px; color: #fff; }
+  .logo-text span { color: var(--gold); }
+
+  .page { max-width: 640px; margin: 3rem auto; padding: 0 1.5rem 4rem; }
+
+  .success-badge {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--green-slt);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; margin: 0 auto 1.5rem;
+  }
+  .page h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem; text-align: center; color: #fff; margin-bottom: 0.5rem;
+  }
+  .page > p { text-align: center; color: rgba(255,255,255,0.6); margin-bottom: 2rem; font-size: 15px; }
+
+  .card {
+    background: var(--white); border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 8px 32px rgba(13,59,39,0.12);
+  }
+  .card-header {
+    background: var(--green-pr); padding: 1rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-header span { color: rgba(255,255,255,0.65); font-size: 13px; }
+  .card-header strong { color: var(--gold); font-size: 15px; }
+  .card-body { padding: 1.5rem; }
+
+  .info-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 9px 0;
+    border-bottom: 1px solid #F3F4F6;
+    gap: 1rem;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row dt { font-size: 12px; color: var(--gray); min-width: 160px; }
+  .info-row dd { font-size: 14px; font-weight: 500; text-align: right; color: #111827; }
+
+  .training-pill {
+    display: inline-block; font-size: 12px; padding: 3px 10px;
+    border-radius: 20px; background: var(--green-lt); color: var(--green-pr);
+    font-weight: 500;
+  }
+
+  .actions { display: flex; gap: 12px; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+  .btn { padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; font-family: 'DM Sans', sans-serif; }
+  .btn-primary { background: var(--gold); color: var(--green-dk); }
+  .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+
+  .note { text-align: center; margin-top: 1.5rem; font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.7; }
+  .site-footer { text-align: center; padding: 1.5rem; font-size: 12px; color: rgba(255,255,255,0.3); margin-top: auto; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="logo">
+    <div class="logo-mark">E</div>
+    <span class="logo-text">Energy<span>Wize</span></span>
+  </a>
+</header>
+
+<div class="page">
+  <div class="success-badge"><i class="fa-solid fa-circle-check" style="color:#16A34A"></i></div>
+  <h1>You're Registered!</h1>
+  <p>Your registration has been received. Please keep your reference number for your records.</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span>Reference No.</span>
+      <strong>#{{ entry.id }}</strong>
+    </div>
+    <div class="card-body">
+      <dl>
+        <div class="info-row"><dt>Full Name</dt><dd>{{ entry.title }} {{ entry.full_name }}</dd></div>
+        <div class="info-row"><dt>Company</dt><dd>{{ entry.company_name }}</dd></div>
+        <div class="info-row"><dt>Designation</dt><dd>{{ entry.designation }}</dd></div>
+        <div class="info-row"><dt>Contact Number</dt><dd>{{ entry.contact_number }}</dd></div>
+        <div class="info-row"><dt>Training Type</dt><dd><span class="training-pill">{{ entry.training_type.split(',')[0] }}</span></dd></div>
+        <div class="info-row"><dt>Schedule</dt><dd>{{ entry.schedule }}</dd></div>
+        <div class="info-row"><dt>Submitted</dt><dd>{{ entry.submitted_at }}</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="actions">
+    <a href="/" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Register Another</a>
+    <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Confirmation</button>
+  </div>
+
+  <p class="note">
+    A confirmation will be sent once your documents have been reviewed.<br>
+    For inquiries, contact EnergyWize directly.
+  </p>
+</div>
+
+<footer class="site-footer">© 2026 EnergyWize · All registration forms are secured and confidential.</footer>
+</body>
+</html>

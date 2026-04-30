@@ -1,0 +1,100 @@
+{% from "macros.html" import form_styles, header, errors_block %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Your Account – EnergyWize</title>
+{{ form_styles() }}
+<style>
+.info-card{background:var(--green-lt);border:1px solid var(--green-md);border-radius:var(--radius);padding:14px 18px;margin-bottom:1.25rem}
+.info-card .ic-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--green-pr);margin-bottom:6px}
+.info-card .ic-value{font-size:14px;color:#111827;font-weight:500}
+.info-card .ic-sub{font-size:12px;color:var(--gray);margin-top:2px}
+.notice-box{background:#FEF9C3;border:1px solid #D97706;border-radius:var(--radius);padding:14px 18px;margin-bottom:1.25rem}
+.notice-box strong{display:block;color:#92400E;font-size:13px;margin-bottom:6px}
+.notice-box p{color:#78350F;font-size:13px;line-height:1.7;margin:0}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray);font-size:14px;padding:0}
+</style>
+</head>
+<body>
+{{ header("Account Setup") }}
+
+<div class="hero">
+  <span class="hero-tag">One-time Setup</span>
+  <h1>Create Your<br><em>EnergyWize Account</em></h1>
+  <p>Set a password to activate your account. Your details have been pre-filled from your registration.</p>
+</div>
+
+<div class="page-body">
+  {{ errors_block(errors) }}
+
+  <div class="info-card">
+    <div class="ic-label"><i class="fa-solid fa-user"></i> Registered as</div>
+    <div class="ic-value">{{ tok.title or '' }} {{ tok.full_name }}</div>
+    <div class="ic-sub">{{ tok.email }}</div>
+  </div>
+
+  {% if not tok.is_qualified %}
+  <div class="notice-box">
+    <strong><i class="fa-solid fa-triangle-exclamation"></i> Qualification Notice</strong>
+    <p>
+      You do not currently meet all required qualifications for this training.
+      However, you are still welcome to participate.<br><br>
+      The training certificate carries an approximate validity of <strong>3 years</strong>,
+      giving you time to meet the requirements. You must comply with
+      <strong>Department of Energy (DOE)</strong> requirements before applying for official certification.
+    </p>
+  </div>
+  {% endif %}
+
+  <form class="form-card" method="POST" novalidate>
+
+    <div class="section-header">
+      <div class="section-icon"><i class="fa-solid fa-lock"></i></div>
+      <div>
+        <h2>Set Your Password</h2>
+        <p>Minimum 8 characters</p>
+      </div>
+    </div>
+    <div class="form-body">
+
+      <div class="field">
+        <label>Password <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input type="password" name="password" id="pw" placeholder="At least 8 characters" required>
+          <button type="button" class="pw-toggle" onclick="togglePw('pw',this)"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Confirm Password <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input type="password" name="confirm_password" id="pw2" placeholder="Re-enter password" required>
+          <button type="button" class="pw-toggle" onclick="togglePw('pw2',this)"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="form-footer">
+      <p>All fields marked <strong style="color:var(--gold-dk)">*</strong> are required.</p>
+      <button type="submit" class="btn-submit">Create Account <i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+
+  </form>
+</div>
+
+<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
+<script>
+function togglePw(id, btn) {
+  var input = document.getElementById(id);
+  var shown = input.type === 'text';
+  input.type = shown ? 'password' : 'text';
+  btn.innerHTML = shown ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+}
+</script>
+</body>
+</html>

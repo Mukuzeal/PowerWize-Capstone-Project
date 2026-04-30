@@ -1,0 +1,285 @@
+{% from "macros.html" import form_styles, header, upload_field, errors_block, file_js %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEM Training Registration – EnergyWize</title>
+    {{ form_styles() }}
+    <style>
+    .training-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+    @media(max-width:560px){.training-cards{grid-template-columns:1fr}}
+    .training-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all 0.15s}
+    .training-card:hover{border-color:var(--green-md)}
+    .training-card input[type=radio]{display:none}
+    .training-card.selected{border-color:var(--green-md);background:var(--green-lt)}
+    .training-card .tc-icon{font-size:22px;margin-bottom:6px}
+    .training-card .tc-label{font-size:13px;font-weight:600;color:var(--green-pr);line-height:1.3}
+    .training-card .tc-detail{font-size:11px;color:var(--gray);margin-top:3px}
+    #schedule-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:4px}
+    .sched-opt{border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;cursor:pointer;font-size:13px;transition:all 0.15s;display:flex;align-items:center;gap:8px}
+    .sched-opt:hover{border-color:var(--green-md);background:var(--green-lt)}
+    .sched-opt input[type=radio]{accent-color:var(--green-md)}
+    .sched-opt.selected{border-color:var(--green-md);background:var(--green-lt);font-weight:500}
+    #schedule-placeholder{font-size:13px;color:var(--gray);font-style:italic;padding:8px 0}
+    </style>
+</head>
+
+<body>
+    {{ header("CEM Training Registration") }}
+
+    <div class="hero">
+        <a href="/" class="hero-back"><i class="fa-solid fa-arrow-left"></i> All Registration Forms</a>
+        <span class="hero-tag">General Training</span>
+        <h1>Certified Energy Manager<br><em>Training Registration</em></h1>
+        <p>For new applicants joining the DOE Certified Energy Manager training program. Fill in all required fields completely.</p>
+    </div>
+
+    <div class="page-body">
+        {{ errors_block(errors) }}
+
+        <form class="form-card" method="POST" action="/training/submit" enctype="multipart/form-data" novalidate>
+
+            <!-- Section 1 -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-user"></i></div>
+                <div>
+                    <h2>Participant's Information</h2>
+                    <p>Personal and professional details</p>
+                </div>
+            </div>
+            <div class="form-body">
+
+                <div class="row-3">
+                    <div class="field">
+                        <label>Title <span class="req">*</span></label>
+                        <select name="title" required>
+                            <option value="" disabled {% if not form_data %}selected{% endif %}>Select</option>
+                            {% for t in ['Mr.','Ms.','Engr.','Dr.','Other'] %}
+                            <option value="{{ t }}" {% if form_data and form_data.get('title')==t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field" style="grid-column:span 2">
+                        <label>Full Name <span class="req">*</span> <span class="hint">(as it will appear on your certificate)</span></label>
+                        <input type="text" name="full_name" placeholder="e.g. Juan A. dela Cruz" value="{{ form_data.get('full_name','') if form_data else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Middle Name <span class="req">*</span> <span class="hint">(asked by the DOE)</span></label>
+                    <input type="text" name="middle_name" placeholder="e.g. Andres" value="{{ form_data.get('middle_name','') if form_data else '' }}" required>
+                </div>
+
+                <div class="field">
+                    <label>Residence Address <span class="req">*</span></label>
+                    <input type="text" name="residence" placeholder="Street, Barangay, City, Province" value="{{ form_data.get('residence','') if form_data else '' }}" required>
+                </div>
+
+                <div class="row-2">
+                    <div class="field">
+                        <label>Company Name <span class="req">*</span></label>
+                        <input type="text" name="company_name" placeholder="Your company or organization" value="{{ form_data.get('company_name','') if form_data else '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Designation <span class="req">*</span></label>
+                        <input type="text" name="designation" placeholder="e.g. Energy Engineer" value="{{ form_data.get('designation','') if form_data else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Company / Business Address <span class="req">*</span></label>
+                    <input type="text" name="company_address" placeholder="Street, City, Province" value="{{ form_data.get('company_address','') if form_data else '' }}" required>
+                </div>
+
+                <div class="row-3">
+                    <div class="field">
+                        <label>Age <span class="req">*</span></label>
+                        <input type="number" name="age" min="18" max="100" placeholder="e.g. 35" value="{{ form_data.get('age','') if form_data else '' }}" required readonly>
+                    </div>
+                    <div class="field" style="grid-column:span 2">
+                        <label>Birthdate <span class="req">*</span></label>
+                        <input type="date" name="birthdate" value="{{ form_data.get('birthdate','') if form_data else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div class="field">
+                        <label>Contact Number <span class="req">*</span></label>
+                        <input type="tel" name="contact_number" placeholder="+63 9XX XXX XXXX" value="{{ form_data.get('contact_number','') if form_data else '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Email Address <span class="req">*</span></label>
+                        <div class="input-icon-wrap">
+                            <i class="fa-solid fa-envelope"></i>
+                            <input type="email" name="email" placeholder="you@example.com" value="{{ form_data.get('email','') if form_data else '' }}" required>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Section 2: Uploads -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-paperclip"></i></div>
+                <div>
+                    <h2>Required Document Uploads</h2>
+                    <p>PDF or image · Max 10 MB (Resume must be PDF)</p>
+                </div>
+            </div>
+            <div class="form-body">
+                {{ upload_field("photo_id","photo_id","Recent 2×2 Photo ID","PDF or image · Max 10 MB","fa-image",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('photo_id')) }}
+                {{ upload_field("resume","resume","Updated Resume or CV","PDF only · Max 10 MB","fa-file-lines",".pdf", existing=uploaded.get('resume')) }}
+                {{ upload_field("valid_id","valid_id","PRC License or Valid Government-Issued ID","PDF or image · Max 10 MB","fa-id-card",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('valid_id')) }}
+            </div>
+
+            <!-- Section 3: Terms -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                <div>
+                    <h2>Terms &amp; Conditions</h2>
+                </div>
+            </div>
+            <div class="form-body">
+                <div class="field">
+                    <label>Do you agree with EnergyWize's <a class="terms-link" href="#" onclick="alert('By registering, you agree to EnergyWize\'s privacy policy and training policies.');return false;">Terms &amp; Conditions</a>? <span class="req">*</span></label>
+                    <div class="radio-group">
+                        <label class="radio-opt success">
+                            <input type="radio" name="agree" value="yes" {% if form_data and form_data.get('agree')=='yes' %}checked{% endif %}> Yes, I agree!
+                        </label>
+                        <label class="radio-opt danger">
+                            <input type="radio" name="agree" value="no" {% if form_data and form_data.get('agree')=='no' %}checked{% endif %}> No
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Training -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                <div>
+                    <h2>Training Details</h2>
+                    <p>Select your preferred training type and schedule</p>
+                </div>
+            </div>
+            <div class="form-body">
+
+                <div class="field">
+                    <label>Training Type <span class="req">*</span></label>
+                    <div class="training-cards">
+                        {% set tt = form_data.get('training_type','') if form_data else '' %}
+                        <label class="training-card {% if 'Online via Zoom' in tt %}selected{% endif %}" onclick="selectTraining(this,'online')">
+                            <input type="radio" name="training_type" value="Online via Zoom, 7 days" {% if 'Online via Zoom' in tt %}checked{% endif %}>
+                            <div class="tc-icon"><i class="fa-solid fa-laptop"></i></div>
+                            <div class="tc-label">Online via Zoom</div>
+                            <div class="tc-detail">7 days · Remote</div>
+                        </label>
+                        <label class="training-card {% if 'Hybrid' in tt %}selected{% endif %}" onclick="selectTraining(this,'face_to_face')">
+                            <input type="radio" name="training_type" value="Hybrid, 5 days online + 2 days face to face at Marvin Plaza, Chino Roces Ave., Makati City, MM" {% if 'Hybrid' in tt %}checked{% endif %}>
+                            <div class="tc-icon"><i class="fa-solid fa-building"></i></div>
+                            <div class="tc-label">Hybrid</div>
+                            <div class="tc-detail">5 days online + 2 days F2F</div>
+                        </label>
+                        <label class="training-card {% if 'Online Live' in tt %}selected{% endif %}" onclick="selectTraining(this,'selfpaced_online')">
+                            <input type="radio" name="training_type" value="Self-paced Online Live Instructors, 3 days" {% if 'Online Live' in tt %}checked{% endif %}>
+                            <div class="tc-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
+                            <div class="tc-label">Self-paced – Online Live</div>
+                            <div class="tc-detail">3 days · Live instructors</div>
+                        </label>
+                        <label class="training-card {% if 'Self-paced Face' in tt %}selected{% endif %}" onclick="selectTraining(this,'selfpaced_f2f')">
+                            <input type="radio" name="training_type" value="Self-paced Face to Face Instructors, 3 days" {% if 'Self-paced Face' in tt %}checked{% endif %}>
+                            <div class="tc-icon"><i class="fa-solid fa-person-chalkboard"></i></div>
+                            <div class="tc-label">Self-paced – Face to Face</div>
+                            <div class="tc-detail">3 days · On-site instructors</div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Choose your schedule (2026) <span class="req">*</span></label>
+                    <div id="schedule-list">
+                        <p id="schedule-placeholder">← Please select a training type first</p>
+                    </div>
+                    <input type="hidden" name="batch_id" id="schedule-hidden" value="{{ form_data.get('batch_id','') if form_data else '' }}">
+                </div>
+
+            </div>
+
+            <div class="form-footer">
+                <p>All fields marked <strong style="color:var(--gold-dk)">*</strong> are required.</p>
+                <button type="submit" class="btn-submit">Submit Registration <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+
+        </form>
+    </div>
+
+    <footer class="site-footer">© 2026 EnergyWize · Training Registration</footer>
+    {{ file_js() }}
+    <script>
+    const SCHEDULES = {{ schedules | tojson }};
+
+    function selectTraining(card, key) {
+        document.querySelectorAll('.training-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        card.querySelector('input[type=radio]').checked = true;
+        loadSchedules(key);
+    }
+
+    function loadSchedules(key) {
+        if (key === 'selfpaced_online') key = 'online';
+        if (key === 'selfpaced_f2f')    key = 'face_to_face';
+        const list = document.getElementById('schedule-list');
+        const hidden = document.getElementById('schedule-hidden');
+        const ph = document.getElementById('schedule-placeholder');
+        if (ph) ph.remove();
+        list.innerHTML = '';
+        (SCHEDULES[key] || []).forEach(s => {
+            const label = document.createElement('label');
+            label.className = 'sched-opt' + (hidden.value === String(s.id) ? ' selected' : '');
+            label.innerHTML = `<input type="radio" name="_sched_display" value="${s.id}" ${hidden.value === String(s.id) ? 'checked' : ''}> ${s.label}`;
+            label.querySelector('input').addEventListener('change', function() {
+                document.querySelectorAll('.sched-opt').forEach(o => o.classList.remove('selected'));
+                label.classList.add('selected');
+                hidden.value = String(s.id);
+            });
+            list.appendChild(label);
+        });
+    }
+
+    {% if form_data and form_data.get('training_type') %}
+    (function(){
+        const type = "{{ form_data.get('training_type','') }}";
+        let key = 'online';
+        if (type.includes('Online Live'))         key = 'selfpaced_online';
+        else if (type.includes('Self-paced Face')) key = 'selfpaced_f2f';
+        else if (type.includes('Hybrid'))          key = 'face_to_face';
+        loadSchedules(key);
+    })();
+    {% endif %}
+
+    (function() {
+        const bd    = document.querySelector('[name="birthdate"]');
+        const today = new Date();
+        bd.max = today.toISOString().split('T')[0];
+        bd.min = (today.getFullYear() - 90) + '-01-01';
+
+        bd.addEventListener('input', function() {
+            if (this.value > this.max) this.value = this.max;
+            if (this.value < this.min) this.value = this.min;
+        });
+
+        bd.addEventListener('change', function() {
+            const birth = new Date(this.value);
+            if (isNaN(birth.getTime())) return;
+            const now = new Date();
+            let age = now.getFullYear() - birth.getFullYear();
+            const m = now.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+            if (age >= 0) document.querySelector('[name="age"]').value = age;
+        });
+    })();
+    </script>
+</body>
+
+</html>
