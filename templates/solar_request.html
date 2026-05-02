@@ -6,45 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Solar PV Quotation – EnergyWize</title>
 {{ form_styles() }}
-<style>
-.solar-wrap{max-width:680px;margin:0 auto}
-.mode-tabs{display:flex;gap:10px;margin-bottom:20px}
-.mode-tab{flex:1;padding:13px;border:2px solid var(--border);border-radius:12px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;color:var(--gray);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s}
-.mode-tab.active{border-color:var(--green-pr);background:var(--green-lt);color:var(--green-pr)}
-.mode-tab:hover:not(.active){border-color:var(--green-md);color:var(--green-dk)}
-.form-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);padding:24px 28px;margin-bottom:16px}
-.form-card h3{font-size:14px;font-weight:700;color:var(--green-dk);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:520px){.field-grid{grid-template-columns:1fr}}
-.field{display:flex;flex-direction:column;gap:5px}
-.field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray)}
-.field input,.field select,.field textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:13px;color:#1F2937;background:#fff;outline:none;transition:border-color 0.15s,box-shadow 0.15s}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green-md);box-shadow:0 0 0 3px rgba(30,122,75,0.10)}
-.field textarea{resize:vertical;min-height:72px}
-.field-full{grid-column:1/-1}
-.radio-group{display:flex;gap:10px;flex-wrap:wrap}
-.radio-opt{display:flex;align-items:center;gap:7px;padding:9px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;transition:all 0.15s;user-select:none}
-.radio-opt input{display:none}
-.radio-opt.selected,.radio-opt:has(input:checked){border-color:var(--green-pr);background:var(--green-lt);color:var(--green-pr)}
-.ocr-box{background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 14px;margin-top:10px;font-size:13px;display:none}
-.ocr-box.show{display:block}
-.ocr-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.ocr-label{color:var(--gray);font-size:12px}
-.ocr-val{font-weight:700;color:var(--green-dk)}
-.btn-submit{width:100%;padding:14px;background:var(--green-pr);color:#fff;font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:10px}
-.btn-submit:hover{background:var(--green-md)}
-.upload-area{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.15s;position:relative}
-.upload-area:hover{border-color:var(--green-md)}
-.upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
-.upload-area i{font-size:24px;color:var(--gray);margin-bottom:6px;display:block}
-.upload-area p{font-size:12px;color:var(--gray);margin:0}
-.upload-name{font-size:12px;color:var(--green-pr);font-weight:600;margin-top:6px;display:none}
-.range-wrap{display:flex;align-items:center;gap:12px}
-.range-wrap input[type=range]{flex:1;accent-color:var(--green-pr)}
-.range-val{font-size:13px;font-weight:700;color:var(--green-pr);min-width:36px;text-align:right}
-.error-banner{background:#FEE2E2;border:1px solid #FECACA;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#991B1B}
-.error-banner ul{margin:6px 0 0 16px;padding:0}
-</style>
+<link rel="stylesheet" href="/static/solar-request.css">
 </head>
 <body>
 {{ header("Solar PV Quotation") }}
@@ -58,210 +20,251 @@
 <div class="page-body">
 <div class="solar-wrap">
 
-  <!-- Mode selector -->
+  <!-- Mode tabs -->
   <div class="mode-tabs">
-    <button class="mode-tab active" id="tab-form" onclick="switchMode('form')">
+    <button class="mode-tab active" id="tab-form">
       <i class="fa-solid fa-file-lines"></i> Fill out Form
     </button>
-    <button class="mode-tab" id="tab-chat" onclick="window.location='/solar/chat'">
-      <i class="fa-solid fa-robot"></i> Chat with AI (Solara)
+    <button class="mode-tab" onclick="window.location='/solar/chat'">
+      <i class="fa-solid fa-robot"></i> Chat with Solara (AI)
     </button>
   </div>
 
   {% if errors %}
-  <div class="error-banner">
-    <strong><i class="fa-solid fa-circle-exclamation"></i> Please fix the following:</strong>
+  <div class="error-banner" style="margin-bottom:16px">
+    <strong><i class="fa-solid fa-triangle-exclamation"></i> Please correct the following before submitting:</strong>
     <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
 
   <form method="POST" action="/solar/submit" enctype="multipart/form-data" id="solar-form">
 
-    <!-- Personal Information -->
+    <!-- ── Personal Information ── -->
     <div class="form-card">
-      <h3><i class="fa-solid fa-user" style="color:var(--green-pr)"></i> Personal Information</h3>
-      <div class="field-grid">
-        <div class="field">
-          <label>Full Name *</label>
-          <input type="text" name="name" value="{{ prefill.get('name','') }}" placeholder="Juan Dela Cruz" required>
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-user"></i></div>
+        <div>
+          <h2>Personal Information</h2>
+          <p>Contact details for your quotation</p>
         </div>
-        <div class="field">
-          <label>Email *</label>
-          <input type="email" name="email" value="{{ prefill.get('email','') }}" placeholder="juan@email.com" required>
-        </div>
-        <div class="field">
-          <label>Contact Number *</label>
-          <input type="tel" name="contact" value="{{ prefill.get('contact','') }}" placeholder="09XX XXX XXXX" required>
-        </div>
-        <div class="field field-full">
-          <label>Property Address *</label>
-          <input type="text" name="address" value="{{ prefill.get('address','') }}" placeholder="Street, Barangay, City, Province" required>
+      </div>
+      <div class="form-body">
+        <div class="row-2">
+          <div class="field">
+            <label>Full Name <span class="req">*</span></label>
+            <input type="text" name="name" value="{{ prefill.get('name','') }}" placeholder="Juan Dela Cruz" required>
+          </div>
+          <div class="field">
+            <label>Email Address <span class="req">*</span></label>
+            <input type="email" name="email" value="{{ prefill.get('email','') }}" placeholder="juan@email.com" required>
+          </div>
+          <div class="field">
+            <label>Contact Number <span class="req">*</span></label>
+            <input type="tel" name="contact" value="{{ prefill.get('contact','') }}" placeholder="09XX XXX XXXX" required>
+          </div>
+          <div class="field">
+            <label>Property Address <span class="req">*</span></label>
+            <input type="text" name="address" value="{{ prefill.get('address','') }}" placeholder="Street, Barangay, City, Province" required>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Establishment -->
+    <!-- ── Establishment Details ── -->
     <div class="form-card">
-      <h3><i class="fa-solid fa-building" style="color:var(--green-pr)"></i> Establishment Details</h3>
-      <div class="field-grid">
-        <div class="field field-full">
-          <label>Type of Establishment *</label>
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-building"></i></div>
+        <div>
+          <h2>Establishment Details</h2>
+          <p>Property type and electrical setup</p>
+        </div>
+      </div>
+      <div class="form-body">
+
+        <div class="field">
+          <label>Type of Establishment <span class="req">*</span></label>
           <div class="radio-group" id="estab-group">
-            <label class="radio-opt"><input type="radio" name="establishment_type" value="residential" checked onchange="syncRadio(this)"> <i class="fa-solid fa-house"></i> Residential</label>
-            <label class="radio-opt"><input type="radio" name="establishment_type" value="commercial" onchange="syncRadio(this)"> <i class="fa-solid fa-store"></i> Commercial</label>
-            <label class="radio-opt"><input type="radio" name="establishment_type" value="industrial" onchange="syncRadio(this)"> <i class="fa-solid fa-industry"></i> Industrial</label>
+            <label class="radio-opt">
+              <input type="radio" name="establishment_type" value="residential" checked onchange="syncRadio(this)">
+              <i class="fa-solid fa-house"></i> Residential
+            </label>
+            <label class="radio-opt">
+              <input type="radio" name="establishment_type" value="commercial" onchange="syncRadio(this)">
+              <i class="fa-solid fa-store"></i> Commercial
+            </label>
+            <label class="radio-opt">
+              <input type="radio" name="establishment_type" value="industrial" onchange="syncRadio(this)">
+              <i class="fa-solid fa-industry"></i> Industrial
+            </label>
           </div>
         </div>
-        <div class="field field-full">
-          <label>Ownership *</label>
-          <div class="radio-group">
-            <label class="radio-opt"><input type="radio" name="ownership" value="owned" checked onchange="syncRadio(this)"> <i class="fa-solid fa-key"></i> Owned</label>
-            <label class="radio-opt"><input type="radio" name="ownership" value="rented" onchange="syncRadio(this)"> <i class="fa-solid fa-file-contract"></i> Rented</label>
+
+        <div class="form-divider"></div>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Ownership <span class="req">*</span></label>
+            <div class="radio-group" style="flex-direction:column">
+              <label class="radio-opt">
+                <input type="radio" name="ownership" value="owned" checked onchange="syncRadio(this)">
+                <i class="fa-solid fa-key"></i> Owned
+              </label>
+              <label class="radio-opt">
+                <input type="radio" name="ownership" value="rented" onchange="syncRadio(this)">
+                <i class="fa-solid fa-file-contract"></i> Rented
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Electrical Phase <span class="req">*</span></label>
+            <div class="radio-group" style="flex-direction:column">
+              <label class="radio-opt">
+                <input type="radio" name="electrical_phase" value="single" checked onchange="syncRadio(this)">
+                <i class="fa-solid fa-plug"></i> Single Phase
+              </label>
+              <label class="radio-opt">
+                <input type="radio" name="electrical_phase" value="three" onchange="syncRadio(this)">
+                <i class="fa-solid fa-bolt"></i> Three Phase
+              </label>
+            </div>
           </div>
         </div>
-        <div class="field field-full">
-          <label>Electrical Setup *</label>
-          <div class="radio-group">
-            <label class="radio-opt"><input type="radio" name="electrical_phase" value="single" checked onchange="syncRadio(this)"> <i class="fa-solid fa-plug"></i> Single Phase</label>
-            <label class="radio-opt"><input type="radio" name="electrical_phase" value="three" onchange="syncRadio(this)"> <i class="fa-solid fa-bolt"></i> Three Phase</label>
-          </div>
-        </div>
+
       </div>
     </div>
 
-    <!-- Energy Usage -->
+    <!-- ── Energy Consumption ── -->
     <div class="form-card">
-      <h3><i class="fa-solid fa-bolt" style="color:var(--green-pr)"></i> Energy Consumption</h3>
-      <div class="field-grid">
-        <div class="field">
-          <label>Monthly Electric Bill (PHP)</label>
-          <input type="number" name="monthly_bill_php" id="field-bill" min="0" step="0.01" placeholder="e.g. 5000" value="{{ prefill.get('monthly_bill_php','') }}">
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-bolt"></i></div>
+        <div>
+          <h2>Energy Consumption</h2>
+          <p>Upload your bill or enter values manually</p>
         </div>
-        <div class="field">
-          <label>Monthly kWh Consumption</label>
-          <input type="number" name="kwh_monthly" id="field-kwh" min="0" step="0.1" placeholder="e.g. 400" value="{{ prefill.get('kwh_monthly','') }}">
+      </div>
+      <div class="form-body">
+
+        <div class="row-2">
+          <div class="field">
+            <label>Monthly Electric Bill <span class="hint">(PHP)</span></label>
+            <div class="input-icon-wrap">
+              <i class="fa-solid fa-peso-sign"></i>
+              <input type="number" name="monthly_bill_php" id="field-bill" min="0" step="0.01" placeholder="e.g. 5 000" value="{{ prefill.get('monthly_bill_php','') }}">
+            </div>
+          </div>
+          <div class="field">
+            <label>Monthly Consumption <span class="hint">(kWh)</span></label>
+            <div class="input-icon-wrap">
+              <i class="fa-solid fa-gauge"></i>
+              <input type="number" name="kwh_monthly" id="field-kwh" min="0" step="0.1" placeholder="e.g. 400" value="{{ prefill.get('kwh_monthly','') }}">
+            </div>
+          </div>
         </div>
-        <div class="field field-full">
-          <label>Night-time Energy Use (% after 6 PM) — <span id="night-pct-display">20%</span></label>
+
+        <div class="field">
+          <label>Night-time Usage <span class="hint">% of load after 6 PM — <strong id="night-pct-display" style="color:var(--green-pr)">20%</strong></span></label>
           <div class="range-wrap">
-            <span style="font-size:12px;color:var(--gray)">0%</span>
-            <input type="range" name="time_of_use_night_pct" id="night-slider" min="0" max="100" value="20" oninput="document.getElementById('night-pct-display').textContent=this.value+'%'">
-            <span style="font-size:12px;color:var(--gray)">100%</span>
+            <span class="range-lbl">0%</span>
+            <input type="range" name="time_of_use_night_pct" id="night-slider" min="0" max="100" value="20"
+              oninput="document.getElementById('night-pct-display').textContent=this.value+'%'">
+            <span class="range-lbl">100%</span>
           </div>
         </div>
-      </div>
 
-      <!-- Bill upload + OCR -->
-      <div style="margin-top:14px">
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);display:block;margin-bottom:8px">Upload Electric Bill (optional — auto-fills fields above)</label>
-        <div class="upload-area" id="bill-drop">
-          <input type="file" name="bill" id="bill-input" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="handleBillUpload(this)">
-          <i class="fa-solid fa-file-invoice"></i>
-          <p>Click or drag & drop your electric bill<br><small>PDF, PNG, JPG — max 10 MB</small></p>
-          <div class="upload-name" id="bill-name"></div>
+        <div class="form-divider"></div>
+
+        <!-- Bill upload + OCR -->
+        <div class="field">
+          <label>Upload Electric Bill <span class="hint">optional — auto-fills fields above</span></label>
+          <div class="upload-area" id="bill-drop">
+            <input type="file" name="bill" id="bill-input" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="handleBillUpload(this)">
+            <i class="fa-solid fa-file-invoice upload-ico"></i>
+            <p>Click or drag &amp; drop your electric bill<br><small style="font-size:11px">PDF, PNG, JPG — max 10 MB</small></p>
+            <div class="upload-name" id="bill-name"></div>
+          </div>
+
+          <div class="ocr-box" id="ocr-result">
+            <div class="ocr-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Extracted from Bill</div>
+            <div class="ocr-row"><span class="ocr-label">kWh Consumption</span><span class="ocr-val" id="ocr-kwh-val">—</span></div>
+            <div class="ocr-row"><span class="ocr-label">Amount Due</span><span class="ocr-val" id="ocr-amount-val">—</span></div>
+            <p class="ocr-note">Values pre-filled above. You may edit them if needed.</p>
+          </div>
+          <div id="ocr-spinner" style="display:none;font-size:12px;color:var(--gray);margin-top:8px">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Scanning bill…
+          </div>
+          <div id="ocr-error" style="display:none;font-size:12px;color:#DC2626;margin-top:8px"></div>
         </div>
-        <div class="ocr-box" id="ocr-result">
-          <div style="font-weight:700;color:var(--green-dk);margin-bottom:8px"><i class="fa-solid fa-wand-magic-sparkles"></i> Extracted from Bill</div>
-          <div class="ocr-row"><span class="ocr-label">kWh Consumption</span><span class="ocr-val" id="ocr-kwh-val">—</span></div>
-          <div class="ocr-row"><span class="ocr-label">Amount Due</span><span class="ocr-val" id="ocr-amount-val">—</span></div>
-          <p style="font-size:11px;color:var(--gray);margin:6px 0 0">Values pre-filled above. You may edit them if needed.</p>
-        </div>
-        <div id="ocr-spinner" style="display:none;font-size:12px;color:var(--gray);margin-top:8px"><i class="fa-solid fa-circle-notch fa-spin"></i> Scanning bill...</div>
-        <div id="ocr-error" style="display:none;font-size:12px;color:#DC2626;margin-top:8px"></div>
+
       </div>
     </div>
 
-    <!-- Preferences -->
+    <!-- ── Preferences ── -->
     <div class="form-card">
-      <h3><i class="fa-solid fa-sliders" style="color:var(--green-pr)"></i> Preferences</h3>
-      <div class="field-grid">
-        <div class="field field-full">
-          <label>Target Savings *</label>
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-sliders"></i></div>
+        <div>
+          <h2>Preferences</h2>
+          <p>Target savings and available roof space</p>
+        </div>
+      </div>
+      <div class="form-body">
+
+        <div class="field">
+          <label>Target Savings <span class="req">*</span></label>
           <div class="radio-group">
-            <label class="radio-opt"><input type="radio" name="target_savings" value="100" checked onchange="syncRadio(this)"> <i class="fa-solid fa-star"></i> 100% — Offset entire bill</label>
-            <label class="radio-opt"><input type="radio" name="target_savings" value="75" onchange="syncRadio(this)"> <i class="fa-solid fa-circle-half-stroke"></i> 75% — Reduce by three-quarters</label>
-            <label class="radio-opt"><input type="radio" name="target_savings" value="50" onchange="syncRadio(this)"> <i class="fa-solid fa-gauge-high"></i> 50% — Reduce by half</label>
+            <label class="radio-opt">
+              <input type="radio" name="target_savings" value="100" checked onchange="syncRadio(this)">
+              <i class="fa-solid fa-star"></i> 100% — Offset entire bill
+            </label>
+            <label class="radio-opt">
+              <input type="radio" name="target_savings" value="75" onchange="syncRadio(this)">
+              <i class="fa-solid fa-circle-half-stroke"></i> 75% — Reduce by ¾
+            </label>
+            <label class="radio-opt">
+              <input type="radio" name="target_savings" value="50" onchange="syncRadio(this)">
+              <i class="fa-solid fa-gauge-high"></i> 50% — Reduce by half
+            </label>
           </div>
         </div>
-        <div class="field field-full">
-          <label>Available Roof Space (m²) <span style="font-weight:400;text-transform:none;letter-spacing:0">&nbsp;— estimate is fine</span></label>
-          <input type="number" name="roof_sqm" min="0" step="0.5" placeholder="e.g. 40" value="{{ prefill.get('roof_sqm','') }}">
+
+        <div class="row-2">
+          <div class="field">
+            <label>Available Roof Space <span class="hint">m² — estimate is fine</span></label>
+            <div class="input-icon-wrap">
+              <i class="fa-solid fa-vector-square"></i>
+              <input type="number" name="roof_sqm" min="0" step="0.5" placeholder="e.g. 40" value="{{ prefill.get('roof_sqm','') }}">
+            </div>
+          </div>
+          <div class="field" style="align-self:start"></div>
         </div>
-        <div class="field field-full">
-          <label>Additional Notes or Concerns</label>
-          <textarea name="notes" placeholder="Any existing electrical issues, shading on roof, preferred brands, etc.">{{ prefill.get('notes','') }}</textarea>
+
+        <div class="field">
+          <label>Additional Notes or Concerns <span class="hint">optional</span></label>
+          <textarea name="notes" placeholder="Shading issues, preferred brands, existing electrical concerns…">{{ prefill.get('notes','') }}</textarea>
         </div>
+
+      </div>
+
+      <div class="form-footer">
+        <div class="form-disclaimer" style="margin:0;border:none;background:transparent;padding:0">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>This generates a <strong>preliminary AI-assisted estimate</strong>, not a final quotation. Computed using rule-based models and Philippine solar market data.</span>
+        </div>
+        <button type="submit" class="btn-submit" id="submit-btn">
+          <i class="fa-solid fa-solar-panel"></i> Generate Estimate
+        </button>
       </div>
     </div>
 
-    <p style="font-size:11px;color:var(--gray);margin-bottom:12px;line-height:1.7">
-      <i class="fa-solid fa-circle-info"></i> This generates a <strong>preliminary AI-assisted estimate</strong> — not a final quotation.
-      Results are computed using rule-based models and Philippine solar market data. A specialist review is available after submission.
-    </p>
-    <button type="submit" class="btn-submit" id="submit-btn">
-      <i class="fa-solid fa-solar-panel"></i> Generate Solar PV Estimate
-    </button>
   </form>
 
-  <a href="/home" style="display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;margin-top:12px">← Back to Home</a>
+  <a href="/home" style="display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;margin-top:4px;margin-bottom:2rem">← Back to Home</a>
+
 </div>
 </div>
 
 <footer class="site-footer">© 2026 EnergyWize · AI-Assisted Solar PV Quotation System</footer>
 
-<script>
-function syncRadio(input) {
-  document.querySelectorAll('.radio-group').forEach(function(g) {
-    g.querySelectorAll('.radio-opt').forEach(function(opt) {
-      opt.classList.toggle('selected', opt.querySelector('input').checked);
-    });
-  });
-}
-document.querySelectorAll('.radio-opt input').forEach(function(r) {
-  if (r.checked) syncRadio(r);
-});
-
-async function handleBillUpload(input) {
-  if (!input.files[0]) return;
-  var file = input.files[0];
-  document.getElementById('bill-name').textContent = file.name;
-  document.getElementById('bill-name').style.display = 'block';
-  document.getElementById('ocr-result').classList.remove('show');
-  document.getElementById('ocr-error').style.display = 'none';
-  document.getElementById('ocr-spinner').style.display = 'block';
-
-  var fd = new FormData();
-  fd.append('bill', file);
-  try {
-    var res = await fetch('/solar/ocr', {method:'POST', body: fd});
-    var data = await res.json();
-    document.getElementById('ocr-spinner').style.display = 'none';
-    if (data.error) {
-      document.getElementById('ocr-error').textContent = data.error;
-      document.getElementById('ocr-error').style.display = 'block';
-      return;
-    }
-    if (data.kwh) {
-      document.getElementById('field-kwh').value = data.kwh;
-      document.getElementById('ocr-kwh-val').textContent = data.kwh + ' kWh';
-    }
-    if (data.amount) {
-      document.getElementById('field-bill').value = data.amount;
-      document.getElementById('ocr-amount-val').textContent = '₱' + data.amount.toLocaleString();
-    }
-    document.getElementById('ocr-result').classList.add('show');
-  } catch(e) {
-    document.getElementById('ocr-spinner').style.display = 'none';
-    document.getElementById('ocr-error').textContent = 'Could not scan bill. Please enter values manually.';
-    document.getElementById('ocr-error').style.display = 'block';
-  }
-}
-
-document.getElementById('solar-form').addEventListener('submit', function() {
-  var btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Computing estimate…';
-});
-</script>
+<script src="/static/solar-request.js"></script>
 </body>
 </html>

@@ -6,33 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Account – EnergyWize</title>
 {{ form_styles() }}
-<style>
-.portal-wrap{max-width:640px;margin:0 auto}
-.status-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
-.status-header{background:linear-gradient(135deg,#166534 0%,var(--green-md) 100%);padding:24px 28px;display:flex;align-items:center;gap:16px}
-.status-icon{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0}
-.status-header-text h2{font-size:18px;font-weight:700;color:#fff;margin-bottom:2px}
-.status-header-text p{font-size:13px;color:rgba(255,255,255,0.7)}
-.active-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;background:rgba(255,255,255,0.2);color:#fff;padding:3px 12px;border-radius:20px;margin-top:8px}
-.status-body{padding:24px 28px}
-.info-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-.info-row:last-child{border-bottom:none}
-.info-icon{width:32px;height:32px;border-radius:8px;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--green-pr);flex-shrink:0;margin-top:1px}
-.info-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);margin-bottom:2px}
-.info-value{font-size:14px;font-weight:500;color:#111827}
-.reg-status-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px}
-.reg-status-badge.accepted{background:#DCFCE7;color:#166534}
-.reg-status-badge.pending{background:#FEF9C3;color:#854D0E}
-.reg-status-badge.rejected{background:#FEE2E2;color:#991B1B}
-.action-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);padding:24px 28px;margin-bottom:20px}
-.action-card h3{font-size:14px;font-weight:700;color:var(--green-dk);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.action-btn{display:flex;align-items:center;gap:10px;width:100%;padding:13px 16px;background:var(--green-lt);border:1px solid var(--green-md);border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;color:var(--green-pr);cursor:pointer;text-decoration:none;margin-bottom:10px;transition:background 0.15s}
-.action-btn:last-child{margin-bottom:0}
-.action-btn:hover{background:var(--green-md);color:#fff}
-.action-btn i{width:20px;text-align:center}
-.logout-link{display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;margin-top:8px}
-.logout-link:hover{color:rgba(255,255,255,0.7)}
-</style>
+<link rel="stylesheet" href="/static/portal.css">
 </head>
 <body>
 {{ header("My Account") }}

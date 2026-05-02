@@ -7,62 +7,8 @@
 <title>Solar PV Estimate – EnergyWize</title>
 {{ form_styles() }}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<link rel="stylesheet" href="/static/solar-result.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<style>
-.result-wrap{max-width:680px;margin:0 auto}
-.prelim-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;background:#FEF9C3;color:#854D0E;padding:4px 12px;border-radius:20px;border:1px solid #FDE68A;margin-bottom:16px}
-.result-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
-.result-header{background:linear-gradient(135deg,#166534 0%,var(--green-md) 100%);padding:24px 28px;display:flex;align-items:center;gap:16px}
-.result-icon{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;flex-shrink:0}
-.result-header-text h2{font-size:19px;font-weight:700;color:#fff;margin-bottom:2px}
-.result-header-text p{font-size:13px;color:rgba(255,255,255,0.7)}
-.specs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0;border-bottom:1px solid var(--border)}
-.spec-item{padding:16px 20px;border-right:1px solid var(--border)}
-.spec-item:last-child{border-right:none}
-.spec-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--gray);margin-bottom:4px}
-.spec-value{font-size:20px;font-weight:800;color:var(--green-dk);line-height:1.1}
-.spec-unit{font-size:11px;color:var(--gray);margin-top:2px}
-.result-body{padding:20px 24px}
-.result-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
-.result-row:last-child{border-bottom:none}
-.result-row .label{color:var(--gray)}
-.result-row .value{font-weight:600;color:#111827}
-.feas-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px}
-.feas-feasible{background:#DCFCE7;color:#166534}
-.feas-limited{background:#FEF9C3;color:#854D0E}
-.feas-unfeasible{background:#FEE2E2;color:#991B1B}
-.feas-unknown{background:#F3F4F6;color:#6B7280}
-.sys-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px}
-.sys-grid{background:#EDE9FE;color:#5B21B6}
-.sys-hybrid{background:#DBEAFE;color:#1E40AF}
-.ai-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);padding:24px 28px;margin-bottom:16px}
-.ai-card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.ai-card-head h3{font-size:15px;font-weight:700;color:var(--green-dk)}
-.ai-text{font-size:13px;color:#374151;line-height:1.75;white-space:pre-wrap}
-.decision-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);padding:24px 28px;margin-bottom:16px}
-.decision-card h3{font-size:15px;font-weight:700;color:var(--green-dk);margin-bottom:6px}
-.decision-card p{font-size:13px;color:var(--gray);margin-bottom:16px;line-height:1.6}
-.decision-grid{display:grid;gap:10px}
-.dec-btn{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--border);background:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;text-align:left;transition:all 0.15s}
-.dec-btn .dec-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.dec-btn .dec-text{flex:1}
-.dec-btn .dec-title{font-size:14px;font-weight:700;color:#111827;display:block}
-.dec-btn .dec-sub{font-size:12px;color:var(--gray);font-weight:400;display:block;margin-top:2px}
-.dec-expert{border-color:var(--green-md)}.dec-expert:hover{background:var(--green-lt)}
-.dec-expert .dec-icon{background:var(--green-lt);color:var(--green-pr)}
-.dec-proceed{border-color:#3B82F6}.dec-proceed:hover{background:#EFF6FF}
-.dec-proceed .dec-icon{background:#DBEAFE;color:#1D4ED8}
-.dec-consult{border-color:#D97706}.dec-consult:hover{background:#FFFBEB}
-.dec-consult .dec-icon{background:#FEF3C7;color:#D97706}
-.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 14px;border-radius:20px}
-.st-ai_processed{background:#DBEAFE;color:#1E40AF}
-.st-pending_review{background:#FEF9C3;color:#854D0E}
-.st-reviewed{background:#DCFCE7;color:#166534}
-.st-quotation_sent{background:#EDE9FE;color:#5B21B6}
-.st-completed{background:#D1FAE5;color:#065F46}
-.st-submitted{background:#F3F4F6;color:#6B7280}
-.admin-note{background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#166534}
-</style>
 </head>
 <body>
 {{ header("Solar PV Estimate") }}

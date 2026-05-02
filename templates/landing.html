@@ -19,9 +19,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
 .site-header{position:relative;z-index:1;background:rgba(13,59,39,0.85);backdrop-filter:blur(8px);padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(212,167,42,0.2)}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.logo-mark{width:36px;height:36px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:17px;color:var(--green-dk)}
-.logo-text{font-family:'DM Serif Display',serif;font-size:19px;color:#fff}
-.logo-text span{color:var(--gold)}
+.logo-img{height:54px;width:auto;display:block}
 .header-link{font-size:12px;color:rgba(255,255,255,0.35);text-decoration:none;letter-spacing:0.04em}
 .header-link:hover{color:rgba(255,255,255,0.65)}
 
@@ -69,8 +67,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
 <header class="site-header">
   <a href="/" class="logo">
-    <div class="logo-mark">E</div>
-    <span class="logo-text">Energy<span>Wize</span></span>
+    <img src="/static/logo.png" alt="PowerWize" class="logo-img">
   </a>
   <a href="/" class="header-link">← Back to Home</a>
 </header>

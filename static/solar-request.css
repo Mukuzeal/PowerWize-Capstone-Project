@@ -1,0 +1,50 @@
+.solar-wrap{max-width:700px;margin:0 auto}
+
+.mode-tabs{display:flex;gap:10px;margin-bottom:20px}
+.mode-tab{
+  flex:1;padding:13px 16px;border:1.5px solid var(--border);
+  border-radius:var(--radius);background:#fff;font-family:inherit;
+  font-size:13.5px;font-weight:600;color:var(--gray);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all 0.15s;box-shadow:var(--shadow-sm);
+}
+.mode-tab.active{
+  border-color:var(--green-pr);background:var(--green-lt);
+  color:var(--green-pr);box-shadow:0 0 0 3px rgba(22,88,60,0.08);
+}
+.mode-tab:hover:not(.active){border-color:var(--green-md);color:var(--green-dk)}
+
+.range-wrap{display:flex;align-items:center;gap:12px;margin-top:6px}
+.range-wrap input[type=range]{flex:1;accent-color:var(--green-pr);height:5px}
+.range-lbl{font-size:11.5px;color:var(--gray)}
+.range-val{
+  font-size:13px;font-weight:700;color:var(--green-pr);
+  min-width:42px;text-align:center;
+  background:var(--green-lt);border-radius:6px;padding:2px 8px;
+}
+
+.upload-area{
+  border:2px dashed var(--border);border-radius:var(--radius);
+  padding:22px 16px;text-align:center;cursor:pointer;
+  transition:all 0.15s;position:relative;background:#FAFAFA;
+}
+.upload-area:hover{border-color:var(--green-md);background:var(--green-lt)}
+.upload-area.has-file{border-color:#16A34A;border-style:solid;background:#F0FDF4}
+.upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-area i.upload-ico{font-size:26px;color:var(--gray);margin-bottom:8px;display:block}
+.upload-area.has-file i.upload-ico{color:#16A34A}
+.upload-area p{font-size:12.5px;color:var(--gray);margin:0;line-height:1.6}
+.upload-name{font-size:12px;color:#16A34A;font-weight:600;margin-top:6px;display:none}
+.upload-area.has-file .upload-name{display:block}
+
+.ocr-box{
+  background:#F0FDF4;border:1px solid #86EFAC;
+  border-left:4px solid #16A34A;
+  border-radius:var(--radius);padding:12px 16px;margin-top:12px;display:none;
+}
+.ocr-box.show{display:block}
+.ocr-box .ocr-title{font-size:13px;font-weight:700;color:#166534;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.ocr-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ocr-label{font-size:12px;color:var(--gray)}
+.ocr-val{font-size:13px;font-weight:700;color:var(--green-dk)}
+.ocr-note{font-size:11.5px;color:var(--gray);margin-top:6px}

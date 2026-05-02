@@ -53,28 +53,7 @@
             text-decoration: none
         }
 
-        .logo-mark {
-            width: 38px;
-            height: 38px;
-            border-radius: 8px;
-            background: var(--gold);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'DM Serif Display', serif;
-            font-size: 18px;
-            color: var(--green-dk)
-        }
-
-        .logo-text {
-            font-family: 'DM Serif Display', serif;
-            font-size: 20px;
-            color: #fff
-        }
-
-        .logo-text span {
-            color: var(--gold)
-        }
+        .logo-img { height: 54px; width: auto; display: block }
 
         /* ── Hero ── */
         .hero {
@@ -331,28 +310,6 @@
             margin-bottom: 0.25rem
         }
 
-        .footer-logo-mark {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            background: var(--gold);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'DM Serif Display', serif;
-            font-size: 13px;
-            color: var(--green-dk)
-        }
-
-        .footer-logo-text {
-            font-family: 'DM Serif Display', serif;
-            font-size: 16px;
-            color: rgba(255, 255, 255, 0.5)
-        }
-
-        .footer-logo-text span {
-            color: var(--gold)
-        }
 
         .footer-tagline {
             font-size: 11px;
@@ -372,8 +329,7 @@
 <body>
     <header class="site-header">
         <a href="/" class="logo">
-            <div class="logo-mark">E</div>
-            <span class="logo-text">Energy<span>Wize</span></span>
+            <img src="/static/logo.png" alt="PowerWize" class="logo-img">
         </a>
     </header>
 
@@ -475,8 +431,7 @@
     <footer class="site-footer">
         <div class="footer-inner">
             <a href="/" class="footer-logo">
-                <div class="footer-logo-mark">E</div>
-                <span class="footer-logo-text">Energy<span>Wize</span></span>
+                <img src="/static/logo.png" alt="PowerWize" style="height:40px;width:auto;display:block;opacity:0.7">
             </a>
             <p class="footer-tagline">Powering a Sustainable Future · e-Wize Solutions, Makati City</p>
             <p class="footer-copy">© 2026 EnergyWize · All registration forms are secured and confidential.</p>

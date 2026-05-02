@@ -6,23 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CEA Training Registration – EnergyWize</title>
 {{ form_styles() }}
-<style>
-.training-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
-@media(max-width:560px){.training-cards{grid-template-columns:1fr}}
-.training-card{border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all 0.15s}
-.training-card:hover{border-color:var(--green-md)}
-.training-card input[type=radio]{display:none}
-.training-card.selected{border-color:var(--green-md);background:var(--green-lt)}
-.training-card .tc-icon{font-size:22px;margin-bottom:6px}
-.training-card .tc-label{font-size:13px;font-weight:600;color:var(--green-pr);line-height:1.3}
-.training-card .tc-detail{font-size:11px;color:var(--gray);margin-top:3px}
-#schedule-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:4px}
-.sched-opt{border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;cursor:pointer;font-size:13px;transition:all 0.15s;display:flex;align-items:center;gap:8px}
-.sched-opt:hover{border-color:var(--green-md);background:var(--green-lt)}
-.sched-opt input[type=radio]{accent-color:var(--green-md)}
-.sched-opt.selected{border-color:var(--green-md);background:var(--green-lt);font-weight:500}
-#schedule-placeholder{font-size:13px;color:var(--gray);font-style:italic;padding:8px 0}
-</style>
+<link rel="stylesheet" href="/static/training-form.css">
 </head>
 <body>
 {{ header("CEA Training Registration") }}
@@ -210,69 +194,19 @@
 
 <footer class="site-footer">© 2026 EnergyWize · CEA Training Registration</footer>
 {{ file_js() }}
+<script src="/static/training-form.js"></script>
 <script>
-const SCHEDULES = {{ schedules | tojson }};
-
-function selectTraining(card, key) {
-  document.querySelectorAll('.training-card').forEach(c => c.classList.remove('selected'));
-  card.classList.add('selected');
-  card.querySelector('input[type=radio]').checked = true;
-  loadSchedules(key);
-}
-
-function loadSchedules(key) {
-  if (key === 'selfpaced_online') key = 'online';
-  if (key === 'selfpaced_f2f')    key = 'face_to_face';
-  const list = document.getElementById('schedule-list');
-  const hidden = document.getElementById('schedule-hidden');
-  const ph = document.getElementById('schedule-placeholder');
-  if (ph) ph.remove();
-  list.innerHTML = '';
-  (SCHEDULES[key] || []).forEach(s => {
-    const label = document.createElement('label');
-    label.className = 'sched-opt' + (hidden.value === String(s.id) ? ' selected' : '');
-    label.innerHTML = `<input type="radio" name="_sched_display" value="${s.id}" ${hidden.value === String(s.id) ? 'checked' : ''}> ${s.label}`;
-    label.querySelector('input').addEventListener('change', function() {
-      document.querySelectorAll('.sched-opt').forEach(o => o.classList.remove('selected'));
-      label.classList.add('selected');
-      hidden.value = String(s.id);
-    });
-    list.appendChild(label);
-  });
-}
-
+var SCHEDULES = {{ schedules | tojson }};
 {% if form_data and form_data.get('training_type') %}
 (function(){
-  const type = "{{ form_data.get('training_type','') }}";
-  let key = 'online';
-  if (type.includes('Online Live'))         key = 'selfpaced_online';
-  else if (type.includes('Self-paced Face')) key = 'selfpaced_f2f';
-  else if (type.includes('Hybrid'))          key = 'face_to_face';
+  var type = "{{ form_data.get('training_type','') }}";
+  var key = 'online';
+  if (type.indexOf('Online Live') !== -1)          key = 'selfpaced_online';
+  else if (type.indexOf('Self-paced Face') !== -1) key = 'selfpaced_f2f';
+  else if (type.indexOf('Hybrid') !== -1)          key = 'face_to_face';
   loadSchedules(key);
 })();
 {% endif %}
-
-(function() {
-  const bd    = document.querySelector('[name="birthdate"]');
-  const today = new Date();
-  bd.max = today.toISOString().split('T')[0];
-  bd.min = (today.getFullYear() - 90) + '-01-01';
-
-  bd.addEventListener('input', function() {
-    if (this.value > this.max) this.value = this.max;
-    if (this.value < this.min) this.value = this.min;
-  });
-
-  bd.addEventListener('change', function() {
-    const birth = new Date(this.value);
-    if (isNaN(birth.getTime())) return;
-    const now = new Date();
-    let age = now.getFullYear() - birth.getFullYear();
-    const m = now.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-    if (age >= 0) document.querySelector('[name="age"]').value = age;
-  });
-})();
 </script>
 </body>
 </html>

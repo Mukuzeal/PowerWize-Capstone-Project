@@ -1,0 +1,52 @@
+.pay-wrap{max-width:520px;margin:0 auto}
+.pay-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.pay-header{background:var(--green-dk);padding:24px 28px;display:flex;align-items:center;justify-content:space-between}
+.pay-header-left h2{font-size:17px;font-weight:700;color:#fff;margin-bottom:4px}
+.pay-header-left p{font-size:12px;color:rgba(255,255,255,0.55);margin:0}
+.pay-amount{background:var(--gold);border-radius:10px;padding:8px 16px;text-align:right}
+.pay-amount .amt-label{font-size:10px;font-weight:700;color:rgba(13,59,39,0.7);text-transform:uppercase;letter-spacing:0.06em}
+.pay-amount .amt-value{font-size:22px;font-weight:700;color:var(--green-dk);line-height:1.1}
+.pay-tabs{display:flex;border-bottom:1px solid var(--border)}
+.pay-tab{flex:1;padding:14px;font-size:13px;font-weight:600;color:var(--gray);background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.pay-tab:hover{color:var(--green-pr);background:var(--green-lt)}
+.pay-tab.active{color:var(--green-pr);border-bottom-color:var(--green-pr);background:#fff}
+.pay-body{padding:28px}
+.pay-panel{display:none}
+.pay-panel.active{display:block}
+
+.card-field{margin-bottom:18px}
+.card-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);margin-bottom:6px}
+.card-field input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;color:#111827;outline:none;transition:border-color 0.15s,box-shadow 0.15s;background:#fff}
+.card-field input:focus{border-color:var(--green-md);box-shadow:0 0 0 3px rgba(30,122,75,0.1)}
+.card-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card-icons{display:flex;gap:8px;margin-bottom:20px}
+.card-icon{height:28px;border-radius:5px;border:1px solid var(--border);padding:3px 8px;display:flex;align-items:center;font-size:11px;font-weight:700;color:var(--gray);background:#fff}
+.btn-pay{width:100%;padding:13px;background:var(--green-pr);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn-pay:hover{background:var(--green-md)}
+.btn-pay:disabled{background:#9CA3AF;cursor:not-allowed}
+
+.qrph-intro{text-align:center;margin-bottom:24px}
+.qrph-intro p{font-size:13px;color:var(--gray);line-height:1.7;margin-bottom:16px}
+.qrph-wallets{display:flex;justify-content:center;gap:12px;margin-bottom:4px}
+.wallet-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--green-pr);background:var(--green-lt);border:1px solid var(--green-md);border-radius:20px;padding:4px 12px}
+.qr-box{display:none;text-align:center;margin-top:4px}
+.qr-box.shown{display:block}
+.qr-img-wrap{display:inline-block;border:3px solid var(--green-pr);border-radius:14px;padding:10px;background:#fff;margin:0 auto 16px}
+.qr-img-wrap img{width:220px;height:220px;display:block;border-radius:6px}
+.qr-timer{font-size:13px;color:var(--gray);margin-bottom:12px}
+.qr-timer span{font-weight:700;color:var(--green-pr)}
+.qr-status{font-size:13px;font-weight:600;padding:10px 16px;border-radius:8px;margin-bottom:16px;display:none}
+.qr-status.waiting{display:block;background:#FEF9C3;color:#854D0E}
+.qr-status.paid{display:block;background:#DCFCE7;color:#166534}
+.qr-status.failed{display:block;background:#FEE2E2;color:#991B1B}
+.btn-gen-qr{width:100%;padding:13px;background:var(--green-pr);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn-gen-qr:hover{background:var(--green-md)}
+.btn-gen-qr:disabled{background:#9CA3AF;cursor:not-allowed}
+
+.pay-note{font-size:11.5px;color:var(--gray);text-align:center;margin-top:16px;line-height:1.6}
+.pay-note i{color:var(--green-md)}
+.err-box{background:#FEE2E2;border:1px solid #FECACA;border-radius:8px;padding:12px 16px;font-size:13px;color:#991B1B;margin-bottom:20px;display:none}
+.err-box.shown{display:block}
+.spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.secure-badge{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.45);margin-top:16px}

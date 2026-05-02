@@ -6,18 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Create Your Account – EnergyWize</title>
 {{ form_styles() }}
-<style>
-.info-card{background:var(--green-lt);border:1px solid var(--green-md);border-radius:var(--radius);padding:14px 18px;margin-bottom:1.25rem}
-.info-card .ic-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--green-pr);margin-bottom:6px}
-.info-card .ic-value{font-size:14px;color:#111827;font-weight:500}
-.info-card .ic-sub{font-size:12px;color:var(--gray);margin-top:2px}
-.notice-box{background:#FEF9C3;border:1px solid #D97706;border-radius:var(--radius);padding:14px 18px;margin-bottom:1.25rem}
-.notice-box strong{display:block;color:#92400E;font-size:13px;margin-bottom:6px}
-.notice-box p{color:#78350F;font-size:13px;line-height:1.7;margin:0}
-.pw-wrap{position:relative}
-.pw-wrap input{padding-right:42px}
-.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray);font-size:14px;padding:0}
-</style>
+<link rel="stylesheet" href="/static/create-account.css">
 </head>
 <body>
 {{ header("Account Setup") }}
@@ -88,13 +77,6 @@
 </div>
 
 <footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
-<script>
-function togglePw(id, btn) {
-  var input = document.getElementById(id);
-  var shown = input.type === 'text';
-  input.type = shown ? 'password' : 'text';
-  btn.innerHTML = shown ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
-}
-</script>
+<script src="/static/create-account.js"></script>
 </body>
 </html>
