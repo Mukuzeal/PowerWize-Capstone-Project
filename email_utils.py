@@ -15,6 +15,18 @@ EMAIL_CONFIG = {
 }
 
 
+def _send(to_email: str, subject: str, html: str):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['user']}>"
+    msg["To"]      = to_email
+    msg.attach(MIMEText(html, "html"))
+    with smtplib.SMTP(EMAIL_CONFIG["host"], EMAIL_CONFIG["port"]) as server:
+        server.starttls()
+        server.login(EMAIL_CONFIG["user"], EMAIL_CONFIG["password"])
+        server.sendmail(EMAIL_CONFIG["user"], to_email, msg.as_string())
+
+
 def send_acceptance_email(to_email, full_name, token, is_qualified, base_url):
     account_link = f"{base_url.rstrip('/')}/create-account/{token}"
 

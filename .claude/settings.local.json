@@ -11,7 +11,8 @@
       "Bash(rmdir \"e:/CAPSTONE PROJECT/PowerWize/.vscode\")",
       "PowerShell(Get-Process python -ErrorAction SilentlyContinue)",
       "PowerShell(Stop-Process -Force)",
-      "PowerShell(Start-Process python -ArgumentList \"app.py\" -WorkingDirectory \"e:\\\\CAPSTONE PROJECT\\\\PowerWize\" -WindowStyle Normal)"
+      "PowerShell(Start-Process python -ArgumentList \"app.py\" -WorkingDirectory \"e:\\\\CAPSTONE PROJECT\\\\PowerWize\" -WindowStyle Normal)",
+      "Bash(pip install *)"
     ]
   }
 }

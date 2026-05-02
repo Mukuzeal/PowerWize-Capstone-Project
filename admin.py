@@ -1,6 +1,6 @@
 from datetime import date
 from flask import Blueprint, request, render_template, redirect, flash, url_for
-from db import get_db, get_batches_full, get_users, get_registrations, set_registration_status, build_batch_label, TYPE_OFFSETS, create_account_token
+from db import get_db, get_batches_full, get_users, get_registrations, set_registration_status, build_batch_label, TYPE_OFFSETS, create_account_token, get_solar_requests
 from email_utils import send_acceptance_email
 
 admin_bp = Blueprint("admin", __name__)
@@ -31,7 +31,8 @@ def admin():
                            schedules=upcoming,
                            past_schedules=past,
                            users=users,
-                           uc=uc)
+                           uc=uc,
+                           solar_requests=get_solar_requests())
 
 
 @admin_bp.route("/admin/user/archive/<int:user_id>", methods=["POST"])

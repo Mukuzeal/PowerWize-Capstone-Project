@@ -116,6 +116,22 @@ body::after{
 }
 .btn-register:active{transform:translateY(0)}
 
+.btn-solar{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 34px;
+  background:rgba(30,122,75,0.25);color:#6EE7A8;
+  font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;
+  border:1.5px solid rgba(110,231,168,0.35);border-radius:10px;
+  text-decoration:none;cursor:pointer;
+  transition:border-color 0.18s,background 0.18s,transform 0.15s
+}
+.btn-solar:hover{
+  border-color:rgba(110,231,168,0.7);
+  background:rgba(30,122,75,0.45);
+  transform:translateY(-2px)
+}
+.btn-solar:active{transform:translateY(0)}
+
 /* ── Feature pills ── */
 .feature-pills{
   display:flex;gap:10px;flex-wrap:wrap;justify-content:center
@@ -163,12 +179,14 @@ body::after{
   <div class="cta-group">
     <a href="/auth" class="btn-login">Sign In <i class="fa-solid fa-arrow-right"></i></a>
     <a href="/programs" class="btn-register">Register as Trainee</a>
+    <a href="/solar" class="btn-solar"><i class="fa-solid fa-solar-panel"></i> Solar PV Quotation</a>
   </div>
 
   <div class="feature-pills">
     <span class="pill"><span class="pill-dot"></span>CEM Certificate Renewal</span>
     <span class="pill"><span class="pill-dot"></span>CEA Training Program</span>
     <span class="pill"><span class="pill-dot"></span>CEM Training Program</span>
+    <span class="pill"><span class="pill-dot"></span>AI Solar PV Estimates</span>
   </div>
 </main>
 

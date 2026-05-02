@@ -193,9 +193,128 @@ def init_db():
         if cur.fetchone()[0] == 0:
             cur.execute(f"ALTER TABLE payments ADD COLUMN {col} {definition}")
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS solar_requests (
+            id                  INT AUTO_INCREMENT PRIMARY KEY,
+            user_id             INT NULL,
+            name                VARCHAR(200) NOT NULL,
+            address             TEXT NOT NULL,
+            email               VARCHAR(150) NOT NULL,
+            contact             VARCHAR(30) NOT NULL,
+            establishment_type  ENUM('residential','commercial','industrial') NOT NULL,
+            ownership           ENUM('owned','rented') NOT NULL,
+            electrical_phase    ENUM('single','three') NOT NULL,
+            monthly_bill_php    DECIMAL(10,2) NULL,
+            kwh_monthly         DECIMAL(10,2) NULL,
+            time_of_use_night_pct INT NULL,
+            target_savings      ENUM('100','75','50') NOT NULL DEFAULT '100',
+            roof_sqm            DECIMAL(8,2) NULL,
+            notes               TEXT NULL,
+            bill_path           VARCHAR(255) NULL,
+            ocr_kwh             DECIMAL(10,2) NULL,
+            ocr_bill_amount     DECIMAL(10,2) NULL,
+            system_size_kw      DECIMAL(6,2) NULL,
+            panel_count         INT NULL,
+            cost_min            DECIMAL(12,2) NULL,
+            cost_max            DECIMAL(12,2) NULL,
+            monthly_savings     DECIMAL(10,2) NULL,
+            roi_years           DECIMAL(5,1) NULL,
+            feasibility         ENUM('feasible','limited','unfeasible','unknown') NULL,
+            system_type         VARCHAR(30) NULL,
+            battery_recommended TINYINT(1) NULL,
+            ai_explanation      TEXT NULL,
+            status              ENUM('submitted','ai_processed','pending_review','reviewed','quotation_sent','completed') NOT NULL DEFAULT 'submitted',
+            reviewer_notes      TEXT NULL,
+            reviewed_at         DATETIME NULL,
+            final_system_kw     DECIMAL(6,2) NULL,
+            final_panel_count   INT NULL,
+            final_cost          DECIMAL(12,2) NULL,
+            created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        )
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
+
+
+# ── Solar PV request helpers ──────────────────────────────────────────────────
+
+def save_solar_request(data: dict) -> int:
+    conn = get_db()
+    cur  = conn.cursor()
+    cur.execute("""
+        INSERT INTO solar_requests (
+            user_id, name, address, email, contact,
+            establishment_type, ownership, electrical_phase,
+            monthly_bill_php, kwh_monthly, time_of_use_night_pct,
+            target_savings, roof_sqm, notes, bill_path,
+            ocr_kwh, ocr_bill_amount
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """, (
+        data.get("user_id"), data.get("name"), data.get("address"),
+        data.get("email"), data.get("contact"),
+        data.get("establishment_type"), data.get("ownership"),
+        data.get("electrical_phase"),
+        data.get("monthly_bill_php"), data.get("kwh_monthly"),
+        data.get("time_of_use_night_pct"), data.get("target_savings"),
+        data.get("roof_sqm"), data.get("notes"), data.get("bill_path"),
+        data.get("ocr_kwh"), data.get("ocr_bill_amount"),
+    ))
+    conn.commit()
+    req_id = cur.lastrowid
+    cur.close(); conn.close()
+    return req_id
+
+
+def update_solar_request(req_id: int, **fields):
+    if not fields:
+        return
+    allowed = {
+        "system_size_kw", "panel_count", "cost_min", "cost_max",
+        "monthly_savings", "roi_years", "feasibility", "system_type",
+        "battery_recommended", "ai_explanation", "status",
+        "reviewer_notes", "reviewed_at",
+        "final_system_kw", "final_panel_count", "final_cost",
+    }
+    safe = {k: v for k, v in fields.items() if k in allowed}
+    if not safe:
+        return
+    clauses = ", ".join(f"{k}=%s" for k in safe)
+    conn = get_db()
+    cur  = conn.cursor()
+    cur.execute(f"UPDATE solar_requests SET {clauses} WHERE id=%s",
+                (*safe.values(), req_id))
+    conn.commit()
+    cur.close(); conn.close()
+
+
+def get_solar_request(req_id: int) -> dict | None:
+    conn = get_db()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM solar_requests WHERE id=%s", (req_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    return row
+
+
+def get_solar_requests() -> list:
+    conn = get_db()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM solar_requests ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return rows
+
+
+def get_solar_requests_by_user(user_id: int) -> list:
+    conn = get_db()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM solar_requests WHERE user_id=%s ORDER BY created_at DESC", (user_id,))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return rows
 
 
 def get_schedules():

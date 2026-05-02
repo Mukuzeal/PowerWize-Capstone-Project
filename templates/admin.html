@@ -1175,6 +1175,9 @@
         <button class="nav-item" onclick="showSection('registrations', this)">
     <span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span> Registrations
   </button>
+        <button class="nav-item" onclick="showSection('solar', this)">
+    <span class="nav-icon"><i class="fa-solid fa-solar-panel"></i></span> Solar Requests
+  </button>
 
         <span class="nav-section">Learning</span>
         <button class="nav-item" onclick="showSection('modules', this)">
@@ -1634,6 +1637,91 @@
             </div>
         </div>
 
+        <!-- ═══ SOLAR ═══ -->
+        <div id="section-solar" class="section">
+            <div class="page-head">
+                <h1>Solar Requests</h1>
+                <span class="count-badge">{{ solar_requests|length }} total</span>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:1.25rem">
+                <div class="stat-card c-green">
+                    <div class="s-label">Total Requests</div>
+                    <div class="s-value">{{ solar_requests|length }}</div>
+                </div>
+                <div class="stat-card c-blue">
+                    <div class="s-label">AI Processed</div>
+                    <div class="s-value">{{ solar_requests|selectattr('status','equalto','ai_processed')|list|length }}</div>
+                </div>
+                <div class="stat-card c-gold">
+                    <div class="s-label">Pending Review</div>
+                    <div class="s-value">{{ solar_requests|selectattr('status','equalto','pending_review')|list|length }}</div>
+                </div>
+                <div class="stat-card c-purple">
+                    <div class="s-label">Reviewed / Sent</div>
+                    <div class="s-value">{{ (solar_requests|selectattr('status','equalto','reviewed')|list|length) + (solar_requests|selectattr('status','equalto','quotation_sent')|list|length) }}</div>
+                </div>
+            </div>
+
+            <div class="reg-filter-bar">
+                <button class="reg-filter active" onclick="filterSolar('all',this)">All <span class="reg-filter-count">{{ solar_requests|length }}</span></button>
+                <button class="reg-filter" onclick="filterSolar('ai_processed',this)">AI Processed <span class="reg-filter-count">{{ solar_requests|selectattr('status','equalto','ai_processed')|list|length }}</span></button>
+                <button class="reg-filter f-pending" onclick="filterSolar('pending_review',this)">Pending Review <span class="reg-filter-count">{{ solar_requests|selectattr('status','equalto','pending_review')|list|length }}</span></button>
+                <button class="reg-filter f-accepted" onclick="filterSolar('reviewed',this)">Reviewed <span class="reg-filter-count">{{ solar_requests|selectattr('status','equalto','reviewed')|list|length }}</span></button>
+                <button class="reg-filter" onclick="filterSolar('completed',this)">Completed <span class="reg-filter-count">{{ solar_requests|selectattr('status','equalto','completed')|list|length }}</span></button>
+            </div>
+
+            <div class="table-card">
+                {% if solar_requests %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Phase</th>
+                            <th>System Size</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="solar-tbody">
+                        {% for r in solar_requests %}
+                        <tr data-status="{{ r.status }}">
+                            <td><span class="ref">#{{ r.id }}</span></td>
+                            <td>
+                                <div style="font-weight:600;font-size:13px">{{ r.name }}</div>
+                                <div style="font-size:11px;color:var(--gray)">{{ r.email }}</div>
+                            </td>
+                            <td><span class="badge b-training">{{ r.establishment_type|capitalize }}</span></td>
+                            <td>{{ r.electrical_phase|capitalize }}-phase</td>
+                            <td>
+                                {% if r.system_size_kw %}{{ r.final_system_kw or r.system_size_kw }} kWp{% else %}<span style="color:#9CA3AF">—</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if r.status == 'submitted' %}<span class="badge b-pending">Submitted</span>
+                                {% elif r.status == 'ai_processed' %}<span class="badge b-cea">AI Processed</span>
+                                {% elif r.status == 'pending_review' %}<span class="badge b-pending">Pending Review</span>
+                                {% elif r.status == 'reviewed' %}<span class="badge b-accepted">Reviewed</span>
+                                {% elif r.status == 'quotation_sent' %}<span class="badge" style="background:#EDE9FE;color:#5B21B6">Quotation Sent</span>
+                                {% elif r.status == 'completed' %}<span class="badge b-active">Completed</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size:12px;color:var(--gray)">{{ r.created_at }}</td>
+                            <td>
+                                <button type="button" class="btn-docs" onclick="openSolarReview({{ r.id }})"><i class="fa-solid fa-solar-panel"></i> Review</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="empty"><i class="fa-solid fa-solar-panel" style="display:block;font-size:32px;margin-bottom:12px;color:#E5E7EB"></i>No solar quotation requests yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- ═══ MODULES ═══ -->
         <div id="section-modules" class="section">
             <div class="page-head">
@@ -1664,6 +1752,22 @@
             </div>
             <div class="docs-body"><div class="docs-grid" id="docs-grid"></div></div>
             <div class="docs-foot" id="docs-foot"></div>
+        </div>
+    </div>
+
+    <!-- Solar review modal -->
+    <div id="solar-overlay" class="docs-overlay" onclick="closeSolarReview(event)">
+        <div class="docs-box" style="max-width:700px">
+            <div class="docs-head">
+                <div>
+                    <div class="docs-head-title" id="solar-title">Solar Quotation Review</div>
+                    <div class="docs-head-sub" id="solar-sub"></div>
+                </div>
+                <button class="docs-close" onclick="closeSolarReview()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="docs-body" id="solar-body">
+                <div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+            </div>
         </div>
     </div>
 
@@ -2187,10 +2291,85 @@
             });
         }
 
+        // ── Solar status filter ───────────────────────────────────────────────────
+        function filterSolar(status, btn) {
+            document.querySelectorAll('#section-solar .reg-filter').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('#solar-tbody tr').forEach(function(row) {
+                row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+            });
+        }
+
+        // ── Solar review modal ────────────────────────────────────────────────────
+        async function openSolarReview(id) {
+            var overlay = document.getElementById('solar-overlay');
+            var body    = document.getElementById('solar-body');
+            var sub     = document.getElementById('solar-sub');
+            var title   = document.getElementById('solar-title');
+            overlay.classList.add('open');
+            body.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+            sub.textContent = 'Request #' + id;
+            title.textContent = 'Solar Quotation Review';
+            try {
+                var res = await fetch('/admin/solar/' + id + '/data');
+                var r   = await res.json();
+                title.textContent = r.name || 'Solar Quotation Review';
+                var fmt = function(n) { return n ? '₱' + Number(n).toLocaleString() : '—'; };
+                var lbl = function(text) {
+                    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);margin-bottom:3px">' + text + '</div>';
+                };
+                var val = function(text, style) {
+                    return '<div style="font-size:13px' + (style ? ';' + style : '') + '">' + (text || '—') + '</div>';
+                };
+                var cell = function(label, content) {
+                    return '<div>' + lbl(label) + content + '</div>';
+                };
+                var aiBlock = r.ai_explanation
+                    ? '<div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#166534;white-space:pre-wrap;line-height:1.65">' + r.ai_explanation + '</div>'
+                    : '';
+                var inputStyle = 'width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:13px;outline:none';
+                body.innerHTML =
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+                        cell('Email', val(r.email)) +
+                        cell('Contact', val(r.contact)) +
+                        cell('Establishment', val(r.establishment_type)) +
+                        cell('Phase', val((r.electrical_phase || '') + '-phase')) +
+                        cell('Monthly kWh', val(r.kwh_monthly ? r.kwh_monthly + ' kWh' : null)) +
+                        cell('Monthly Bill', val(r.monthly_bill_php ? fmt(r.monthly_bill_php) : null)) +
+                        cell('System Size', val(r.system_size_kw ? r.system_size_kw + ' kWp' : null, 'font-size:15px;font-weight:700;color:var(--green-pr)')) +
+                        cell('Panel Count', val(r.panel_count ? r.panel_count + ' panels' : null, 'font-size:15px;font-weight:700;color:var(--green-pr)')) +
+                        cell('Cost Range', val(r.cost_min ? fmt(r.cost_min) + ' – ' + fmt(r.cost_max) : null)) +
+                        cell('Monthly Savings', val(r.monthly_savings ? fmt(r.monthly_savings) : null, 'color:#16A34A;font-weight:600')) +
+                        cell('System Type', val(r.system_type)) +
+                        cell('Feasibility', val(r.feasibility)) +
+                    '</div>' +
+                    aiBlock +
+                    '<form method="POST" action="/admin/solar/' + id + '/review">' +
+                        '<div style="margin-bottom:12px">' +
+                            lbl('Specialist Notes') +
+                            '<textarea name="reviewer_notes" rows="3" style="' + inputStyle + ';resize:vertical">' + (r.reviewer_notes || '') + '</textarea>' +
+                        '</div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">' +
+                            '<div>' + lbl('Adj. System (kWp)') + '<input type="number" step="0.01" name="final_system_kw" value="' + (r.final_system_kw || r.system_size_kw || '') + '" placeholder="' + (r.system_size_kw || '') + '" style="' + inputStyle + '"></div>' +
+                            '<div>' + lbl('Adj. Panels') + '<input type="number" name="final_panel_count" value="' + (r.final_panel_count || r.panel_count || '') + '" placeholder="' + (r.panel_count || '') + '" style="' + inputStyle + '"></div>' +
+                            '<div>' + lbl('Final Cost (₱)') + '<input type="number" step="0.01" name="final_cost" value="' + (r.final_cost || '') + '" placeholder="Optional" style="' + inputStyle + '"></div>' +
+                        '</div>' +
+                        '<button type="submit" class="btn-add" style="width:100%;justify-content:center"><i class="fa-solid fa-paper-plane"></i> Finalize &amp; Send Quotation Email</button>' +
+                    '</form>';
+            } catch(e) {
+                body.innerHTML = '<p class="empty">Failed to load request data. Please try again.</p>';
+            }
+        }
+
+        function closeSolarReview(event) {
+            if (event && event.target !== document.getElementById('solar-overlay')) return;
+            document.getElementById('solar-overlay').classList.remove('open');
+        }
+
         // Restore active section from URL hash on load
         (function() {
             const hash = location.hash.replace('#', '');
-            const validSections = ['dashboard', 'users', 'schedules', 'registrations', 'modules'];
+            const validSections = ['dashboard', 'users', 'schedules', 'registrations', 'solar', 'modules'];
             if (validSections.includes(hash)) {
                 const btn = [...document.querySelectorAll('.nav-item')]
                     .find(b => b.getAttribute('onclick').includes("'" + hash + "'"));
