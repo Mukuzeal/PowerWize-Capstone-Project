@@ -74,8 +74,17 @@ async function sendMessage() {
     removeTyping();
 
     if (data.redirect) {
-      addBubble('<i class="fa-solid fa-circle-notch fa-spin"></i> Computing your quotation — please wait…', 'ai');
-      setTimeout(function() { window.location.href = data.redirect; }, 1400);
+      addBubble(
+        'Your solar estimate is ready! ' +
+        '<a href="' + data.redirect + '" style="display:inline-flex;align-items:center;gap:6px;' +
+        'margin-top:10px;padding:9px 18px;background:#16583C;color:#fff;border-radius:8px;' +
+        'font-weight:600;font-size:13px;text-decoration:none;">' +
+        '<i class="fa-solid fa-solar-panel"></i> View My Estimate</a>',
+        'ai'
+      );
+      isWaiting = false;
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('chat-input').disabled = true;
       return;
     }
 
@@ -113,9 +122,18 @@ function confirmSwitchToForm(e) {
   });
 }
 
-document.getElementById('chat-input').addEventListener('input', function() {
+var _input = document.getElementById('chat-input');
+
+_input.addEventListener('input', function() {
   this.style.height = 'auto';
   this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+});
+
+_input.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
 (async function() {

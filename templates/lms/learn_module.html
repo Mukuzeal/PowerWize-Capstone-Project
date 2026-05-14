@@ -1,0 +1,311 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ mod.title }} –“ Learn</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("My Learning") }}
+<div class="page-body">
+<div class="lms-wrap lms-learn-layout">
+
+  <!-- Left: Content -->
+  <div class="learn-main">
+
+    <div class="lms-page-header">
+      <div>
+        <h2 class="lms-page-title">{{ mod.title }}</h2>
+        <p class="lms-page-sub">{{ mod.description or '' }}</p>
+      </div>
+      <a href="/lms/learn" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    </div>
+
+    <!-- Materials -->
+    <div class="lms-card">
+      <h3 class="card-inner-title"><i class="fa-solid fa-folder-open"></i> Learning Materials</h3>
+      {% if files %}
+      <div class="file-list-trainee">
+        {% for f in files %}
+        <a href="/lms/files/{{ f.filename }}" target="_blank" class="file-row-link">
+          <i class="fa-solid {{ {'pdf':'fa-file-pdf','docx':'fa-file-word','pptx':'fa-file-powerpoint',
+            'mp4':'fa-file-video','mkv':'fa-file-video','txt':'fa-file-lines'}.get(f.file_type,'fa-file') }}"></i>
+          <span class="file-name">{{ f.original_name }}</span>
+          <span class="file-size">{{ (f.file_size / 1024)|round(1) }} KB</span>
+          <i class="fa-solid fa-arrow-down-to-line file-dl"></i>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="lms-empty-inline">No materials uploaded yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Quiz status -->
+    <div class="lms-card">
+      <div class="card-section-header">
+        <h3 class="card-inner-title"><i class="fa-solid fa-circle-question"></i> Quiz</h3>
+        {% if quiz and quiz.is_published %}
+          {% if quiz_attempt %}
+          <span class="badge {{ 'badge-green' if quiz_attempt.score >= quiz.passing_score else 'badge-red' }}">
+            <i class="fa-solid fa-check"></i> Completed –” {{ quiz_attempt.score }}%
+          </span>
+          {% else %}
+          <a href="/lms/learn/{{ mod.id }}/quiz" class="btn-sm btn-primary">
+            <i class="fa-solid fa-play"></i> Start Quiz
+          </a>
+          {% endif %}
+        {% elif quiz %}
+        <span class="badge badge-gray">Quiz not published yet</span>
+        {% else %}
+        <span class="badge badge-gray">No quiz</span>
+        {% endif %}
+      </div>
+      {% if quiz and quiz_attempt %}
+      <div class="assessment-meta">
+        <span>Score: <strong>{{ quiz_attempt.score }}%</strong></span>
+        <span>{{ 'Passed' if quiz_attempt.score >= quiz.passing_score else 'Failed' }}</span>
+        {% if quiz_attempt.tab_switches > 0 %}
+        <span class="badge badge-red"><i class="fa-solid fa-eye"></i> {{ quiz_attempt.tab_switches }} tab switch{{ 'es' if quiz_attempt.tab_switches != 1 }} detected</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- AI Hints (shown when quiz failed) -->
+    {% if quiz and quiz_attempt and quiz_attempt.score < quiz.passing_score %}
+    <div class="lms-card" id="hints-card">
+      <div class="card-section-header" style="margin-bottom:0.75rem">
+        <h3 class="card-inner-title"><i class="fa-solid fa-lightbulb"></i> AI Personalized Hints</h3>
+        <button id="hints-btn" onclick="loadHints()" class="btn-sm btn-primary">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Hints
+        </button>
+      </div>
+      <p style="font-size:13px;color:#6B7280;margin-bottom:0.5rem">
+        You scored <strong>{{ quiz_attempt.score }}%</strong> –” passing is <strong>{{ quiz.passing_score }}%</strong>.
+        Get targeted AI study hints based on the questions you missed.
+      </p>
+      <div id="hints-output" style="display:none;margin-top:0.75rem;padding:14px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:13px;line-height:1.7;color:#1F4C35;white-space:pre-wrap"></div>
+      <div id="hints-loading" style="display:none;margin-top:0.75rem;font-size:13px;color:#6B7280">
+        <i class="fa-solid fa-spinner fa-spin"></i> Generating personalized hints…
+      </div>
+      <div id="hints-error" style="display:none;margin-top:0.75rem;font-size:13px;color:#DC2626"></div>
+    </div>
+    {% endif %}
+
+    <!-- Practical exam -->
+    <div class="lms-card">
+      <div class="card-section-header">
+        <h3 class="card-inner-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h3>
+        {% if exam %}
+          {% if exam_sub %}
+          <span class="badge {{ 'badge-green' if exam_sub.grade is not none and exam_sub.grade >= 70 else ('badge-blue' if exam_sub.grade is none else 'badge-red') }}">
+            {% if exam_sub.grade is not none %}
+            <i class="fa-solid fa-check"></i> Graded –” {{ exam_sub.grade }}/100
+            {% else %}
+            <i class="fa-solid fa-clock"></i> Submitted –” Awaiting Grade
+            {% endif %}
+          </span>
+          {% else %}
+          <a href="/lms/learn/{{ mod.id }}/exam" class="btn-sm btn-primary">
+            <i class="fa-solid fa-upload"></i> Submit Exam
+          </a>
+          {% endif %}
+        {% else %}
+        <span class="badge badge-gray">No exam</span>
+        {% endif %}
+      </div>
+      {% if exam and exam_sub and exam_sub.feedback %}
+      <div class="feedback-box">
+        <strong>Instructor Feedback:</strong>
+        <p>{{ exam_sub.feedback }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Completion -->
+    {% if progress and progress.completed %}
+    <div class="completion-banner">
+      <i class="fa-solid fa-trophy"></i>
+      <div>
+        <strong>Module Completed!</strong>
+        <p>You finished this module on {{ progress.completed_at.strftime('%B %d, %Y') if progress.completed_at else 'N/A' }}.</p>
+      </div>
+      <a href="/lms/certificates" class="btn-sm btn-primary"><i class="fa-solid fa-certificate"></i> View Certificate</a>
+    </div>
+
+    <!-- Feedback widget (shows after completion) -->
+    <div class="lms-card" style="margin-top:1rem">
+      <h3 class="card-inner-title"><i class="fa-solid fa-star"></i> Rate this Module</h3>
+      {% if my_feedback %}
+      <p style="font-size:13px;color:#374151;margin-bottom:0.5rem">
+        Your rating: <strong style="color:#D4A72A">{{ 'â˜…' * my_feedback.rating }}{{ 'â˜†' * (5 - my_feedback.rating) }}</strong>
+        {% if my_feedback.comment %} –” {{ my_feedback.comment }}{% endif %}
+      </p>
+      <p style="font-size:11px;color:#9CA3AF">You can update your feedback by submitting again.</p>
+      {% else %}
+      <p style="font-size:13px;color:#6B7280;margin-bottom:0.75rem">Help us improve –” how was this module?</p>
+      {% endif %}
+      <form method="POST" action="/lms/learn/{{ mod.id }}/feedback" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:12px;font-weight:600;color:#374151">Rating:</label>
+          {% for i in [1,2,3,4,5] %}
+          <label style="cursor:pointer;font-size:22px;color:#D4A72A;line-height:1">
+            <input type="radio" name="rating" value="{{ i }}" style="display:none"
+              {% if my_feedback and my_feedback.rating == i %}checked{% endif %} required>
+            <span class="star-lbl">{{ 'â˜…' if my_feedback and my_feedback.rating >= i else 'â˜†' }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <textarea name="comment" placeholder="Optional comment…" rows="2"
+          style="padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;outline:none">{{ my_feedback.comment if my_feedback and my_feedback.comment else '' }}</textarea>
+        <div>
+          <button type="submit" style="padding:8px 20px;background:#16583C;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">
+            {% if my_feedback %}Update Feedback{% else %}Submit Feedback{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right: Chat -->
+  <div class="learn-chat">
+    <div class="chat-panel">
+      <div class="chat-panel-header">
+        <i class="fa-solid fa-robot"></i>
+        <div>
+          <div class="chat-panel-title">Module Assistant</div>
+          <div class="chat-panel-sub">Ask about this module's content</div>
+        </div>
+      </div>
+      <div class="chat-panel-body" id="chat-box">
+        <div class="chat-notice">
+          <i class="fa-solid fa-circle-info"></i>
+          This assistant helps you understand module content. It will not answer quiz or exam questions.
+        </div>
+      </div>
+      <div class="chat-panel-input">
+        <textarea id="chat-input" placeholder="Ask about this module…" rows="1"></textarea>
+        <button id="send-btn" onclick="sendChatMsg()" class="btn-send-sm">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+var chatMessages = [];
+var chatWaiting  = false;
+var MODULE_ID    = {{ mod.id }};
+
+async function loadHints() {
+  var btn    = document.getElementById('hints-btn');
+  var out    = document.getElementById('hints-output');
+  var load   = document.getElementById('hints-loading');
+  var err    = document.getElementById('hints-error');
+  btn.disabled = true;
+  out.style.display = 'none';
+  err.style.display = 'none';
+  load.style.display = 'block';
+  try {
+    var res  = await fetch('/lms/learn/' + MODULE_ID + '/quiz/hints');
+    var data = await res.json();
+    load.style.display = 'none';
+    if (data.hints) {
+      out.textContent = data.hints;
+      out.style.display = 'block';
+      btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Refresh Hints';
+    } else {
+      err.textContent = data.error || 'Could not load hints.';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    load.style.display = 'none';
+    err.textContent = 'Connection error. Is the AI server running?';
+    err.style.display = 'block';
+  }
+  btn.disabled = false;
+}
+
+function scrollChat() {
+  var box = document.getElementById('chat-box');
+  box.scrollTop = box.scrollHeight;
+}
+
+function appendBubble(text, role) {
+  var box = document.getElementById('chat-box');
+  var row = document.createElement('div');
+  row.className = 'cpanel-bubble-row ' + (role === 'user' ? 'cpanel-user' : 'cpanel-ai');
+  row.innerHTML = '<div class="cpanel-bubble">' + text.replace(/\n/g, '<br>') + '</div>';
+  box.appendChild(row);
+  scrollChat();
+}
+
+function showChatTyping() {
+  var box = document.getElementById('chat-box');
+  var el  = document.createElement('div');
+  el.id = 'chat-typing';
+  el.className = 'cpanel-bubble-row cpanel-ai';
+  el.innerHTML = '<div class="cpanel-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+  box.appendChild(el);
+  scrollChat();
+}
+
+function removeChatTyping() {
+  var el = document.getElementById('chat-typing');
+  if (el) el.remove();
+}
+
+async function sendChatMsg() {
+  if (chatWaiting) return;
+  var input = document.getElementById('chat-input');
+  var text  = input.value.trim();
+  if (!text) return;
+  appendBubble(text, 'user');
+  input.value = '';
+  input.style.height = 'auto';
+  chatMessages.push({role:'user', content:text});
+  chatWaiting = true;
+  document.getElementById('send-btn').disabled = true;
+  showChatTyping();
+  try {
+    var res  = await fetch('/lms/chat/' + MODULE_ID + '/msg', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({messages: chatMessages.slice(0,-1), user_message: text})
+    });
+    var data = await res.json();
+    removeChatTyping();
+    if (data.text) {
+      appendBubble(data.text, 'ai');
+      chatMessages = data.messages || chatMessages.concat([{role:'assistant',content:data.text}]);
+    } else {
+      appendBubble('Sorry, I could not respond. Please try again.', 'ai');
+    }
+  } catch(e) {
+    removeChatTyping();
+    appendBubble('Connection error. Please try again.', 'ai');
+  }
+  chatWaiting = false;
+  document.getElementById('send-btn').disabled = false;
+  input.focus();
+}
+
+var _inp = document.getElementById('chat-input');
+_inp.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+_inp.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); }
+});
+</script>
+</body>
+</html>

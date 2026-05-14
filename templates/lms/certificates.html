@@ -1,0 +1,194 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Certificate –“ LMS</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+/* â”€â”€ Print styles â”€â”€ */
+@media print {
+  body > *:not(.page-body) { display: none !important; }
+  .lms-page-header, .cert-actions, nav, header { display: none !important; }
+  .page-body { margin: 0 !important; padding: 0 !important; }
+  .lms-wrap { max-width: 100% !important; padding: 0 !important; }
+  .certificate-card {
+    box-shadow: none !important;
+    border: 2px solid #0D3B27 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .cert-qr-wrap { display: flex !important; }
+  .cert-expiry-badge { display: inline-flex !important; }
+}
+
+/* â”€â”€ QR wrap (hidden on screen, visible on print; also shown on screen below cert) â”€â”€ */
+.cert-qr-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-top: 1px solid #E5E7EB;
+  background: #F9FAFB;
+}
+.cert-qr-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6B7280;
+  margin-bottom: 4px;
+}
+.cert-qr-sub {
+  font-size: 11px;
+  color: #9CA3AF;
+  word-break: break-all;
+}
+.cert-expiry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-top: 6px;
+}
+.cert-expiry-badge.valid {
+  background: #D1FAE5;
+  color: #065F46;
+}
+.cert-expiry-badge.expiring {
+  background: #FEF9C3;
+  color: #854D0E;
+}
+.cert-expiry-badge.expired {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+</style>
+</head>
+<body>
+{{ header("My Certificate") }}
+<div class="page-body">
+<div class="lms-wrap lms-wrap-narrow">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title"><i class="fa-solid fa-certificate"></i> My Certificate</h2>
+    </div>
+    <a href="/lms/learn" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+
+  {% if cert %}
+  {% set verify_url = request.host_url.rstrip('/') + '/lms/certificates/verify/' + cert.cert_id %}
+
+  <div class="certificate-card">
+    <div class="cert-header">
+      <img src="/static/logo.png" alt="PowerWize" style="height:44px;width:auto">
+      <div class="cert-badge"><i class="fa-solid fa-medal"></i></div>
+    </div>
+    <div class="cert-body">
+      <p class="cert-label">This certifies that</p>
+      <h2 class="cert-name">{{ cert.fname }} {{ cert.lname }}</h2>
+      <p class="cert-label">has successfully completed the</p>
+      <h3 class="cert-course">EnergyWize Training Program</h3>
+      <p class="cert-label">on {{ cert.issued_at.strftime('%B %d, %Y') if cert.issued_at else 'N/A' }}</p>
+      {% if cert.approver_fname %}
+      <p class="cert-issuer">Issued by {{ cert.approver_fname }} {{ cert.approver_lname }}</p>
+      {% endif %}
+    </div>
+
+    <div class="cert-footer">
+      <div class="cert-id-wrap">
+        <span class="cert-id-label">Certificate ID</span>
+        <code class="cert-id">{{ cert.cert_id }}</code>
+        {% if cert.expires_at %}
+        <span class="cert-expiry-badge valid" id="expiry-badge">
+          <i class="fa-solid fa-calendar-check"></i>
+          Valid until {{ cert.expires_at.strftime('%b %d, %Y') }}
+        </span>
+        {% endif %}
+      </div>
+      {% if cert.tx_hash %}
+      <span class="badge badge-green"><i class="fa-solid fa-link"></i> Blockchain Verified</span>
+      {% endif %}
+    </div>
+
+    <!-- QR code section (visible on screen + print) -->
+    <div class="cert-qr-wrap">
+      {% if cert.qr_code %}
+      <img src="/{{ cert.qr_code }}" alt="Certificate QR" style="width:80px;height:80px;flex-shrink:0;border:1px solid #E5E7EB;border-radius:4px">
+      {% else %}
+      <div id="cert-qr" style="width:80px;height:80px;flex-shrink:0"></div>
+      {% endif %}
+      <div>
+        <div class="cert-qr-label">Scan to Verify Authenticity</div>
+        <div class="cert-qr-sub">{{ verify_url }}</div>
+        {% if cert.expires_at %}
+        <div style="font-size:11px;color:#6B7280;margin-top:4px">
+          DOE Certificate · Valid for 3 years · Expires {{ cert.expires_at.strftime('%B %d, %Y') }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="cert-actions">
+      <a href="/lms/certificates/verify/{{ cert.cert_id }}" target="_blank" class="btn-outline">
+        <i class="fa-solid fa-shield-check"></i> Verify Online
+      </a>
+      <button onclick="window.print()" class="btn-primary">
+        <i class="fa-solid fa-print"></i> Print / Save PDF
+      </button>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    var qrElement = document.getElementById('cert-qr');
+    if (qrElement) {
+      var url = {{ verify_url | tojson }};
+      new QRCode(qrElement, {
+        text: url,
+        width: 80,
+        height: 80,
+        colorDark: '#0D3B27',
+        colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    }
+
+    // Apply expiry badge style from server-computed status
+    {% if cert.expires_at and cert_status %}
+    var badge = document.getElementById('expiry-badge');
+    if (badge) {
+      {% if cert_status == 'expired' %}
+      badge.className = 'cert-expiry-badge expired';
+      badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Expired {{ cert.expires_at.strftime("%b %d, %Y") }}';
+      {% elif cert_status == 'expiring' %}
+      badge.className = 'cert-expiry-badge expiring';
+      badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Expires {{ cert.expires_at.strftime("%b %d, %Y") }} –” renew soon';
+      {% endif %}
+    }
+    {% endif %}
+  })();
+  </script>
+
+  {% else %}
+  <div class="lms-card" style="text-align:center;padding:48px 24px">
+    <i class="fa-solid fa-hourglass-half" style="font-size:48px;color:#9CA3AF;margin-bottom:16px"></i>
+    <h3 style="color:#374151;margin-bottom:8px">Certificate Not Yet Issued</h3>
+    <p style="color:#6B7280;font-size:14px;margin-bottom:24px">
+      Complete all training modules and your certificate will be issued by an instructor.
+    </p>
+    <a href="/lms/progress" class="btn-outline"><i class="fa-solid fa-chart-line"></i> View My Progress</a>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+</body>
+</html>

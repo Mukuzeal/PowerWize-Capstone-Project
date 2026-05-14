@@ -1,5 +1,5 @@
-body{display:flex;flex-direction:column;min-height:100vh}
-.page-body{flex:1;padding:0;display:flex;flex-direction:column}
+html,body{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.page-body{flex:1;padding:0;display:flex;flex-direction:column;min-height:0}
 
 .chat-shell{
   max-width:700px;width:100%;margin:0 auto;

@@ -1,0 +1,222 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ 'Edit' if module else 'Create' }} Module – LMS</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+<style>
+  .mf-hero{display:flex;align-items:center;gap:18px;padding:22px 24px;margin-bottom:24px;
+    background:linear-gradient(135deg,#F0FDF4,#DCFCE7);
+    border-radius:16px;border:1.5px solid #86EFAC}
+  .mf-hero-icon{width:56px;height:56px;flex-shrink:0;border-radius:14px;
+    background:linear-gradient(135deg,var(--green-dk),var(--green-pr));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:24px;box-shadow:0 4px 14px rgba(22,88,60,.3)}
+  .mf-hero-title{font-size:17px;font-weight:700;color:var(--green-dk);margin:0 0 3px}
+  .mf-hero-sub{font-size:13px;color:#166534;margin:0;line-height:1.5}
+  .mf-layout{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:740px){.mf-layout{grid-template-columns:1fr 260px;align-items:start}}
+  .tips-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:20px}
+  .tips-title{font-size:13px;font-weight:700;color:#374151;margin:0 0 14px;
+    display:flex;align-items:center;gap:7px}
+  .tip-item{display:flex;gap:10px;font-size:12.5px;color:#4B5563;
+    line-height:1.65;margin-bottom:11px}
+  .tip-item:last-child{margin-bottom:0}
+  .tip-dot{width:20px;height:20px;background:var(--green-lt);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    color:var(--green-pr);font-size:9px;margin-top:2px}
+  .char-counter{font-size:11px;color:var(--gray);text-align:right;margin-top:4px;transition:color .2s}
+  .char-counter.warn{color:#D97706}
+  .char-counter.over{color:#DC2626;font-weight:600}
+  .form-divider{border:none;border-top:1.5px solid #F3F4F6;margin:20px 0}
+  .info-pill{display:flex;align-items:center;gap:8px;font-size:12px;color:#1e40af;
+    padding:8px 0;border-bottom:1px solid #BFDBFE}
+  .info-pill:last-child{border-bottom:none;padding-bottom:0}
+  .info-pill i{width:14px;text-align:center;flex-shrink:0}
+</style>
+</head>
+<body>
+{{ header("Training Modules") }}
+<div class="page-body">
+<div class="lms-wrap" style="max-width:960px">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title">
+        <i class="fa-solid {{ 'fa-pen-to-square' if module else 'fa-plus-circle' }}"></i>
+        {{ 'Edit Module' if module else 'Create New Module' }}
+      </h2>
+      <p class="lms-page-sub">
+        {{ 'Update module details. Changes are visible to trainees immediately.' if module else 'Add a new training module to the LMS.' }}
+      </p>
+    </div>
+    {% if session.get('user_role') == 'admin' %}
+      <a href="/admin" class="btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+      </a>
+    {% elif session.get('user_role') == 'employee' %}
+      <a href="/employee" class="btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+      </a>
+    {% else %}
+      <a href="/lms/modules" class="btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Back to Modules
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Hero banner -->
+  <div class="mf-hero">
+    <div class="mf-hero-icon">
+      <i class="fa-solid {{ 'fa-book-open-reader' if module else 'fa-book-open' }}"></i>
+    </div>
+    <div>
+      <div class="mf-hero-title">
+        {{ 'Editing: ' ~ module.title if module else 'New Training Module' }}
+      </div>
+      <div class="mf-hero-sub">
+        {% if module %}
+          After saving, trainees enrolled in this module will see the updated content on their next visit.
+        {% else %}
+          Once created, you can upload materials, set up a quiz, and add a practical exam from the module's management page.
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="mf-layout">
+    <!-- Form card -->
+    <div class="lms-card">
+      <form method="post" id="module-form">
+        <div class="form-group">
+          <label class="form-label">
+            Module Title <span class="req">*</span>
+          </label>
+          <input type="text" name="title" id="title-input" class="form-input"
+                 value="{{ module.title if module else '' }}"
+                 placeholder="e.g. Introduction to Solar Energy Systems"
+                 maxlength="120" required autofocus>
+          <div class="char-counter" id="title-counter">0 / 120</div>
+        </div>
+
+        <hr class="form-divider">
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" id="desc-input" class="form-input form-textarea" rows="7"
+                    placeholder="Describe what trainees will learn, key topics covered, and any prerequisites for this module…"
+                    maxlength="1000">{{ module.description if module else '' }}</textarea>
+          <div class="char-counter" id="desc-counter">0 / 1000</div>
+          <div class="form-hint">A good description helps trainees understand what to expect and prepares them for the material.</div>
+        </div>
+
+        <hr class="form-divider">
+
+        <div class="form-group">
+          <label class="form-label">Training Type <span class="req">*</span></label>
+          <select name="training_type" class="form-input" required>
+            <option value="">-- Select Training Type --</option>
+            <option value="training" {% if module and module.training_type == 'training' %}selected{% endif %}>CEM Training</option>
+            <option value="cea_training" {% if module and module.training_type == 'cea_training' %}selected{% endif %}>CEA Training</option>
+            <option value="renewal" {% if module and module.training_type == 'renewal' %}selected{% endif %}>Renewal</option>
+            <option value="cea_renewal" {% if module and module.training_type == 'cea_renewal' %}selected{% endif %}>CEA Renewal</option>
+            <option value="cem_renewal" {% if module and module.training_type == 'cem_renewal' %}selected{% endif %}>CEM Renewal</option>
+            <option value=”gemp_lgu” {% if module and module.training_type == 'gemp_lgu' %}selected{% endif %}>GEMP Training – LGU</option>
+            <option value=”gemp_oge” {% if module and module.training_type == 'gemp_oge' %}selected{% endif %}>GEMP Training – Gov't Entity</option>
+          </select>
+          <div class="form-hint">Only trainees registered for this training type will see this module.</div>
+        </div>
+
+        <hr class="form-divider">
+
+        <div class="form-actions">
+          {% if session.get('user_role') == 'admin' %}
+            <a href="/admin" class="btn-ghost">Cancel</a>
+          {% elif session.get('user_role') == 'employee' %}
+            <a href="/employee" class="btn-ghost">Cancel</a>
+          {% else %}
+            <a href="/lms/modules" class="btn-ghost">Cancel</a>
+          {% endif %}
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i>
+            {{ 'Save Changes' if module else 'Create Module' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="tips-card">
+        <div class="tips-title">
+          <i class="fa-solid fa-lightbulb" style="color:#D97706"></i> Writing Tips
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
+          <div>Use a clear, specific title so trainees immediately know the topic.</div>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
+          <div>List learning objectives, prerequisites, and estimated completion time in the description.</div>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
+          <div>After creating, upload PDFs, DOCX files, or other materials from the manage page.</div>
+        </div>
+        <div class="tip-item">
+          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
+          <div>Modules stay in <strong>Draft</strong> until published –” trainees can't see them until you publish.</div>
+        </div>
+      </div>
+
+      {% if module %}
+      <div class="tips-card" style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1.5px solid #BFDBFE">
+        <div class="tips-title" style="color:#1D4ED8">
+          <i class="fa-solid fa-circle-info" style="color:#3B82F6"></i> Module Details
+        </div>
+        <div class="info-pill">
+          <i class="fa-solid fa-hashtag" style="color:#3B82F6"></i>
+          <span>ID: <strong>{{ module.id }}</strong></span>
+        </div>
+        {% if module.created_at %}
+        <div class="info-pill">
+          <i class="fa-solid fa-calendar-plus" style="color:#3B82F6"></i>
+          <span>Created: <strong>{{ module.created_at.strftime('%b %d, %Y') }}</strong></span>
+        </div>
+        {% endif %}
+        <div class="info-pill">
+          <i class="fa-solid fa-circle" style="color:{{ '#16A34A' if module.published else '#D97706' }}"></i>
+          <span>Status: <strong>{{ 'Published' if module.published else 'Draft' }}</strong></span>
+        </div>
+      </div>
+
+      <a href="/lms/modules/{{ module.id }}/manage" class="btn-outline" style="width:100%;justify-content:center;box-sizing:border-box">
+        <i class="fa-solid fa-sliders"></i> Manage Module
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+</div>
+<script>
+function initCounter(inputId, counterId, max) {
+  const el = document.getElementById(inputId);
+  const ct = document.getElementById(counterId);
+  if (!el || !ct) return;
+  function update() {
+    const n = el.value.length;
+    ct.textContent = n + ' / ' + max;
+    ct.className = 'char-counter' + (n >= max ? ' over' : n > max * 0.85 ? ' warn' : '');
+  }
+  update();
+  el.addEventListener('input', update);
+}
+initCounter('title-input', 'title-counter', 120);
+initCounter('desc-input', 'desc-counter', 1000);
+</script>
+</body>
+</html>

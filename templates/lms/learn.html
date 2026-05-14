@@ -1,0 +1,64 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Learning –“ LMS</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("My Learning") }}
+<div class="page-body">
+<div class="lms-wrap">
+
+  <!-- Progress bar -->
+  <div class="lms-card progress-hero">
+    <div class="progress-hero-info">
+      <h2>Your Progress</h2>
+      <p>{{ completed }} of {{ total }} module{{ 's' if total != 1 }} completed</p>
+    </div>
+    <div class="progress-circle-wrap">
+      <div class="progress-circle" style="--pct:{{ pct }}">
+        <span>{{ pct }}%</span>
+      </div>
+    </div>
+  </div>
+
+  {% if modules %}
+  <div class="module-grid">
+    {% for m in modules %}
+    {% set p = prog_map.get(m.id, {}) %}
+    <a href="/lms/learn/{{ m.id }}" class="module-card module-card-link">
+      <div class="module-card-header">
+        {% if p.get('completed') %}
+        <span class="module-status-badge published"><i class="fa-solid fa-circle-check"></i> Completed</span>
+        {% elif p %}
+        <span class="module-status-badge in-progress"><i class="fa-solid fa-spinner"></i> In Progress</span>
+        {% else %}
+        <span class="module-status-badge draft"><i class="fa-solid fa-lock-open"></i> Not Started</span>
+        {% endif %}
+      </div>
+      <h3 class="module-card-title">{{ m.title }}</h3>
+      <p class="module-card-desc">{{ (m.description or 'No description.')[:120] }}{% if m.description and m.description|length > 120 %}…{% endif %}</p>
+      <div class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname }} {{ m.lname }}</div>
+      <div class="learn-progress-row">
+        <div class="mini-progress-bar">
+          <div class="mini-progress-fill" style="width:{{ '100' if p.get('completed') else ('50' if p else '0') }}%"></div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="lms-empty">
+    <i class="fa-solid fa-book-open"></i>
+    <p>No modules are available yet. Check back soon!</p>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+</body>
+</html>

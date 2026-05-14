@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Request Detail – EnergyWize</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--green-dk:#0D3B27;--green-pr:#16583C;--green-md:#1E7A4B;--green-lt:#E2F5EC;--gold:#D4A72A;--gray:#6B7280;--border:#E5E7EB;--shadow:0 1px 3px rgba(0,0,0,0.06)}
+  body{font-family:'DM Sans',sans-serif;background:#F3F4F6;color:#1F2937;padding:0;margin:0}
+  .detail-wrap{max-width:100%;padding:0}
+  .detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem}
+  .detail-header h1{margin:0;font-size:22px;font-weight:700;color:#111827}
+  .status-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase}
+  .status-ai{background:#DDD6FE;color:#4F46E5}
+  .status-pending{background:#FEF3C7;color:#854D0E}
+  .status-reviewed{background:#DCFCE7;color:#166534}
+  .detail-card{background:#fff;border-radius:10px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem}
+  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1.5rem;margin-bottom:1.5rem}
+  .detail-item{padding-bottom:0.5rem}
+  .detail-label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;margin-bottom:0.5rem}
+  .detail-value{font-size:14px;color:#111827;font-weight:600}
+  .detail-value.highlight{color:var(--green-pr)}
+  .form-group{margin-bottom:1.25rem}
+  .form-label{display:block;font-size:12px;font-weight:600;color:#111827;margin-bottom:0.5rem}
+  .form-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif}
+  .form-input:focus{outline:none;border-color:var(--green-pr);box-shadow:0 0 0 2px rgba(22,88,60,0.1)}
+  .form-textarea{resize:vertical;min-height:100px}
+  .form-hint{font-size:11px;color:var(--gray);margin-top:4px}
+  .form-actions{display:flex;gap:10px;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)}
+  .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--green-pr);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+  .btn-primary:hover{background:var(--green-md)}
+  .btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:#fff;color:var(--gray);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+  .btn-ghost:hover{background:#F3F4F6;color:#111827;border-color:#111827}
+  .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--gray);text-decoration:none;font-size:12px;margin-bottom:1rem}
+  .back-link:hover{color:#111827}
+  .review-success{background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:1.5rem;margin-bottom:1.5rem}
+  .review-success h3{margin:0 0 0.5rem;color:#166534;font-size:14px}
+  .review-success p{margin:0;color:#166534;font-size:13px}
+</style>
+</head>
+<body>
+<div class="detail-wrap">
+  <a href="/admin/solar" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back</a>
+
+  <div class="detail-header">
+    <div>
+      <h1>{{ request.name }}</h1>
+    </div>
+    {% if request.status == 'ai_processed' %}
+      <span class="status-badge status-ai">AI Processed</span>
+    {% elif request.status == 'pending_review' %}
+      <span class="status-badge status-pending">Pending Review</span>
+    {% elif request.status == 'reviewed' or request.status == 'quotation_sent' %}
+      <span class="status-badge status-reviewed">Reviewed</span>
+    {% else %}
+      <span class="status-badge">{{ request.status | upper | replace('_', ' ') }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Client Information -->
+  <div class="detail-card">
+    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">Client Information</h2>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-label">Full Name</div>
+        <div class="detail-value">{{ request.name }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Email</div>
+        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.email }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Contact</div>
+        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.contact or "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Address</div>
+        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.address or "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Monthly Bill (₱)</div>
+        <div class="detail-value highlight">{{ "{:,.2f}".format(request.monthly_bill) if request.monthly_bill else "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Submitted</div>
+        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.created_at.strftime("%b %d, %Y") if request.created_at else "—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI-Generated Estimates -->
+  <div class="detail-card">
+    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">AI-Generated Estimates</h2>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-label">System Size (kWp)</div>
+        <div class="detail-value">{{ request.system_size_kw or "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Panel Count</div>
+        <div class="detail-value">{{ request.panel_count or "—" }} panels</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Cost Range (₱)</div>
+        <div class="detail-value">{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "—" }}–{{ "{:,.0f}".format(request.cost_max) if request.cost_max else "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Monthly Savings (₱)</div>
+        <div class="detail-value highlight">{{ "{:,.2f}".format(request.monthly_savings) if request.monthly_savings else "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">ROI Period</div>
+        <div class="detail-value">{{ request.roi_years or "—" }} years</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">System Type</div>
+        <div class="detail-value">{{ (request.system_type or "Grid-Tie").title() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Specialist Review / Response Form -->
+  {% if request.status in ('reviewed', 'quotation_sent') %}
+  <div class="detail-card">
+    <div class="review-success">
+      <h3><i class="fa-solid fa-circle-check"></i> Quotation Sent to Client</h3>
+      <p>Reviewed on {{ request.reviewed_at.strftime("%b %d, %Y") if request.reviewed_at else "—" }}</p>
+    </div>
+    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">Quotation Details</h2>
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-label">Final System Size (kWp)</div>
+        <div class="detail-value">{{ request.final_system_kw or request.system_size_kw or "—" }}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Final Panel Count</div>
+        <div class="detail-value">{{ request.final_panel_count or request.panel_count or "—" }} panels</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">Final Cost (₱)</div>
+        <div class="detail-value highlight">{{ "{:,.0f}".format(request.final_cost) if request.final_cost else "—" }}</div>
+      </div>
+    </div>
+    {% if request.reviewer_notes %}
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <div class="detail-label">Specialist Notes</div>
+      <div style="margin-top:0.5rem;color:#374151;font-size:13px;line-height:1.5">{{ request.reviewer_notes }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <!-- Review Form -->
+  <div class="detail-card">
+    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">Specialist Review</h2>
+    <p style="color:var(--gray);font-size:12px;margin-bottom:1.5rem">Review and adjust the AI estimates if needed, then send the quotation to the client.</p>
+
+    <form method="POST" action="/admin/solar/{{ request.id }}/review">
+      <div class="form-group">
+        <label class="form-label">Final System Size (kWp)</label>
+        <input type="number" step="0.1" name="final_system_kw" class="form-input" placeholder="{{ request.system_size_kw or '0' }}" value="{{ request.final_system_kw or '' }}">
+        <div class="form-hint">Leave blank to use AI estimate: {{ request.system_size_kw or "N/A" }} kWp</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Final Panel Count</label>
+        <input type="number" name="final_panel_count" class="form-input" placeholder="{{ request.panel_count or '0' }}" value="{{ request.final_panel_count or '' }}">
+        <div class="form-hint">Leave blank to use AI estimate: {{ request.panel_count or "N/A" }} panels</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Final Cost (₱)</label>
+        <input type="number" step="0.01" name="final_cost" class="form-input" placeholder="0.00" value="{{ request.final_cost or '' }}">
+        <div class="form-hint">Leave blank to use AI range: ₱{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "0" }}–₱{{ "{:,.0f}".format(request.cost_max) if request.cost_max else "0" }}</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Specialist Notes (Optional)</label>
+        <textarea name="reviewer_notes" class="form-input form-textarea" placeholder="Add any notes or recommendations for the client...">{{ request.reviewer_notes or '' }}</textarea>
+      </div>
+
+      <div class="form-actions">
+        <a href="/admin/solar" class="btn-ghost">Cancel</a>
+        <button type="submit" class="btn-primary">
+          <i class="fa-solid fa-paper-plane"></i> Send Quotation
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

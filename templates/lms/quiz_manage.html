@@ -1,0 +1,317 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz –“ {{ mod.title }}</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("Training Modules") }}
+<div class="page-body">
+<div class="lms-wrap">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title"><i class="fa-solid fa-circle-question"></i> Quiz Manager</h2>
+      <p class="lms-page-sub">{{ mod.title }}</p>
+    </div>
+    <a href="/lms/modules/{{ mod.id }}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+
+  <!-- Quiz settings -->
+  <div class="lms-card">
+    <h3 class="card-inner-title">Quiz Settings</h3>
+    <form method="post">
+      <input type="hidden" name="action" value="save_meta">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quiz Title</label>
+          <input type="text" name="title" class="form-input" value="{{ quiz.title if quiz else mod.title + ' Quiz' }}">
+        </div>
+        <div class="form-group form-group-sm">
+          <label class="form-label">Time Limit (min)</label>
+          <input type="number" name="time_limit" class="form-input" value="{{ quiz.time_limit_mins if quiz else 30 }}" min="5" max="180">
+        </div>
+        <div class="form-group form-group-sm">
+          <label class="form-label">Passing Score (%)</label>
+          <input type="number" name="passing_score" class="form-input" value="{{ quiz.passing_score if quiz else 70 }}" min="1" max="100">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-input" rows="2">{{ quiz.description if quiz else '' }}</textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button>
+        {% if quiz %}
+        <div style="display:flex; gap:8px; align-items:center">
+          <label class="form-label" style="margin:0">Questions to generate:</label>
+          <input type="number" id="num-questions" class="form-input" value="10" min="1" max="50" style="width:80px">
+          <button type="button" id="ai-gen-btn" class="btn-outline" onclick="generateWithAI()">
+            <i class="fa-solid fa-robot"></i> Generate with AI
+          </button>
+        </div>
+        {% if quiz.is_published %}
+        <button form="unpublish-form" class="btn-ghost"><i class="fa-solid fa-eye-slash"></i> Unpublish</button>
+        {% else %}
+        <button form="publish-form" class="btn-primary" {% if not questions %}disabled title="Add questions first"{% endif %}>
+          <i class="fa-solid fa-globe"></i> Publish Quiz
+        </button>
+        {% endif %}
+        {% endif %}
+      </div>
+    </form>
+    {% if quiz %}
+    <form id="publish-form" action="/lms/modules/{{ mod.id }}/quiz" method="post">
+      <input type="hidden" name="action" value="publish">
+    </form>
+    <form id="unpublish-form" action="/lms/modules/{{ mod.id }}/quiz" method="post">
+      <input type="hidden" name="action" value="unpublish">
+    </form>
+    {% endif %}
+  </div>
+
+  {% if quiz %}
+  <!-- Questions -->
+  <div class="lms-card">
+    <div class="card-section-header">
+      <h3 class="card-inner-title">Questions <span class="badge badge-gray">{{ questions|length }}</span></h3>
+      <button type="button" class="btn-sm btn-outline" onclick="addQuestion()">
+        <i class="fa-solid fa-plus"></i> Add Question
+      </button>
+    </div>
+    <form method="post" id="questions-form">
+      <input type="hidden" name="action" value="save_questions">
+      <div id="questions-container">
+        {% for q in questions %}
+        {% set qi = loop.index0 %}
+        <div class="question-block" data-qi="{{ qi }}">
+          <div class="question-header">
+            <span class="question-num">Q{{ loop.index }}</span>
+            <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="form-group" style="margin:0">
+              <input type="text" name="q_text[]" class="form-input" value="{{ q.question_text }}"
+                     placeholder="Question text" required>
+            </div>
+            <div class="form-group" style="margin:0">
+              <select name="q_type[]" class="form-input" onchange="toggleQuestionType(this, {{ qi }})">
+                <option value="multiple_choice" {% if q.question_type == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
+                <option value="identification" {% if q.question_type == 'identification' %}selected{% endif %}>Identification</option>
+                <option value="enumeration" {% if q.question_type == 'enumeration' %}selected{% endif %}>Enumeration</option>
+                <option value="essay" {% if q.question_type == 'essay' %}selected{% endif %}>Essay</option>
+              </select>
+            </div>
+          </div>
+          <div class="choices-list" {% if q.question_type != 'multiple_choice' %}style="display:none"{% endif %}>
+            {% for c in q.choices %}
+            <div class="choice-row">
+              <input type="radio" name="c_correct_{{ qi }}" value="{{ loop.index0 }}"
+                     {% if c.is_correct %}checked{% endif %} class="choice-radio">
+              <input type="text" name="c_text_{{ qi }}[]" class="form-input choice-input"
+                     value="{{ c.choice_text }}" placeholder="Choice {{ loop.index }}">
+              <button type="button" class="btn-xs btn-ghost" onclick="removeChoice(this)"><i class="fa-solid fa-times"></i></button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn-xs btn-ghost" onclick="addChoice(this, {{ qi }})"
+                  {% if q.question_type != 'multiple_choice' %}style="display:none"{% endif %}>
+            <i class="fa-solid fa-plus"></i> Add Choice
+          </button>
+          <div class="correct-answer-field" {% if q.question_type == 'multiple_choice' or q.question_type == 'essay' %}style="display:none"{% endif %}>
+            <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
+            <input type="text" name="q_correct_{{ qi }}" class="form-input"
+                   value="{{ q.correct_answer or '' }}"
+                   placeholder="{% if q.question_type == 'enumeration' %}Separate items with commas{% else %}Type the expected answer{% endif %}">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if questions %}
+      <div class="form-actions" style="margin-top:16px">
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Questions</button>
+      </div>
+      {% endif %}
+    </form>
+    {% if not questions %}
+    <p class="lms-empty-inline">No questions yet. Add one above or generate with AI.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div id="ai-loading" style="display:none" class="ai-loading-banner">
+    <i class="fa-solid fa-circle-notch fa-spin"></i> AI is generating quiz questions…
+  </div>
+
+</div>
+</div>
+
+<script>
+let qCount = {{ questions|length }};
+
+function toggleQuestionType(select, qi) {
+  const block = select.closest('.question-block');
+  const type = select.value;
+  const choicesList = block.querySelector('.choices-list');
+  const addChoiceBtn = block.querySelector('button[onclick*="addChoice"]');
+  const correctAnswerField = block.querySelector('.correct-answer-field');
+
+  if (type === 'multiple_choice') {
+    choicesList.style.display = '';
+    addChoiceBtn.style.display = '';
+    correctAnswerField.style.display = 'none';
+  } else if (type === 'essay') {
+    choicesList.style.display = 'none';
+    addChoiceBtn.style.display = 'none';
+    correctAnswerField.style.display = 'none';
+  } else {
+    choicesList.style.display = 'none';
+    addChoiceBtn.style.display = 'none';
+    correctAnswerField.style.display = '';
+  }
+}
+
+function addQuestion() {
+  const qi = qCount++;
+  const container = document.getElementById('questions-container');
+  const div = document.createElement('div');
+  div.className = 'question-block';
+  div.dataset.qi = qi;
+  div.innerHTML = `
+    <div class="question-header">
+      <span class="question-num">Q${qi+1}</span>
+      <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)"><i class="fa-solid fa-trash"></i></button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="form-group" style="margin:0">
+        <input type="text" name="q_text[]" class="form-input" placeholder="Question text" required>
+      </div>
+      <div class="form-group" style="margin:0">
+        <select name="q_type[]" class="form-input" onchange="toggleQuestionType(this, ${qi})">
+          <option value="multiple_choice" selected>Multiple Choice</option>
+          <option value="identification">Identification</option>
+          <option value="enumeration">Enumeration</option>
+          <option value="essay">Essay</option>
+        </select>
+      </div>
+    </div>
+    <div class="choices-list">
+      ${[0,1,2,3].map(i=>`
+        <div class="choice-row">
+          <input type="radio" name="c_correct_${qi}" value="${i}" class="choice-radio" ${i===0?'checked':''}>
+          <input type="text" name="c_text_${qi}[]" class="form-input choice-input" placeholder="Choice ${i+1}">
+          <button type="button" class="btn-xs btn-ghost" onclick="removeChoice(this)"><i class="fa-solid fa-times"></i></button>
+        </div>`).join('')}
+    </div>
+    <button type="button" class="btn-xs btn-ghost" onclick="addChoice(this, ${qi})"><i class="fa-solid fa-plus"></i> Add Choice</button>
+    <div class="correct-answer-field" style="display:none">
+      <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
+      <input type="text" name="q_correct_${qi}" class="form-input" placeholder="Type the expected answer">
+    </div>`;
+  container.appendChild(div);
+  renumberQuestions();
+}
+
+function removeQuestion(btn) {
+  btn.closest('.question-block').remove();
+  renumberQuestions();
+}
+
+function addChoice(btn, qi) {
+  const list   = btn.previousElementSibling;
+  const count  = list.querySelectorAll('.choice-row').length;
+  const div    = document.createElement('div');
+  div.className = 'choice-row';
+  div.innerHTML = `<input type="radio" name="c_correct_${qi}" value="${count}" class="choice-radio">
+    <input type="text" name="c_text_${qi}[]" class="form-input choice-input" placeholder="Choice ${count+1}">
+    <button type="button" class="btn-xs btn-ghost" onclick="removeChoice(this)"><i class="fa-solid fa-times"></i></button>`;
+  list.appendChild(div);
+}
+
+function removeChoice(btn) {
+  if (btn.closest('.choices-list').querySelectorAll('.choice-row').length > 2) {
+    btn.closest('.choice-row').remove();
+  }
+}
+
+function renumberQuestions() {
+  document.querySelectorAll('.question-block').forEach((b, i) => {
+    b.querySelector('.question-num').textContent = `Q${i+1}`;
+  });
+}
+
+async function generateWithAI() {
+  const btn = document.getElementById('ai-gen-btn');
+  const loading = document.getElementById('ai-loading');
+  const numQuestions = document.getElementById('num-questions').value;
+  btn.disabled = true;
+  loading.style.display = 'flex';
+  try {
+    const res  = await fetch('/lms/modules/{{ mod.id }}/quiz/generate', {
+      method:'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({num_questions: parseInt(numQuestions)})
+    });
+    const data = await res.json();
+    loading.style.display = 'none';
+    if (data.error) { alert('Error: ' + data.error); btn.disabled = false; return; }
+    const container = document.getElementById('questions-container');
+    container.innerHTML = '';
+    qCount = 0;
+    data.questions.forEach(q => {
+      const qi = qCount++;
+      const correctIdx = q.choices ? q.choices.findIndex(c => c.is_correct) : -1;
+      const div = document.createElement('div');
+      div.className = 'question-block';
+      div.dataset.qi = qi;
+      div.innerHTML = `
+        <div class="question-header">
+          <span class="question-num">Q${qi+1}</span>
+          <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div class="form-group" style="margin:0">
+            <input type="text" name="q_text[]" class="form-input" value="${q.text.replace(/"/g,'&quot;')}" required>
+          </div>
+          <div class="form-group" style="margin:0">
+            <select name="q_type[]" class="form-input" onchange="toggleQuestionType(this, ${qi})">
+              <option value="multiple_choice" selected>Multiple Choice</option>
+              <option value="identification">Identification</option>
+              <option value="enumeration">Enumeration</option>
+              <option value="essay">Essay</option>
+            </select>
+          </div>
+        </div>
+        <div class="choices-list">
+          ${q.choices.map((c,i)=>`
+            <div class="choice-row">
+              <input type="radio" name="c_correct_${qi}" value="${i}" class="choice-radio" ${i===correctIdx?'checked':''}>
+              <input type="text" name="c_text_${qi}[]" class="form-input choice-input" value="${c.text.replace(/"/g,'&quot;')}">
+              <button type="button" class="btn-xs btn-ghost" onclick="removeChoice(this)"><i class="fa-solid fa-times"></i></button>
+            </div>`).join('')}
+        </div>
+        <button type="button" class="btn-xs btn-ghost" onclick="addChoice(this,${qi})"><i class="fa-solid fa-plus"></i> Add Choice</button>
+        <div class="correct-answer-field" style="display:none">
+          <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
+          <input type="text" name="q_correct_${qi}" class="form-input" placeholder="Type the expected answer">
+        </div>`;
+      container.appendChild(div);
+    });
+    // Show save button
+    document.getElementById('questions-form').insertAdjacentHTML('beforeend',
+      '<div class="form-actions" style="margin-top:16px"><button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save AI Questions</button></div>');
+  } catch(e) {
+    loading.style.display = 'none';
+    alert('AI generation failed: ' + e.message);
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

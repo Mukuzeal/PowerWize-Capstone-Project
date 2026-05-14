@@ -1,0 +1,230 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificates – LMS</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+<style>
+  .cert-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+  @media(min-width:560px){.cert-stats{grid-template-columns:repeat(3,1fr)}}
+  .cert-stat{background:#fff;border-radius:14px;box-shadow:var(--shadow);
+    padding:18px 20px;display:flex;align-items:center;gap:14px}
+  .cert-stat-icon{width:44px;height:44px;border-radius:12px;display:flex;
+    align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .cert-stat-num{font-size:26px;font-weight:700;line-height:1;margin:0 0 2px}
+  .cert-stat-label{font-size:11px;color:var(--gray);font-weight:500;margin:0}
+  .eligible-hero{display:flex;align-items:center;gap:14px;padding:18px 20px;
+    background:linear-gradient(135deg,#F0FDF4,#DCFCE7);border-radius:16px;
+    border:1.5px solid #86EFAC;margin-bottom:16px}
+  .eligible-hero-icon{width:48px;height:48px;border-radius:12px;
+    background:linear-gradient(135deg,var(--green-dk),var(--green-pr));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:20px;flex-shrink:0;box-shadow:0 4px 12px rgba(22,88,60,.3)}
+  .eligible-hero-title{font-size:15px;font-weight:700;color:var(--green-dk);margin:0 0 2px}
+  .eligible-hero-sub{font-size:12px;color:#166534;margin:0}
+  .eligible-row-v2{display:flex;align-items:center;gap:12px;padding:14px 16px;
+    background:#F9FAFB;border-radius:12px;transition:background .15s}
+  .eligible-row-v2:hover{background:var(--green-lt)}
+  .eligible-row-v2+.eligible-row-v2{margin-top:8px}
+  .elig-avatar{width:40px;height:40px;border-radius:50%;
+    background:linear-gradient(135deg,var(--green-dk),var(--green-pr));
+    color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;
+    justify-content:center;flex-shrink:0;text-transform:uppercase}
+  .elig-name{font-size:13px;font-weight:700;color:#111827;margin:0 0 1px}
+  .elig-email{font-size:11px;color:var(--gray);margin:0}
+  .elig-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+  .modules-done{display:flex;align-items:center;gap:6px;font-size:12px;
+    font-weight:600;color:#166534;background:#DCFCE7;padding:4px 10px;
+    border-radius:20px;white-space:nowrap}
+  .issued-hero{display:flex;align-items:center;gap:14px;padding:16px 20px;
+    background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-radius:16px;
+    border:1.5px solid #BFDBFE;margin-bottom:16px}
+  .issued-hero-icon{width:44px;height:44px;border-radius:12px;
+    background:linear-gradient(135deg,#1D4ED8,#3B82F6);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:18px;flex-shrink:0}
+  .issued-hero-title{font-size:15px;font-weight:700;color:#1D4ED8;margin:0 0 2px}
+  .issued-hero-sub{font-size:12px;color:#1e40af;margin:0}
+  .cert-avatar{width:36px;height:36px;border-radius:50%;
+    background:linear-gradient(135deg,#1D4ED8,#6366F1);
+    color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;
+    justify-content:center;flex-shrink:0;text-transform:uppercase}
+  .trainee-cell{display:flex;align-items:center;gap:10px}
+  .trainee-name{font-weight:600;font-size:13px;color:#111827;margin:0 0 1px}
+  .trainee-email-sm{font-size:11px;color:var(--gray);margin:0}
+  .cert-id-chip{font-family:monospace;font-size:11px;background:#F3F4F6;
+    color:#374151;padding:3px 8px;border-radius:6px;letter-spacing:.4px}
+  .no-eligible{display:flex;flex-direction:column;align-items:center;
+    text-align:center;padding:32px 24px;gap:10px}
+  .no-eligible i{font-size:40px;color:#D1D5DB}
+  .no-eligible p{font-size:13px;color:var(--gray);margin:0}
+</style>
+</head>
+<body>
+{{ header("Training Modules") }}
+
+{% set on_chain_count = certs | selectattr('tx_hash') | list | length %}
+
+<div class="page-body">
+<div class="lms-wrap">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title">
+        <i class="fa-solid fa-certificate"></i> Certificates
+      </h2>
+      <p class="lms-page-sub">Issue and manage certificates for trainees who completed all modules.</p>
+    </div>
+    <a href="/lms/modules" class="btn-ghost">
+      <i class="fa-solid fa-arrow-left"></i> Modules
+    </a>
+  </div>
+
+  <!-- Stats -->
+  <div class="cert-stats">
+    <div class="cert-stat">
+      <div class="cert-stat-icon" style="background:#FEF9C3;color:#854D0E">
+        <i class="fa-solid fa-user-check"></i>
+      </div>
+      <div>
+        <div class="cert-stat-num" style="color:#854D0E">{{ eligible | length }}</div>
+        <div class="cert-stat-label">Eligible</div>
+      </div>
+    </div>
+    <div class="cert-stat">
+      <div class="cert-stat-icon" style="background:#DCFCE7;color:#166534">
+        <i class="fa-solid fa-certificate"></i>
+      </div>
+      <div>
+        <div class="cert-stat-num" style="color:#166534">{{ certs | length }}</div>
+        <div class="cert-stat-label">Issued</div>
+      </div>
+    </div>
+    <div class="cert-stat" style="grid-column:span 2">
+      <div class="cert-stat-icon" style="background:#EFF6FF;color:#1D4ED8">
+        <i class="fa-solid fa-link"></i>
+      </div>
+      <div>
+        <div class="cert-stat-num" style="color:#1D4ED8">{{ on_chain_count }}</div>
+        <div class="cert-stat-label">On Blockchain</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Eligible trainees -->
+  <div class="lms-card" style="margin-bottom:16px">
+    <div class="eligible-hero">
+      <div class="eligible-hero-icon"><i class="fa-solid fa-user-graduate"></i></div>
+      <div>
+        <div class="eligible-hero-title">Eligible Trainees</div>
+        <div class="eligible-hero-sub">These trainees have completed all published modules and are ready to receive a certificate.</div>
+      </div>
+    </div>
+
+    {% if eligible %}
+      {% for u in eligible %}
+      {% set initials = (u.fname[0] if u.fname else '') ~ (u.lname[0] if u.lname else '') %}
+      <div class="eligible-row-v2">
+        <div class="elig-avatar">{{ initials }}</div>
+        <div>
+          <div class="elig-name">{{ u.fname }} {{ u.lname }}</div>
+          <div class="elig-email">{{ u.email }}</div>
+        </div>
+        <div class="elig-right">
+          <div class="modules-done">
+            <i class="fa-solid fa-circle-check"></i>
+            {{ u.completed_count }}/{{ u.total_modules }} modules
+          </div>
+          <form action="/lms/certificates/issue/{{ u.id }}" method="post" style="display:inline">
+            <button class="btn-sm btn-primary" type="submit">
+              <i class="fa-solid fa-certificate"></i> Issue Certificate
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="no-eligible">
+        <i class="fa-solid fa-user-check"></i>
+        <p>No eligible trainees right now.</p>
+        <p style="font-size:11px;color:#9CA3AF">Trainees must complete all published modules (quiz + exam) before they appear here.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Issued certificates -->
+  <div class="lms-card">
+    <div class="issued-hero">
+      <div class="issued-hero-icon"><i class="fa-solid fa-list-check"></i></div>
+      <div>
+        <div class="issued-hero-title">Issued Certificates</div>
+        <div class="issued-hero-sub">All certificates issued to date. Each has a unique verifiable ID.</div>
+      </div>
+    </div>
+
+    {% if certs %}
+    <div class="lms-table-wrap">
+      <table class="lms-table">
+        <thead>
+          <tr>
+            <th>Trainee</th>
+            <th>Certificate ID</th>
+            <th>Issued</th>
+            <th>Blockchain</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in certs %}
+          {% set initials = (c.fname[0] if c.fname else '') ~ (c.lname[0] if c.lname else '') %}
+          <tr>
+            <td>
+              <div class="trainee-cell">
+                <div class="cert-avatar">{{ initials }}</div>
+                <div>
+                  <div class="trainee-name">{{ c.fname }} {{ c.lname }}</div>
+                  <div class="trainee-email-sm">{{ c.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="cert-id-chip">{{ c.cert_id[:20] }}…</span>
+            </td>
+            <td style="font-size:12px;color:var(--gray);white-space:nowrap">
+              {{ c.issued_at.strftime('%b %d, %Y') if c.issued_at else '–”' }}
+            </td>
+            <td>
+              {% if c.tx_hash %}
+              <span class="badge badge-green">
+                <i class="fa-solid fa-link"></i> On-chain
+              </span>
+              {% else %}
+              <span class="badge badge-gray">Off-chain</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="/lms/certificates/verify/{{ c.cert_id }}" target="_blank"
+                 class="btn-xs btn-outline" style="white-space:nowrap">
+                <i class="fa-solid fa-qrcode"></i> Verify
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:28px 16px;color:var(--gray);font-size:13px">
+      <i class="fa-solid fa-certificate" style="font-size:32px;color:#D1D5DB;display:block;margin-bottom:10px"></i>
+      No certificates have been issued yet.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+</div>
+</body>
+</html>

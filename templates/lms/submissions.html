@@ -1,0 +1,331 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exam Submissions – LMS</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+<style>
+  .sub-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+  @media(min-width:560px){.sub-stats{grid-template-columns:repeat(4,1fr)}}
+  .sub-stat{background:#fff;border-radius:14px;box-shadow:var(--shadow);
+    padding:16px 18px;display:flex;align-items:center;gap:14px}
+  .sub-stat-icon{width:42px;height:42px;border-radius:12px;display:flex;
+    align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .sub-stat-num{font-size:24px;font-weight:700;line-height:1;margin:0 0 2px}
+  .sub-stat-label{font-size:11px;color:var(--gray);font-weight:500;margin:0}
+  .filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .filter-btn{padding:6px 14px;border-radius:20px;border:1.5px solid #E5E7EB;
+    background:#fff;font-size:12px;font-weight:600;color:#374151;cursor:pointer;
+    transition:all .15s;white-space:nowrap}
+  .filter-btn:hover{border-color:var(--green-md);color:var(--green-pr)}
+  .filter-btn.active{background:var(--green-pr);border-color:var(--green-pr);color:#fff}
+  .trainee-avatar{width:36px;height:36px;border-radius:50%;
+    background:linear-gradient(135deg,var(--green-dk),var(--green-pr));
+    color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;
+    justify-content:center;flex-shrink:0;text-transform:uppercase}
+  .trainee-cell{display:flex;align-items:center;gap:10px}
+  .trainee-name{font-weight:600;font-size:13px;color:#111827;margin:0 0 1px}
+  .trainee-email{font-size:11px;color:var(--gray);margin:0}
+  .grade-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;
+    border-radius:20px;font-size:12px;font-weight:700}
+  .grade-pill.pass{background:#DCFCE7;color:#166534}
+  .grade-pill.fail{background:#FEF2F2;color:#DC2626}
+  .grade-pill.pending{background:#F3F4F6;color:#4B5563}
+  .modal-file-section{display:flex;align-items:center;gap:12px;padding:12px 14px;
+    background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1.5px solid #BFDBFE;
+    border-radius:12px;margin-bottom:16px;text-decoration:none}
+  .modal-file-section i{font-size:20px;color:#1D4ED8;flex-shrink:0}
+  .modal-file-section strong{display:block;font-size:13px;font-weight:700;color:#1D4ED8;margin-bottom:1px}
+  .modal-file-section span{font-size:11px;color:#1e40af}
+  .grade-bar-wrap{margin-bottom:10px}
+  .grade-bar{height:4px;border-radius:4px;background:#E5E7EB;overflow:hidden;margin-top:6px}
+  .grade-bar-fill{height:100%;border-radius:4px;transition:width .3s}
+  .modal-box{max-width:520px}
+</style>
+</head>
+<body>
+{{ header("Training Modules") }}
+
+{% set ns = namespace(pending=0, passed=0, failed=0) %}
+{% for s in submissions %}
+  {% if s.grade is none %}{% set ns.pending = ns.pending + 1 %}
+  {% elif s.grade >= 70 %}{% set ns.passed = ns.passed + 1 %}
+  {% else %}{% set ns.failed = ns.failed + 1 %}{% endif %}
+{% endfor %}
+
+<div class="page-body">
+<div class="lms-wrap">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title"><i class="fa-solid fa-inbox"></i> Exam Submissions</h2>
+      <p class="lms-page-sub">Review and grade trainee practical exam submissions.</p>
+    </div>
+    <a href="/lms/modules" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Modules</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="sub-stats">
+    <div class="sub-stat">
+      <div class="sub-stat-icon" style="background:#F3F4F6;color:#374151">
+        <i class="fa-solid fa-inbox"></i>
+      </div>
+      <div>
+        <div class="sub-stat-num" style="color:#111827">{{ submissions | length }}</div>
+        <div class="sub-stat-label">Total</div>
+      </div>
+    </div>
+    <div class="sub-stat">
+      <div class="sub-stat-icon" style="background:#FEF9C3;color:#854D0E">
+        <i class="fa-solid fa-clock"></i>
+      </div>
+      <div>
+        <div class="sub-stat-num" style="color:#854D0E">{{ ns.pending }}</div>
+        <div class="sub-stat-label">Pending</div>
+      </div>
+    </div>
+    <div class="sub-stat">
+      <div class="sub-stat-icon" style="background:#DCFCE7;color:#166534">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <div class="sub-stat-num" style="color:#166534">{{ ns.passed }}</div>
+        <div class="sub-stat-label">Passed</div>
+      </div>
+    </div>
+    <div class="sub-stat">
+      <div class="sub-stat-icon" style="background:#FEF2F2;color:#DC2626">
+        <i class="fa-solid fa-circle-xmark"></i>
+      </div>
+      <div>
+        <div class="sub-stat-num" style="color:#DC2626">{{ ns.failed }}</div>
+        <div class="sub-stat-label">Failed</div>
+      </div>
+    </div>
+  </div>
+
+  {% if submissions %}
+  <!-- Filter tabs -->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterRows('all', this)">All ({{ submissions | length }})</button>
+    <button class="filter-btn" onclick="filterRows('pending', this)">
+      <i class="fa-solid fa-clock"></i> Pending ({{ ns.pending }})
+    </button>
+    <button class="filter-btn" onclick="filterRows('passed', this)">
+      <i class="fa-solid fa-circle-check"></i> Passed ({{ ns.passed }})
+    </button>
+    <button class="filter-btn" onclick="filterRows('failed', this)">
+      <i class="fa-solid fa-circle-xmark"></i> Failed ({{ ns.failed }})
+    </button>
+  </div>
+
+  <div class="lms-card" style="padding:0;overflow:hidden">
+    <div class="lms-table-wrap">
+      <table class="lms-table" id="sub-table">
+        <thead>
+          <tr>
+            <th>Trainee</th>
+            <th>Module</th>
+            <th>Exam</th>
+            <th>Submitted</th>
+            <th>Grade</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in submissions %}
+          {% set initials = (s.fname[0] if s.fname else '') ~ (s.lname[0] if s.lname else '') %}
+          {% if s.grade is none %}
+            {% set row_status = 'pending' %}
+          {% elif s.grade >= 70 %}
+            {% set row_status = 'passed' %}
+          {% else %}
+            {% set row_status = 'failed' %}
+          {% endif %}
+          <tr data-status="{{ row_status }}">
+            <td>
+              <div class="trainee-cell">
+                <div class="trainee-avatar">{{ initials }}</div>
+                <div>
+                  <div class="trainee-name">{{ s.fname }} {{ s.lname }}</div>
+                  <div class="trainee-email">{{ s.email }}</div>
+                </div>
+              </div>
+            </td>
+            <td style="font-size:13px;color:#374151;max-width:160px">{{ s.module_title }}</td>
+            <td style="font-size:13px;color:#374151;max-width:140px">{{ s.exam_title }}</td>
+            <td style="font-size:12px;color:var(--gray);white-space:nowrap">
+              {{ s.submitted_at.strftime('%b %d, %Y') if s.submitted_at else '–”' }}<br>
+              <span style="font-size:11px">{{ s.submitted_at.strftime('%I:%M %p') if s.submitted_at else '' }}</span>
+            </td>
+            <td>
+              {% if s.grade is not none %}
+                <div class="grade-pill {{ 'pass' if s.grade >= 70 else 'fail' }}">
+                  {% if s.grade >= 70 %}
+                    <i class="fa-solid fa-circle-check"></i>
+                  {% else %}
+                    <i class="fa-solid fa-circle-xmark"></i>
+                  {% endif %}
+                  {{ s.grade }}/100
+                </div>
+              {% else %}
+                <div class="grade-pill pending">
+                  <i class="fa-solid fa-clock"></i> Pending
+                </div>
+              {% endif %}
+            </td>
+            <td>
+              <button class="btn-sm btn-outline" style="white-space:nowrap"
+                onclick="openGradeModal({{ s.id }}, '{{ s.fname }} {{ s.lname }}', '{{ initials }}', {{ s.grade if s.grade is not none else 'null' }}, `{{ (s.feedback or '') | replace('`', "'") }}`, '{{ s.file_path or '' }}')">
+                <i class="fa-solid fa-pen-to-square"></i>
+                {{ 'Re-grade' if s.grade is not none else 'Grade' }}
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="lms-card">
+    <div class="lms-empty">
+      <i class="fa-solid fa-inbox" style="color:#D1D5DB"></i>
+      <p style="color:var(--gray);font-size:14px">No submissions yet.</p>
+      <p style="font-size:12px;color:#9CA3AF">Trainee submissions will appear here once they complete a practical exam.</p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+
+<!-- Grade Modal -->
+<div id="grade-modal" class="modal-overlay" style="display:none" onclick="handleOverlayClick(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 style="display:flex;align-items:center;gap:10px">
+        <span id="modal-avatar" style="width:32px;height:32px;border-radius:50%;
+          background:linear-gradient(135deg,var(--green-dk),var(--green-pr));
+          color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;
+          justify-content:center;flex-shrink:0"></span>
+        Grade Submission
+      </h3>
+      <button onclick="closeGradeModal()" class="modal-close"><i class="fa-solid fa-times"></i></button>
+    </div>
+    <p id="modal-trainee" class="modal-sub" style="margin-bottom:14px"></p>
+
+    <a id="modal-file-link" href="#" target="_blank" class="modal-file-section" style="display:none">
+      <i class="fa-solid fa-file-arrow-down"></i>
+      <div>
+        <strong>View Submission File</strong>
+        <span>Click to open in a new tab</span>
+      </div>
+      <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left:auto;color:#3B82F6;font-size:14px"></i>
+    </a>
+
+    <!-- Exam answers section -->
+    <div id="modal-answers-section" style="display:none;margin-bottom:20px;padding:16px;background:#FEF3C7;border-radius:12px">
+      <h4 style="margin:0 0 12px;color:#B45309"><i class="fa-solid fa-list"></i> Exam Answers (Needs Review)</h4>
+      <div id="modal-answers-list"></div>
+    </div>
+
+    <form id="grade-form" method="post">
+      <div class="form-group">
+        <label class="form-label">Grade (0 –“ 100) <span class="req">*</span></label>
+        <input type="number" name="grade" id="modal-grade" class="form-input"
+               min="0" max="100" placeholder="Enter score…" required
+               oninput="updateGradeBar(this.value)">
+        <div class="grade-bar-wrap">
+          <div class="grade-bar">
+            <div class="grade-bar-fill" id="grade-bar-fill" style="width:0%;background:var(--green-pr)"></div>
+          </div>
+        </div>
+        <div class="form-hint">Passing score is 70. Trainees are notified of their result.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Feedback</label>
+        <textarea name="feedback" id="modal-feedback" class="form-input form-textarea" rows="4"
+                  placeholder="Provide constructive feedback to help the trainee improve…"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" onclick="closeGradeModal()" class="btn-ghost">Cancel</button>
+        <button type="submit" class="btn-primary">
+          <i class="fa-solid fa-check"></i> Submit Grade
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function filterRows(status, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#sub-table tbody tr').forEach(row => {
+    row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+  });
+}
+
+async function openGradeModal(id, name, initials, grade, feedback, filePath) {
+  document.getElementById('grade-modal').style.display = 'flex';
+  document.getElementById('modal-avatar').textContent = initials;
+  document.getElementById('modal-trainee').textContent = name;
+  document.getElementById('grade-form').action = '/lms/submissions/' + id + '/grade';
+  const gradeVal = (grade !== null && grade !== undefined) ? grade : '';
+  document.getElementById('modal-grade').value = gradeVal;
+  document.getElementById('modal-feedback').value = feedback || '';
+  updateGradeBar(gradeVal);
+  const link = document.getElementById('modal-file-link');
+  if (filePath) { link.style.display = 'flex'; link.href = '/lms/exam-files/' + filePath; }
+  else { link.style.display = 'none'; }
+
+  // Check if submission has exam answers (needs_review)
+  try {
+    const res = await fetch('/lms/submissions/' + id + '/answers');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.submission && data.submission.needs_review && data.submission.questions && data.submission.questions.length > 0) {
+        const section = document.getElementById('modal-answers-section');
+        const list = document.getElementById('modal-answers-list');
+        list.innerHTML = '';
+        data.submission.questions.forEach((q, i) => {
+          const div = document.createElement('div');
+          div.style.cssText = 'margin-bottom:12px;padding:10px;background:#fff;border-radius:8px';
+          const qText = document.createElement('div');
+          qText.style.cssText = 'font-weight:600;font-size:13px;color:#111827;margin-bottom:4px';
+          qText.textContent = (i+1) + '. ' + q.question_text;
+          const aText = document.createElement('div');
+          aText.style.cssText = 'font-size:12px;color:#4B5563;white-space:pre-wrap';
+          aText.textContent = (q.answer_text || '(no answer)');
+          div.appendChild(qText);
+          div.appendChild(aText);
+          list.appendChild(div);
+        });
+        section.style.display = '';
+      } else {
+        document.getElementById('modal-answers-section').style.display = 'none';
+      }
+    }
+  } catch(e) {
+    console.log('Could not load exam answers:', e);
+  }
+}
+
+function closeGradeModal() { document.getElementById('grade-modal').style.display = 'none'; }
+
+function handleOverlayClick(e) { if (e.target === e.currentTarget) closeGradeModal(); }
+
+function updateGradeBar(val) {
+  const n = Math.min(100, Math.max(0, parseInt(val) || 0));
+  const fill = document.getElementById('grade-bar-fill');
+  fill.style.width = n + '%';
+  fill.style.background = n >= 70 ? '#16A34A' : n >= 50 ? '#D97706' : '#DC2626';
+}
+</script>
+</body>
+</html>

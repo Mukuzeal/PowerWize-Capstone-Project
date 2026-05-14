@@ -1,0 +1,117 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verify Certificate –“ PowerWize</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("Certificate Verification") }}
+<div class="page-body">
+<div class="lms-wrap lms-wrap-narrow">
+
+  <h2 class="lms-page-title" style="margin-bottom:24px"><i class="fa-solid fa-shield-check"></i> Certificate Verification</h2>
+
+  {% if cert %}
+  <div class="lms-card verify-card">
+    <div class="verify-icon valid"><i class="fa-solid fa-circle-check"></i></div>
+    <h3 class="verify-title valid">Valid Certificate</h3>
+    <p class="verify-sub">This certificate is authentic and was issued by EnergyWize.</p>
+    <div class="verify-details">
+      <div class="verify-row">
+        <span class="verify-label">Recipient</span>
+        <span class="verify-value"><strong>{{ cert.fname }} {{ cert.lname }}</strong></span>
+      </div>
+      <div class="verify-row">
+        <span class="verify-label">Email</span>
+        <span class="verify-value">{{ cert.email }}</span>
+      </div>
+      <div class="verify-row">
+        <span class="verify-label">Issued On</span>
+        <span class="verify-value">{{ cert.issued_at.strftime('%B %d, %Y') if cert.issued_at else 'N/A' }}</span>
+      </div>
+      <div class="verify-row">
+        <span class="verify-label">Certificate ID</span>
+        <span class="verify-value"><code>{{ cert.cert_id }}</code></span>
+      </div>
+      {% if cert.expires_at %}
+      <div class="verify-row">
+        <span class="verify-label">Valid Until</span>
+        <span class="verify-value">
+          {{ cert.expires_at.strftime('%B %d, %Y') }}
+          {% set today_ts = namespace(v=0) %}
+          <span id="expiry-status-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;margin-left:8px;background:#D1FAE5;color:#065F46">
+            <i class="fa-solid fa-calendar-check"></i> Valid
+          </span>
+        </span>
+      </div>
+      {% endif %}
+      {% if cert.tx_hash %}
+      <div class="verify-row">
+        <span class="verify-label">Blockchain Hash</span>
+        <span class="verify-value"><code style="font-size:11px">{{ cert.tx_hash }}</code></span>
+      </div>
+      <div class="verify-row">
+        <span class="verify-label">Blockchain Status</span>
+        <span class="verify-value"><span class="badge badge-green"><i class="fa-solid fa-link"></i> Recorded on Polygon</span></span>
+      </div>
+      {% else %}
+      <div class="verify-row">
+        <span class="verify-label">Blockchain Status</span>
+        <span class="verify-value"><span class="badge badge-gray">Off-chain record</span></span>
+      </div>
+      {% endif %}
+      {% if cert.approver_fname %}
+      <div class="verify-row">
+        <span class="verify-label">Issued By</span>
+        <span class="verify-value">{{ cert.approver_fname }} {{ cert.approver_lname }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if cert.qr_code %}
+    <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #E5E7EB">
+      <p style="font-size:12px;color:#6B7280;margin-bottom:12px"><strong>Verification QR Code</strong></p>
+      <img src="/{{ cert.qr_code }}" alt="Certificate QR Code" style="width:200px;height:200px;border:2px solid #0D5E3B;border-radius:8px">
+      <p style="font-size:11px;color:#6B7280;margin-top:12px">Scan to verify this certificate</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if cert.expires_at %}
+  <script>
+  (function() {
+    var exp   = new Date('{{ cert.expires_at.strftime("%Y-%m-%d") }}');
+    var today = new Date(); today.setHours(0,0,0,0);
+    var days  = Math.floor((exp - today) / 86400000);
+    var badge = document.getElementById('expiry-status-badge');
+    if (!badge) return;
+    if (days < 0) {
+      badge.style.background = '#FEE2E2'; badge.style.color = '#991B1B';
+      badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Expired';
+    } else if (days <= 180) {
+      badge.style.background = '#FEF9C3'; badge.style.color = '#854D0E';
+      badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Expires in ' + days + ' days';
+    }
+  })();
+  </script>
+  {% endif %}
+  {% else %}
+  <div class="lms-card verify-card">
+    <div class="verify-icon invalid"><i class="fa-solid fa-circle-xmark"></i></div>
+    <h3 class="verify-title invalid">Certificate Not Found</h3>
+    <p class="verify-sub">No certificate matches this ID. It may be invalid or was not yet issued.</p>
+  </div>
+  {% endif %}
+
+  <div style="text-align:center;margin-top:16px">
+    <a href="/" class="btn-ghost"><i class="fa-solid fa-house"></i> Back to Home</a>
+  </div>
+
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,171 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practical Exam –“ {{ mod.title }}</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("Training Modules") }}
+<div class="page-body">
+<div class="lms-wrap lms-wrap-narrow">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h2>
+      <p class="lms-page-sub">{{ mod.title }}</p>
+    </div>
+    <a href="/lms/modules/{{ mod.id }}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+
+  <div class="lms-card">
+    <form method="post" id="exam-form">
+      <input type="hidden" name="action" value="save_meta">
+      <div class="form-group">
+        <label class="form-label">Exam Title <span class="req">*</span></label>
+        <input type="text" name="title" class="form-input" value="{{ exam.title if exam else '' }}"
+               placeholder="e.g. Solar Panel Installation Practical" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Task Instructions <span class="req">*</span></label>
+        <textarea name="instructions" class="form-input form-textarea" rows="8" required
+          placeholder="Describe what the trainee must do, step by step…">{{ exam.instructions if exam else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Evaluation Criteria</label>
+        <textarea name="criteria" class="form-input form-textarea" rows="5"
+          placeholder="How will submissions be graded? (rubric, checklist, etc.)">{{ exam.evaluation_criteria if exam else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="lms-checkbox-label">
+          <input type="checkbox" name="requires_camera" {% if exam and exam.requires_camera %}checked{% endif %}>
+          <span><i class="fa-solid fa-camera"></i> Require webcam access during exam</span>
+        </label>
+        <p class="form-hint">If enabled, trainees must grant camera access before viewing the exam.</p>
+      </div>
+      <div class="form-actions">
+        <a href="/lms/modules/{{ mod.id }}" class="btn-ghost">Cancel</a>
+        <button type="submit" class="btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> {{ 'Update Exam' if exam else 'Create Exam' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if exam %}
+  <div class="lms-card" style="margin-top:16px">
+    <h3 class="card-inner-title"><i class="fa-solid fa-list"></i> Exam Questions</h3>
+    <form method="post" id="questions-form">
+      <input type="hidden" name="action" value="save_questions">
+      <div id="exam-questions-container">
+        {% for q in exam_questions %}
+        <div class="question-block" data-qi="{{ loop.index0 }}">
+          <div class="question-header">
+            <span class="question-num">Q{{ loop.index }}</span>
+            <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="form-group" style="margin:0">
+              <input type="text" name="eq_text[]" class="form-input" value="{{ q.question_text }}"
+                     placeholder="Question text" required>
+            </div>
+            <div class="form-group" style="margin:0">
+              <select name="eq_type[]" class="form-input" onchange="toggleExamQuestionType(this, {{ loop.index0 }})">
+                <option value="identification" {% if q.question_type == 'identification' %}selected{% endif %}>Identification</option>
+                <option value="enumeration" {% if q.question_type == 'enumeration' %}selected{% endif %}>Enumeration</option>
+                <option value="essay" {% if q.question_type == 'essay' %}selected{% endif %}>Essay</option>
+              </select>
+            </div>
+          </div>
+          <div class="correct-answer-field" {% if q.question_type == 'essay' %}style="display:none"{% endif %}>
+            <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
+            <input type="text" name="eq_correct_{{ loop.index0 }}" class="form-input"
+                   value="{{ q.correct_answer or '' }}"
+                   placeholder="{% if q.question_type == 'enumeration' %}Separate items with commas{% else %}Type the expected answer{% endif %}">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top:12px">
+        <button type="button" class="btn-xs btn-ghost" onclick="addExamQuestion()">
+          <i class="fa-solid fa-plus"></i> Add Question
+        </button>
+      </div>
+      {% if exam_questions %}
+      <div class="form-actions" style="margin-top:16px">
+        <button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Questions</button>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+  {% endif %}
+
+  {% if exam %}
+  <div class="lms-card" style="margin-top:16px">
+    <h3 class="card-inner-title">Trainee Submissions</h3>
+    <a href="/lms/submissions" class="btn-outline"><i class="fa-solid fa-inbox"></i> View All Submissions</a>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+
+<script>
+let eqCount = {{ exam_questions|length if exam_questions else 0 }};
+
+function toggleExamQuestionType(select, qi) {
+  const block = select.closest('.question-block');
+  const type = select.value;
+  const correctAnswerField = block.querySelector('.correct-answer-field');
+  correctAnswerField.style.display = type === 'essay' ? 'none' : '';
+}
+
+function addExamQuestion() {
+  const qi = eqCount++;
+  const container = document.getElementById('exam-questions-container');
+  const div = document.createElement('div');
+  div.className = 'question-block';
+  div.dataset.qi = qi;
+  div.innerHTML = `
+    <div class="question-header">
+      <span class="question-num">Q${qi+1}</span>
+      <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)"><i class="fa-solid fa-trash"></i></button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="form-group" style="margin:0">
+        <input type="text" name="eq_text[]" class="form-input" placeholder="Question text" required>
+      </div>
+      <div class="form-group" style="margin:0">
+        <select name="eq_type[]" class="form-input" onchange="toggleExamQuestionType(this, ${qi})">
+          <option value="identification" selected>Identification</option>
+          <option value="enumeration">Enumeration</option>
+          <option value="essay">Essay</option>
+        </select>
+      </div>
+    </div>
+    <div class="correct-answer-field">
+      <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
+      <input type="text" name="eq_correct_${qi}" class="form-input" placeholder="Type the expected answer">
+    </div>`;
+  container.appendChild(div);
+  renumberExamQuestions();
+}
+
+function removeQuestion(btn) {
+  btn.closest('.question-block').remove();
+  renumberExamQuestions();
+}
+
+function renumberExamQuestions() {
+  document.querySelectorAll('#exam-questions-container .question-block').forEach((b, i) => {
+    b.querySelector('.question-num').textContent = `Q${i+1}`;
+  });
+}
+</script>
+</body>
+</html>

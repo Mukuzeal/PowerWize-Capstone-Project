@@ -1,0 +1,70 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modules –“ LMS</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("Training Modules") }}
+<div class="page-body">
+<div class="lms-wrap">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title"><i class="fa-solid fa-layer-group"></i> Your Modules</h2>
+      <p class="lms-page-sub">Create and manage training modules for trainees.</p>
+    </div>
+    <a href="/lms/modules/create" class="btn-primary"><i class="fa-solid fa-plus"></i> New Module</a>
+  </div>
+
+  {% if modules %}
+  <div class="module-grid">
+    {% for m in modules %}
+    <div class="module-card">
+      <div class="module-card-header">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+          <span class="module-status-badge {{ 'published' if m.is_published else 'draft' }}">
+            <i class="fa-solid {{ 'fa-globe' if m.is_published else 'fa-pen-to-square' }}"></i>
+            {{ 'Published' if m.is_published else 'Draft' }}
+          </span>
+          <span class="module-status-badge" style="background: #DBEAFE; color: #1E40AF">
+            <i class="fa-solid fa-tag"></i>
+            {% if m.training_type == 'training' %}CEM Training
+            {% elif m.training_type == 'cea_training' %}CEA Training
+            {% elif m.training_type == 'renewal' %}Renewal
+            {% elif m.training_type == 'cea_renewal' %}CEA Renewal
+            {% elif m.training_type == 'cem_renewal' %}CEM Renewal
+            {% else %}{{ m.training_type }}{% endif %}
+          </span>
+        </div>
+        <span class="module-date">{{ m.created_at.strftime('%b %d, %Y') if m.created_at else '' }}</span>
+      </div>
+      <h3 class="module-card-title">{{ m.title }}</h3>
+      <p class="module-card-desc">{{ (m.description or 'No description.')[:120] }}{% if m.description and m.description|length > 120 %}…{% endif %}</p>
+      <div class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname }} {{ m.lname }}</div>
+      <div class="module-card-actions">
+        <a href="/lms/modules/{{ m.id }}" class="btn-sm btn-outline"><i class="fa-solid fa-gear"></i> Manage</a>
+        <a href="/lms/modules/{{ m.id }}/edit" class="btn-sm btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
+        <form action="/lms/modules/{{ m.id }}/delete" method="post" onsubmit="return confirm('Delete this module?')">
+          <button class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="lms-empty">
+    <i class="fa-solid fa-layer-group"></i>
+    <p>No modules yet. Create your first module to get started.</p>
+    <a href="/lms/modules/create" class="btn-primary">Create Module</a>
+  </div>
+  {% endif %}
+
+</div>
+</div>
+</body>
+</html>

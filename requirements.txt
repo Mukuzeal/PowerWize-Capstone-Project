@@ -1,2 +1,11 @@
 flask
 werkzeug
+python-dotenv
+gunicorn
+psycopg2-binary
+web3
+requests
+qrcode[pil]
+Pillow
+pytesseract
+pdf2image

@@ -1,0 +1,155 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complete Payment –“ EnergyWize</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/payment.css">
+</head>
+<body>
+{{ header("Payment") }}
+
+<div class="hero">
+  <span class="hero-tag">Secure Payment</span>
+  <h1>Complete Your<br><em>Training Payment</em></h1>
+  <p>Access to your dashboard is activated after payment confirmation.</p>
+</div>
+
+<div class="page-body">
+  <div class="pay-wrap">
+
+    {% if error %}
+    <div class="err-box shown" style="margin-bottom:16px">
+      <i class="fa-solid fa-circle-exclamation"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="pay-card">
+
+      <!-- Header with amount -->
+      <div class="pay-header">
+        <div class="pay-header-left">
+          <h2>{{ fee.label }}</h2>
+          <p>One-time payment · EnergyWize</p>
+        </div>
+        <div class="pay-amount">
+          <div class="amt-label">Amount Due</div>
+          <div class="amt-value">₱{{ "{:,.2f}".format(fee.total) }}</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="pay-tabs">
+        <button class="pay-tab active" onclick="switchTab('card',this)">
+          <i class="fa-solid fa-credit-card"></i> Credit / Debit Card
+        </button>
+        <button class="pay-tab" onclick="switchTab('qrph',this)">
+          <i class="fa-solid fa-qrcode"></i> QR / E-wallet
+        </button>
+      </div>
+
+      <div class="pay-body">
+        <!-- Error box (JS-populated) -->
+        <div class="err-box" id="err-box"></div>
+
+        <!-- â”€â”€ Card panel â”€â”€ -->
+        <div class="pay-panel active" id="panel-card">
+          <div class="card-icons">
+            <div class="card-icon"><i class="fa-brands fa-cc-visa" style="font-size:20px;color:#1A1F71"></i></div>
+            <div class="card-icon"><i class="fa-brands fa-cc-mastercard" style="font-size:20px;color:#EB001B"></i></div>
+          </div>
+          <div class="card-field">
+            <label>Card Number</label>
+            <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19" autocomplete="cc-number">
+          </div>
+          <div class="card-row">
+            <div class="card-field">
+              <label>Expiry Date</label>
+              <input type="text" id="card-expiry" placeholder="MM / YY" maxlength="7" autocomplete="cc-exp">
+            </div>
+            <div class="card-field">
+              <label>CVV / CVC</label>
+              <input type="text" id="card-cvc" placeholder="123" maxlength="4" autocomplete="cc-csc">
+            </div>
+          </div>
+          <div class="card-field">
+            <label>Name on Card</label>
+            <input type="text" id="card-name" placeholder="Juan dela Cruz" autocomplete="cc-name">
+          </div>
+          {% if fee.has_vat %}
+          <div style="background:var(--green-lt);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#374151;line-height:1.8">
+            <div style="display:flex;justify-content:space-between"><span>Base price</span><span>₱{{ "{:,.2f}".format(fee.base) }}</span></div>
+            <div style="display:flex;justify-content:space-between"><span>VAT (12%)</span><span>₱{{ "{:,.2f}".format(fee.vat) }}</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--green-md);margin-top:6px;padding-top:6px;color:var(--green-dk)"><span>Total</span><span>₱{{ "{:,.2f}".format(fee.total) }}</span></div>
+          </div>
+          {% endif %}
+          <button class="btn-pay" id="btn-card-pay" onclick="payCard()">
+            <i class="fa-solid fa-lock"></i> Pay ₱{{ "{:,.2f}".format(fee.total) }}
+          </button>
+          <p class="pay-note">
+            <i class="fa-solid fa-shield-halved"></i>
+            Card details are processed securely by PayMongo. We never store your card number.
+          </p>
+        </div>
+
+        <!-- â”€â”€ QRPH panel â”€â”€ -->
+        <div class="pay-panel" id="panel-qrph">
+          <div class="qrph-intro">
+            <p>Generate a QR code and scan it with any QRPH-enabled e-wallet to complete your payment.</p>
+            <div class="qrph-wallets">
+              <div class="wallet-badge"><i class="fa-solid fa-mobile-screen-button"></i> GCash</div>
+              <div class="wallet-badge"><i class="fa-solid fa-mobile-screen-button"></i> Maya</div>
+              <div class="wallet-badge"><i class="fa-solid fa-mobile-screen-button"></i> QRPH</div>
+            </div>
+          </div>
+
+          <div class="qr-box" id="qr-box">
+            <div class="qr-status waiting" id="qr-status">
+              <i class="fa-solid fa-spinner fa-spin"></i> Waiting for payment scan…
+            </div>
+            <div class="qr-img-wrap">
+              <img id="qr-img" src="" alt="QR Code">
+            </div>
+            <div class="qr-timer">Expires in <span id="qr-timer">15:00</span></div>
+            <a id="qr-test-link" href="#" target="_blank" style="display:none;font-size:12px;color:var(--green-pr);text-decoration:underline;margin-bottom:12px">
+              <i class="fa-solid fa-flask"></i> Simulate payment (test mode)
+            </a>
+          </div>
+
+          <button class="btn-gen-qr" id="btn-gen-qr" onclick="generateQR()">
+            <i class="fa-solid fa-qrcode"></i> Generate QR Code
+          </button>
+          <p class="pay-note" style="margin-top:14px">
+            <i class="fa-solid fa-shield-halved"></i>
+            Powered by PayMongo · QRPH-enabled wallets only
+          </p>
+        </div>
+      </div><!-- /.pay-body -->
+
+    </div><!-- /.pay-card -->
+
+    <div class="secure-badge">
+      <i class="fa-solid fa-lock"></i> 256-bit encrypted · Powered by PayMongo
+    </div>
+
+    <div style="text-align:center;margin-top:20px">
+      <a href="/auth/logout" style="font-size:12px;color:rgba(255,255,255,0.45);text-decoration:none">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> Log out
+      </a>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
+
+<script src="https://js.paymongo.com/paymongo.js"></script>
+<script>
+var CONFIG = { feeDisplay: "₱{{ '{:,.2f}'.format(fee.total) }}" };
+var paymongo;
+try { paymongo = Paymongo("{{ public_key }}"); } catch(e) {}
+</script>
+<script src="/static/payment.js"></script>
+</body>
+</html>

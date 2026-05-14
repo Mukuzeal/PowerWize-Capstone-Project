@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnergyWize –“ Training Registration Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --green-dk: #0D3B27;
+            --green-pr: #16583C;
+            --green-md: #1E7A4B;
+            --green-lt: #E2F5EC;
+            --gold: #D4A72A;
+            --gold-lt: #FEF3C7;
+            --white: #FAFAF8;
+            --gray: #6B7280;
+            --border: #D1D5DB;
+            --radius: 12px
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--green-dk);
+            color: #1F2937;
+            min-height: 100vh
+        }
+
+        /* â”€â”€ Header â”€â”€ */
+        .site-header {
+            background: var(--green-dk);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 68px;
+            border-bottom: 1px solid rgba(212, 167, 42, 0.25)
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none
+        }
+
+        .logo-img { height: 54px; width: auto; display: block }
+
+        /* â”€â”€ Hero â”€â”€ */
+        .hero {
+            padding: 4.5rem 2rem 3.5rem;
+            text-align: center;
+            background: linear-gradient(160deg, var(--green-dk) 0%, var(--green-pr) 100%);
+            position: relative;
+            overflow: hidden
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212, 167, 42, 0.14) 0%, transparent 70%);
+            pointer-events: none
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
+            background-size: 24px 24px;
+            pointer-events: none
+        }
+
+        .hero-eyebrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 1.25rem;
+            position: relative;
+            z-index: 1
+        }
+
+        .hero-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--gold);
+            border: 1px solid rgba(212, 167, 42, 0.4);
+            padding: 4px 14px;
+            border-radius: 20px
+        }
+
+        .hero h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(1.9rem, 4.5vw, 3.2rem);
+            color: #fff;
+            line-height: 1.15;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1
+        }
+
+        .hero h1 em {
+            font-style: italic;
+            color: var(--gold)
+        }
+
+        .hero-sub {
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.6);
+            max-width: 480px;
+            margin: 0 auto 0.5rem;
+            line-height: 1.7;
+            position: relative;
+            z-index: 1
+        }
+
+        .hero-tagline {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 0.05em;
+            position: relative;
+            z-index: 1
+        }
+
+        /* â”€â”€ Cards section â”€â”€ */
+        .cards-wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem 5rem
+        }
+
+        .section-label {
+            text-align: center;
+            margin-bottom: 2rem
+        }
+
+        .section-label h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 0.35rem
+        }
+
+        .section-label p {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4)
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+            gap: 1.25rem
+        }
+
+        /* â”€â”€ Registration card â”€â”€ */
+        .reg-card {
+            background: var(--white);
+            border-radius: 16px;
+            overflow: hidden;
+            text-decoration: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(212, 167, 42, 0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column
+        }
+
+        .reg-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(212, 167, 42, 0.18)
+        }
+
+        .card-top {
+            padding: 1.5rem 1.5rem 1rem;
+            flex: 1
+        }
+
+        .card-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-bottom: 12px
+        }
+
+        .badge-renewal {
+            background: var(--gold-lt);
+            color: #78350F
+        }
+
+        .badge-cea {
+            background: #D1FAE5;
+            color: #065F46
+        }
+
+        .badge-training {
+            background: #D1FAE5;
+            color: #065F46
+        }
+
+        .card-top h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.25rem;
+            color: var(--green-pr);
+            margin-bottom: 8px;
+            line-height: 1.3
+        }
+
+        .card-top p {
+            font-size: 13px;
+            color: var(--gray);
+            line-height: 1.65
+        }
+
+        .card-fields {
+            padding: 0 1.5rem 1rem
+        }
+
+        .card-fields ul {
+            list-style: none;
+            padding: 0
+        }
+
+        .card-fields li {
+            font-size: 12px;
+            color: #374151;
+            padding: 3px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .card-fields li::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--green-md);
+            flex-shrink: 0
+        }
+
+        .card-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            background: #F9FAFB;
+            display: flex;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .card-footer span {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--green-pr)
+        }
+
+        .arrow {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--green-pr);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            transition: background 0.18s
+        }
+
+        .reg-card:hover .arrow {
+            background: var(--green-md)
+        }
+
+        /* â”€â”€ Footer â”€â”€ */
+        .site-footer {
+            padding: 2.5rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.07)
+        }
+
+        .footer-inner {
+            max-width: 980px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            margin-bottom: 0.25rem
+        }
+
+
+        .footer-tagline {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.25);
+            text-align: center
+        }
+
+        .footer-copy {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.18);
+            text-align: center;
+            margin-top: 0.15rem
+        }
+    </style>
+</head>
+
+<body>
+    <header class="site-header">
+        <a href="/" class="logo">
+            <img src="/static/logo.png" alt="PowerWize" class="logo-img">
+        </a>
+    </header>
+
+    <div class="hero">
+        <div class="hero-eyebrow">
+            <span class="hero-tag">2026 Registration Portal</span>
+        </div>
+        <h1>EnergyWize<br><em>Training Programs</em></h1>
+        <p class="hero-sub">Select the registration form that matches your program below to get started.</p>
+        <p class="hero-tagline">Powering a Sustainable Future · e-Wize Solutions</p>
+    </div>
+
+    <div class="cards-wrap">
+        <div class="section-label">
+            <h2>Choose Your Program</h2>
+            <p>All registration forms are secured and confidential</p>
+        </div>
+        <div class="cards-grid">
+
+            <a href="/renewalCEA" class="reg-card">
+                <div class="card-top">
+                    <span class="card-badge badge-renewal">DOE Renewal</span>
+                    <h2>CEA Certificate Renewal</h2>
+                    <p>For existing DOE-Certified Energy Auditors renewing their expiring certificate.</p>
+                </div>
+                <div class="card-fields">
+                    <ul>
+                        <li>DOE Certificate Expiry Date</li>
+                        <li>Expired DOE-CEA Certificate upload</li>
+                        <li>Training type &amp; schedule selection</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <span>Start CEA Renewal Form</span>
+                    <div class="arrow">â†’</div>
+                </div>
+            </a>
+
+            <a href="/renewalCEM" class="reg-card">
+                <div class="card-top">
+                    <span class="card-badge badge-renewal">DOE Renewal</span>
+                    <h2>CEM Certificate Renewal</h2>
+                    <p>For existing DOE-Certified Energy Managers renewing their expiring certificate.</p>
+                </div>
+                <div class="card-fields">
+                    <ul>
+                        <li>DOE Certificate Expiry Date</li>
+                        <li>Expired DOE-CEM Certificate upload</li>
+                        <li>Training type &amp; schedule selection</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <span>Start CEM Renewal Form</span>
+                    <div class="arrow">â†’</div>
+                </div>
+            </a>
+
+            <a href="/cea-training" class="reg-card">
+                <div class="card-top">
+                    <span class="card-badge badge-cea">New Applicant</span>
+                    <h2>CEA Training Registration</h2>
+                    <p>For new applicants applying for the Certified Energy Auditor training program.</p>
+                </div>
+                <div class="card-fields">
+                    <ul>
+                        <li>Residence / Home Address</li>
+                        <li>Resume or CV upload</li>
+                        <li>PRC ID or government-issued ID</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <span>Start CEA Form</span>
+                    <div class="arrow">â†’</div>
+                </div>
+            </a>
+
+            <a href="/training" class="reg-card">
+                <div class="card-top">
+                    <span class="card-badge badge-training">New Applicant</span>
+                    <h2>CEM Training Registration</h2>
+                    <p>For new applicants applying for the Certified Energy Manager training program.</p>
+                </div>
+                <div class="card-fields">
+                    <ul>
+                        <li>Residence Address</li>
+                        <li>Resume or CV (PDF only)</li>
+                        <li>PRC License or valid ID</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <span>Start CEM Form</span>
+                    <div class="arrow">â†’</div>
+                </div>
+            </a>
+
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <a href="/" class="footer-logo">
+                <img src="/static/logo.png" alt="PowerWize" style="height:40px;width:auto;display:block;opacity:0.7">
+            </a>
+            <p class="footer-tagline">Powering a Sustainable Future · e-Wize Solutions, Makati City</p>
+            <p class="footer-copy">© 2026 EnergyWize · All registration forms are secured and confidential.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

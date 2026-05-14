@@ -1,0 +1,222 @@
+{% from "shared/macros.html" import form_styles, header, upload_field, errors_block, file_js %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEMP Training Registration (Gov't Entity) –“ EnergyWize</title>
+    {{ form_styles() }}
+    <link rel="stylesheet" href="/static/training-form.css">
+</head>
+
+<body>
+    {{ header("GEMP Training Registration") }}
+
+    <div class="hero">
+        <a href="/" class="hero-back"><i class="fa-solid fa-arrow-left"></i> All Registration Forms</a>
+        <span class="hero-tag">For Other Government Entities</span>
+        <h1>Government Energy Management Program<br><em>Training Registration</em></h1>
+        <p>DOE-RTI Registration No. <strong>DOE-RTI-GEMP-25041500008</strong> · Valid until April 21, 2028 · For EEC Officers, Focal Persons, EEC Coordinators, and Authorized Energy Auditors of National Government Agencies and GOCCs.</p>
+    </div>
+
+    <div class="page-body">
+        {{ errors_block(errors) }}
+
+        <form class="form-card" method="POST" action="/gemp-oge/submit" enctype="multipart/form-data" novalidate>
+
+            <!-- Section 1: Participant Information -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-user"></i></div>
+                <div>
+                    <h2>Participant's Information</h2>
+                    <p>Personal and professional details</p>
+                </div>
+            </div>
+            <div class="form-body">
+
+                <div class="row-3">
+                    <div class="field">
+                        <label>Title <span class="req">*</span></label>
+                        <select name="title" required>
+                            <option value="" disabled {% if not form_data %}selected{% endif %}>Select</option>
+                            {% for t in ['Mr.','Miss','Mrs.','Engr.','Arch.','Others'] %}
+                            <option value="{{ t }}" {% if form_data and form_data.get('title')==t %}selected{% endif %}>{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field" style="grid-column:span 2">
+                        <label>Full Name <span class="req">*</span> <span class="hint">(as it will appear on your certificate)</span></label>
+                        <input type="text" name="full_name" placeholder="e.g. Juan A. dela Cruz" value="{{ form_data.get('full_name','') if form_data else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Home Address <span class="req">*</span></label>
+                    <input type="text" name="residence" placeholder="Street, Barangay, City, Province" value="{{ form_data.get('residence','') if form_data else '' }}" required>
+                </div>
+
+                <div class="row-3">
+                    <div class="field">
+                        <label>Age <span class="req">*</span></label>
+                        <input type="number" name="age" min="18" max="100" placeholder="e.g. 35" value="{{ form_data.get('age','') if form_data else '' }}" required readonly>
+                    </div>
+                    <div class="field" style="grid-column:span 2">
+                        <label>Birthdate <span class="req">*</span></label>
+                        <input type="date" name="birthdate" value="{{ form_data.get('birthdate','') if form_data else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div class="field">
+                        <label>Government Agency / GOCC <span class="req">*</span></label>
+                        <input type="text" name="company_name" placeholder="Your agency or office name" value="{{ form_data.get('company_name','') if form_data else '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Designation / Job Title <span class="req">*</span></label>
+                        <input type="text" name="designation" placeholder="e.g. Engineer III" value="{{ form_data.get('designation','') if form_data else '' }}" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Agency / Office Address <span class="req">*</span></label>
+                    <input type="text" name="company_address" placeholder="Street, City, Province" value="{{ form_data.get('company_address','') if form_data else '' }}" required>
+                </div>
+
+                <div class="row-2">
+                    <div class="field">
+                        <label>Contact Number <span class="req">*</span></label>
+                        <input type="tel" name="contact_number" placeholder="+63 9XX XXX XXXX" value="{{ form_data.get('contact_number','') if form_data else '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label>Email Address <span class="req">*</span></label>
+                        <div class="input-icon-wrap">
+                            <i class="fa-solid fa-envelope"></i>
+                            <input type="email" name="email" placeholder="you@example.com" value="{{ form_data.get('email','') if form_data else '' }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>GEMP Role / Designation <span class="req">*</span></label>
+                    <select name="gemp_designation" required>
+                        <option value="" disabled {% if not form_data %}selected{% endif %}>Select your GEMP role</option>
+                        {% set gd = form_data.get('gemp_designation','') if form_data else '' %}
+                        {% set roles = [
+                            'EEC Officer –“ Head of the Energy Efficiency & Conservation Office (EECO) designated by the Head of the Government Entity',
+                            'Focal Person –“ Designated by the Head of the Department-Level Entity to assist the EEC Officer',
+                            'EEC Coordinator –“ Designated person responsible for assisting both the EEC Officer and Focal Person',
+                            'Authorized Energy Auditor –“ Employee of a GE holding a plantilla position with permanent employment status',
+                            'NONE –“ Just want to attend the GEMP Training'
+                        ] %}
+                        {% for r in roles %}
+                        <option value="{{ r }}" {% if gd == r %}selected{% endif %}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-hint" style="font-size:12px;color:#6B7280;margin-top:4px">Select the designation given to you to implement the GEMP.</div>
+                </div>
+
+            </div>
+
+            <!-- Section 2: Uploads -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-paperclip"></i></div>
+                <div>
+                    <h2>Required Document Uploads</h2>
+                    <p>PDF or image · Max 10 MB (Resume must be PDF)</p>
+                </div>
+            </div>
+            <div class="form-body">
+                {{ upload_field("photo_id","photo_id","Recent 2Ã—2 Photo ID","PDF or image · Max 10 MB","fa-image",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('photo_id')) }}
+                {{ upload_field("resume","resume","Updated Resume or CV","PDF only · Max 10 MB","fa-file-lines",".pdf", existing=uploaded.get('resume')) }}
+                {{ upload_field("valid_id","valid_id","Valid PRC ID or Government-Issued ID","PDF or image · Max 10 MB","fa-id-card",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('valid_id')) }}
+            </div>
+
+            <!-- Section 3: Terms -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                <div>
+                    <h2>Terms &amp; Conditions</h2>
+                </div>
+            </div>
+            <div class="form-body">
+                <div class="field">
+                    <label>Do you agree with EnergyWize's <a class="terms-link" href="#" onclick="alert('By registering, you agree to EnergyWize\'s privacy policy and training policies.');return false;">Terms &amp; Conditions</a>? <span class="req">*</span></label>
+                    <div class="radio-group">
+                        <label class="radio-opt success">
+                            <input type="radio" name="agree" value="yes" {% if form_data and form_data.get('agree')=='yes' %}checked{% endif %}> Yes, I agree!
+                        </label>
+                        <label class="radio-opt danger">
+                            <input type="radio" name="agree" value="no" {% if form_data and form_data.get('agree')=='no' %}checked{% endif %}> No
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Training Details -->
+            <div class="section-header">
+                <div class="section-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                <div>
+                    <h2>Training Details</h2>
+                    <p>Select your preferred training modality and schedule</p>
+                </div>
+            </div>
+            <div class="form-body">
+
+                <div class="field">
+                    <label>Training Type <span class="req">*</span></label>
+                    <div class="training-cards">
+                        {% set tt = form_data.get('training_type','') if form_data else '' %}
+                        <label class="training-card {% if 'Online via Zoom' in tt %}selected{% endif %}" onclick="selectTraining(this,'gemp_online')">
+                            <input type="radio" name="training_type" value="Online via Zoom, 3 days" {% if 'Online via Zoom' in tt %}checked{% endif %}>
+                            <div class="tc-icon"><i class="fa-solid fa-laptop"></i></div>
+                            <div class="tc-label">Online via Zoom</div>
+                            <div class="tc-detail">3 days · PHP 7,500 + VAT</div>
+                        </label>
+                        <label class="training-card {% if 'Face-to-Face' in tt %}selected{% endif %}" onclick="selectTraining(this,'gemp_f2f')">
+                            <input type="radio" name="training_type" value="Face-to-Face, 3 days at Marvin Plaza, Chino Roces Ave., Makati City, MM" {% if 'Face-to-Face' in tt %}checked{% endif %}>
+                            <div class="tc-icon"><i class="fa-solid fa-building"></i></div>
+                            <div class="tc-label">Face-to-Face</div>
+                            <div class="tc-detail">3 days · PHP 10,000 + VAT · Makati</div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Choose your schedule (2026) <span class="req">*</span></label>
+                    <div id="schedule-list">
+                        <p id="schedule-placeholder">â† Please select a training type first</p>
+                    </div>
+                    <input type="hidden" name="batch_id" id="schedule-hidden" value="{{ form_data.get('batch_id','') if form_data else '' }}">
+                </div>
+
+                <div class="panel-info" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px 16px;font-size:13px;color:#1E40AF;margin-top:4px">
+                    <strong>Training Modules:</strong> Overview of RA 11285 &amp; GEMP · Incentives and Financing Options · GEMP Online System Workshop · Cost-Benefit Analysis for EEC Projects · Formulation of EECP
+                </div>
+
+            </div>
+
+            <div class="form-footer">
+                <p>All fields marked <strong style="color:var(--gold-dk)">*</strong> are required.</p>
+                <button type="submit" class="btn-submit">Submit Registration <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+
+        </form>
+    </div>
+
+    <footer class="site-footer">© 2026 EnergyWize · DOE-RTI-GEMP-25041500008</footer>
+    {{ file_js() }}
+    <script src="/static/training-form.js"></script>
+    <script>
+    var SCHEDULES = {{ schedules | tojson }};
+    {% if form_data and form_data.get('training_type') %}
+    (function(){
+        var type = "{{ form_data.get('training_type','') }}";
+        var key = type.indexOf('Online via Zoom') !== -1 ? 'gemp_online' : 'gemp_f2f';
+        loadSchedules(key);
+    })();
+    {% endif %}
+    </script>
+</body>
+
+</html>

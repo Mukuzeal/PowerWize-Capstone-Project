@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard – EnergyWize</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        :root{--green-dk:#0D3B27;--green-pr:#16583C;--green-md:#1E7A4B;--green-lt:#E2F5EC;--gold:#D4A72A;--gold-lt:#FEF3C7;--white:#FAFAF8;--gray:#6B7280;--border:#E5E7EB;--sidebar-w:230px}
+        body{font-family:'DM Sans',sans-serif;background:#F3F4F6;color:#1F2937;display:flex;flex-direction:column;min-height:100vh}
+        .topbar{position:fixed;top:0;left:0;right:0;z-index:100;background:var(--green-dk);height:56px;display:flex;align-items:center;border-bottom:1px solid rgba(212,167,42,0.2);padding:0 1.5rem 0 0}
+        .topbar-logo{width:var(--sidebar-w);flex-shrink:0;display:flex;align-items:center;gap:9px;padding:0 1.25rem;border-right:1px solid rgba(255,255,255,0.08)}
+        .topbar-logo-img{height:44px;width:auto;display:block}
+        .topbar-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+        .topbar-badge{font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:0.06em;text-transform:uppercase}
+        .topbar-link{font-size:12px;color:var(--gold);text-decoration:none;font-weight:500}
+        .topbar-link:hover{color:#e6c840}
+        .sidebar{position:fixed;left:0;top:56px;width:var(--sidebar-w);height:calc(100vh - 56px);background:#fff;border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;z-index:99}
+        .nav-section{display:block;padding:12px 16px;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.06em;margin-top:8px}
+        .nav-section:first-child{margin-top:0}
+        .nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;border:none;background:none;color:#1F2937;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;text-align:left}
+        .nav-item:hover{background:#F3F4F6;color:var(--green-pr)}
+        .nav-item.active{background:var(--green-lt);color:var(--green-pr);font-weight:600}
+        .nav-icon{width:18px;display:flex;align-items:center;justify-content:center;font-size:14px}
+        .main{margin-left:var(--sidebar-w);margin-top:56px;padding:2rem;flex:1}
+        .page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;gap:1rem;flex-wrap:wrap}
+        .page-head h1{margin:0;font-size:24px;font-weight:700;color:#111827}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:1.75rem}
+        .stat-card{background:#fff;border-radius:12px;padding:1.1rem 1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);border-left:4px solid var(--border)}
+        .stat-card.c-gold{border-left-color:var(--gold)}
+        .stat-card.c-green{border-left-color:var(--green-md)}
+        .stat-card.c-blue{border-left-color:#3B82F6}
+        .stat-card.c-purple{border-left-color:#8B5CF6}
+        .stat-card .s-label{font-size:12px;color:var(--gray);margin-bottom:4px}
+        .stat-card .s-value{font-size:28px;font-weight:700;color:var(--green-dk);line-height:1}
+        .stat-card .s-sub{font-size:11px;color:var(--gray);margin-top:4px}
+        .panel-card{background:#fff;border-radius:14px;padding:1.75rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);margin-bottom:1.5rem;border:1px solid var(--border)}
+        .panel-title{font-size:16px;font-weight:700;color:#111827;margin-bottom:1.4rem;display:flex;align-items:center;gap:8px}
+        .panel-title i{color:var(--green-md)}
+        .panel-desc{font-size:13px;color:var(--gray);margin-bottom:1.5rem;line-height:1.6}
+        .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--green-pr);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.15s;text-decoration:none}
+        .btn-primary:hover{background:var(--green-md)}
+        .info-box{background:var(--green-lt);padding:12px;border-radius:8px;margin-bottom:16px;border-left:4px solid var(--green-pr)}
+        .info-box p{margin:0;font-size:13px;color:var(--green-dk)}
+        .back-link{display:inline-flex;align-items:center;gap:8px;color:var(--gray);text-decoration:none;margin-top:2rem;padding-bottom:2rem;font-size:13px}
+        .back-link:hover{color:#111827}
+        .footer{text-align:center;padding:2rem 1.5rem;color:var(--gray);font-size:12px;margin-top:auto}
+        @media(max-width:768px){
+            .sidebar{width:56px;padding:8px 0}
+            .main{margin-left:56px;padding:1.5rem}
+            .page-head h1{font-size:20px}
+            .nav-item{padding:12px;justify-content:center}
+            .nav-item span:not(.nav-icon){display:none}
+            .stats-grid{grid-template-columns:1fr 1fr}
+            .panel-card{padding:1.25rem}
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="topbar">
+        <div class="topbar-logo">
+            <img src="/static/logo.png" alt="PowerWize" class="topbar-logo-img">
+        </div>
+        <div class="topbar-right">
+            <span class="topbar-badge">Employee Dashboard</span>
+            <a href="/auth/logout" class="topbar-link"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log out</a>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <span class="nav-section">Overview</span>
+        <button class="nav-item active" onclick="showSection('dashboard', this)">
+            <span class="nav-icon"><i class="fa-solid fa-chart-bar"></i></span>
+            <span>Dashboard</span>
+        </button>
+
+        <span class="nav-section">Manage</span>
+        <button class="nav-item" onclick="showSection('training', this)">
+            <span class="nav-icon"><i class="fa-solid fa-book-open"></i></span>
+            <span>Training Modules</span>
+        </button>
+        <button class="nav-item" onclick="showSection('submissions', this)">
+            <span class="nav-icon"><i class="fa-solid fa-inbox"></i></span>
+            <span>Exam Submissions</span>
+        </button>
+        <button class="nav-item" onclick="showSection('solar', this)">
+            <span class="nav-icon"><i class="fa-solid fa-solar-panel"></i></span>
+            <span>Solar Consultations</span>
+        </button>
+        <button class="nav-item" onclick="showSection('progress', this)">
+            <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span>Trainee Progress</span>
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main">
+
+        <!-- Dashboard Section -->
+        <div id="section-dashboard" class="section active">
+            <div class="page-head">
+                <h1>Dashboard</h1>
+                <span class="topbar-badge" style="background:var(--green-lt);color:var(--green-pr);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">Overview</span>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card c-green">
+                    <div class="s-label">Active Trainees</div>
+                    <div class="s-value">{{ trainee_count }}</div>
+                    <div class="s-sub">enrolled learners</div>
+                </div>
+                <div class="stat-card c-gold">
+                    <div class="s-label">Registrations</div>
+                    <div class="s-value">{{ registrations | length }}</div>
+                    <div class="s-sub">pending review</div>
+                </div>
+                <div class="stat-card c-blue">
+                    <div class="s-label">Upcoming Batches</div>
+                    <div class="s-value">{{ schedules | length }}</div>
+                    <div class="s-sub">scheduled trainings</div>
+                </div>
+                <div class="stat-card c-purple">
+                    <div class="s-label">Solar Requests</div>
+                    <div class="s-value">{{ solar_requests | length }}</div>
+                    <div class="s-sub">consultations</div>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title"><i class="fa-solid fa-book"></i> Training Modules</div>
+                <p class="panel-desc">Create, edit, and manage training modules and quizzes. Track trainee quiz and exam submissions.</p>
+                <button onclick="showSection('training', document.querySelector('.nav-item:nth-child(3)'))" class="btn-primary">
+                    <i class="fa-solid fa-arrow-right"></i> Manage Modules & Submissions
+                </button>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title"><i class="fa-solid fa-inbox"></i> Exam Submissions</div>
+                <p class="panel-desc">Review trainee exam submissions, provide grades, and view feedback. Auto-graded answers are highlighted for manual review.</p>
+                <button onclick="showSection('submissions', document.querySelector('.nav-item:nth-child(4)'))" class="btn-primary">
+                    <i class="fa-solid fa-arrow-right"></i> View Submissions & Grade
+                </button>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title"><i class="fa-solid fa-solar-panel"></i> Solar PV Consultations</div>
+                <p class="panel-desc">Review AI-assisted solar PV system estimates submitted by trainees. Check quotation details and finalize client quotes.</p>
+                <button onclick="showSection('solar', document.querySelector('.nav-item:nth-child(5)'))" class="btn-primary">
+                    <i class="fa-solid fa-arrow-right"></i> View Solar Consultations
+                </button>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title"><i class="fa-solid fa-chart-line"></i> Trainee Progress</div>
+                <p class="panel-desc">Monitor individual trainee progress including quiz scores, exam grades, and learning milestones.</p>
+                <button onclick="showSection('progress', document.querySelector('.nav-item:nth-child(6)'))" class="btn-primary">
+                    <i class="fa-solid fa-arrow-right"></i> View Progress Reports
+                </button>
+            </div>
+        </div>
+
+        <!-- Training Modules Section -->
+        <div id="section-training" class="section" style="display:none">
+            <div class="page-head">
+                <h1>Training Modules</h1>
+            </div>
+            <style>
+              .modules-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem}
+              .module-card-emp{background:#fff;border-radius:12px;padding:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,0.06);border-top:4px solid var(--green-pr);transition:all 0.15s;display:flex;flex-direction:column}
+              .module-card-emp:hover{box-shadow:0 8px 16px rgba(0,0,0,0.1);transform:translateY(-2px)}
+              .mod-type{display:inline-block;font-size:10px;padding:4px 10px;background:var(--green-lt);color:var(--green-pr);border-radius:4px;font-weight:600;text-transform:uppercase;margin-bottom:0.75rem;width:fit-content}
+              .mod-title{font-size:16px;font-weight:700;color:#111827;margin-bottom:0.5rem}
+              .mod-desc{font-size:13px;color:var(--gray);line-height:1.5;margin-bottom:1rem;flex-grow:1}
+              .mod-status{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:1rem;padding:0.75rem;background:var(--green-lt);border-radius:8px;width:fit-content}
+              .mod-status i{color:var(--green-pr)}
+              .mod-status.draft{background:#F3F4F6;color:#6B7280}
+              .mod-status.draft i{color:#6B7280}
+              .mod-actions{display:flex;gap:6px;flex-wrap:wrap}
+              .mod-btn{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;background:var(--green-pr);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;text-decoration:none;transition:all 0.15s;flex:1;justify-content:center}
+              .mod-btn:hover{background:var(--green-md)}
+              .mod-btn.delete{background:#DC2626;flex:0}
+              .mod-btn.delete:hover{background:#991B1B}
+              .mod-btn.archive{background:#F59E0B}
+              .mod-btn.archive:hover{background:#D97706}
+              .empty-modules{text-align:center;padding:3rem 2rem;color:var(--gray);grid-column:1/-1}
+              .empty-modules i{font-size:48px;opacity:0.3;margin-bottom:1rem;display:block}
+              @media(max-width:640px){.modules-list{grid-template-columns:1fr}}
+            </style>
+            <div class="modules-list">
+              {% if modules %}
+                {% for mod in modules %}
+                <div class="module-card-emp">
+                  <div style="margin-bottom:0.5rem">
+                    <span class="mod-type">{{ mod.training_type | upper }}</span>
+                  </div>
+                  <div class="mod-title">{{ mod.title }}</div>
+                  <div class="mod-desc">{{ mod.description or "No description provided" }}</div>
+                  <div class="mod-status {% if not mod.is_published %}draft{% endif %}">
+                    <i class="fa-solid {% if mod.is_published %}fa-circle-check{% else %}fa-circle-xmark{% endif %}"></i>
+                    <span>{% if mod.is_published %}Published{% else %}Draft{% endif %}</span>
+                  </div>
+                  <div class="mod-actions">
+                    <a href="/lms/modules/{{ mod.id }}" class="mod-btn" title="Manage module">
+                      <i class="fa-solid fa-pen"></i> Manage
+                    </a>
+                    <form action="/lms/modules/{{ mod.id }}/archive" method="post" style="display:inline;flex:1">
+                      <button type="submit" class="mod-btn archive" onclick="return confirm('Archive this module?')" title="Archive module">
+                        <i class="fa-solid fa-box"></i> Archive
+                      </button>
+                    </form>
+                    <button class="mod-btn delete" onclick="deleteModule({{ mod.id }})" title="Delete module">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+                {% endfor %}
+              {% else %}
+              <div class="panel-card">
+                <div class="empty-modules">
+                  <i class="fa-solid fa-book-open"></i>
+                  <p style="margin:0"><strong>No modules created yet</strong></p>
+                  <p style="margin:0.5rem 0 0;font-size:12px">Create a new training module to get started.</p>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+
+            <!-- Archived Modules -->
+            {% if archived_modules %}
+            <div style="margin-top:2rem">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;padding:12px 16px;background:#FEF3C7;border-radius:10px;border:1px solid #FCD34D">
+                <i class="fa-solid fa-box-archive" style="color:#D97706;font-size:16px"></i>
+                <span style="font-weight:600;color:#92400E;font-size:14px">Archived Modules ({{ archived_modules|length }})</span>
+                <span style="font-size:12px;color:#B45309;margin-left:4px">— These modules are hidden from trainees</span>
+              </div>
+              <div class="modules-list">
+                {% for mod in archived_modules %}
+                <div class="module-card-emp" style="border-top-color:#F59E0B;opacity:0.85">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:20px">{{ mod.training_type|upper }}</span>
+                    <span style="font-size:10px;font-weight:700;background:#F3F4F6;color:#6B7280;padding:2px 8px;border-radius:20px;margin-left:auto"><i class="fa-solid fa-box-archive"></i> Archived</span>
+                  </div>
+                  <h3 style="font-size:15px;font-weight:700;color:#111827;margin:0 0 6px">{{ mod.title }}</h3>
+                  <p style="font-size:12px;color:var(--gray);margin:0 0 12px;flex:1;line-height:1.5">{{ mod.description or '' }}</p>
+                  {% if mod.archived_at %}
+                  <p style="font-size:11px;color:#9CA3AF;margin:0 0 12px">Archived on {{ mod.archived_at.strftime('%b %d, %Y') }}</p>
+                  {% endif %}
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <form action="/lms/modules/{{ mod.id }}/restore" method="post" style="flex:1">
+                      <button type="submit" class="mod-btn" style="width:100%;background:#16A34A" onclick="return confirm('Restore this module?')">
+                        <i class="fa-solid fa-rotate-left"></i> Restore
+                      </button>
+                    </form>
+                    <form action="/lms/modules/{{ mod.id }}/delete-archived" method="post" style="flex:0">
+                      <button type="submit" class="mod-btn delete" onclick="return confirm('Permanently delete this module? This cannot be undone.')">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Exam Submissions Section -->
+        <div id="section-submissions" class="section" style="display:none">
+            <div class="page-head">
+                <h1>Exam Submissions</h1>
+            </div>
+            <style>
+              .subs-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+              .subs-table th{background:#F3F4F6;padding:12px 16px;text-align:left;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid var(--border);text-transform:uppercase}
+              .subs-table td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px}
+              .subs-table tr:hover{background:#F9FAFB}
+              .grade-badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:var(--green-lt);color:var(--green-pr)}
+              .pending-badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#FEF3C7;color:#854D0E}
+              .empty-subs{text-align:center;padding:3rem 2rem;color:var(--gray)}
+              .empty-subs i{font-size:48px;opacity:0.3;margin-bottom:1rem;display:block}
+            </style>
+            {% if submissions %}
+            <div style="overflow-x:auto">
+              <table class="subs-table">
+                <thead>
+                  <tr>
+                    <th>Trainee</th>
+                    <th>Module</th>
+                    <th>Submitted</th>
+                    <th>Grade</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for sub in submissions %}
+                  <tr>
+                    <td><strong>{{ sub.trainee_name }}</strong></td>
+                    <td>{{ sub.module_title }}</td>
+                    <td style="color:var(--gray);font-size:12px">{{ sub.submitted_at.strftime('%b %d, %Y') if sub.submitted_at else '—' }}</td>
+                    <td>
+                      {% if sub.grade is not none %}
+                        <span class="grade-badge">{{ sub.grade }}%</span>
+                      {% else %}
+                        <span class="pending-badge">Pending</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <a href="/lms/submissions/{{ sub.id }}/answers" class="mod-btn" style="padding:6px 12px;font-size:11px">
+                        <i class="fa-solid fa-eye"></i> Review
+                      </a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="panel-card">
+              <div class="empty-subs">
+                <i class="fa-solid fa-inbox"></i>
+                <p style="margin:0"><strong>No submissions yet</strong></p>
+                <p style="margin:0.5rem 0 0;font-size:12px">Exam submissions will appear here once trainees submit them.</p>
+              </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Solar Consultations Section -->
+        <div id="section-solar" class="section" style="display:none">
+            <div class="page-head">
+                <h1>Solar PV Consultations</h1>
+            </div>
+            <style>
+              .solar-stats-inline{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.5rem}
+              .stat-card-inline{background:#fff;padding:1.25rem;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+              .stat-label-inline{font-size:11px;color:#6B7280;font-weight:600;text-transform:uppercase;margin-bottom:0.5rem}
+              .stat-num-inline{font-size:22px;font-weight:700;color:#111827}
+              .filter-bar-inline{display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap}
+              .filter-btn-inline{padding:8px 16px;border:1px solid #E5E7EB;background:#fff;border-radius:20px;font-size:12px;font-weight:600;color:#374151;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+              .filter-btn-inline:hover{border-color:#16583C;color:#16583C}
+              .filter-btn-inline.active{background:#16583C;border-color:#16583C;color:#fff}
+              .table-wrap-inline{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+              .table-inline{width:100%;border-collapse:collapse}
+              .table-inline th{background:#F3F4F6;padding:12px 16px;text-align:left;font-size:11px;font-weight:600;color:#374151;border-bottom:1px solid #E5E7EB;text-transform:uppercase}
+              .table-inline td{padding:12px 16px;border-bottom:1px solid #E5E7EB;font-size:13px}
+              .table-inline tr:hover{background:#F9FAFB}
+              .status-badge-inline{display:inline-block;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase}
+              .status-ai-inline{background:#DDD6FE;color:#4F46E5}
+              .status-pending-inline{background:#FEF3C7;color:#854D0E}
+              .status-reviewed-inline{background:#DCFCE7;color:#166534}
+              .status-sent-inline{background:#D1FAE5;color:#047857}
+              .btn-view-inline{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#16583C;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+              .btn-view-inline:hover{background:#1E7A4B}
+            </style>
+            <div class="solar-stats-inline">
+              <div class="stat-card-inline">
+                <div class="stat-label-inline">All Requests</div>
+                <div class="stat-num-inline">{{ solar_requests | length }}</div>
+              </div>
+              <div class="stat-card-inline">
+                <div class="stat-label-inline">AI Processed</div>
+                <div class="stat-num-inline">{{ solar_requests | selectattr('status', 'equalto', 'ai_processed') | list | length }}</div>
+              </div>
+              <div class="stat-card-inline">
+                <div class="stat-label-inline">Pending Review</div>
+                <div class="stat-num-inline">{{ solar_requests | selectattr('status', 'equalto', 'pending_review') | list | length }}</div>
+              </div>
+              <div class="stat-card-inline">
+                <div class="stat-label-inline">Reviewed</div>
+                <div class="stat-num-inline">{{ (solar_requests | selectattr('status', 'equalto', 'reviewed') | list | length) + (solar_requests | selectattr('status', 'equalto', 'quotation_sent') | list | length) }}</div>
+              </div>
+            </div>
+
+            <div class="filter-bar-inline">
+              <button class="filter-btn-inline active" onclick="filterSolarStatus('all', this)">All</button>
+              <button class="filter-btn-inline" onclick="filterSolarStatus('ai_processed', this)">AI Processed</button>
+              <button class="filter-btn-inline" onclick="filterSolarStatus('pending_review', this)">Pending Review</button>
+              <button class="filter-btn-inline" onclick="filterSolarStatus('reviewed', this)">Reviewed</button>
+              <button class="filter-btn-inline" onclick="filterSolarStatus('quotation_sent', this)">Quotation Sent</button>
+            </div>
+
+            {% if solar_requests %}
+            <div class="table-wrap-inline">
+              <table class="table-inline" id="solar-table-inline">
+                <thead>
+                  <tr>
+                    <th>Client Name</th>
+                    <th>Email</th>
+                    <th>System Size (kWp)</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for req in solar_requests %}
+                  <tr data-status="{{ req.status }}">
+                    <td><strong>{{ req.name }}</strong></td>
+                    <td style="color:#6B7280">{{ req.email }}</td>
+                    <td>{{ req.system_size_kw or "—" }} kWp</td>
+                    <td>
+                      {% if req.status == 'ai_processed' %}
+                        <span class="status-badge-inline status-ai-inline">AI Processed</span>
+                      {% elif req.status == 'pending_review' %}
+                        <span class="status-badge-inline status-pending-inline">Pending Review</span>
+                      {% elif req.status == 'reviewed' %}
+                        <span class="status-badge-inline status-reviewed-inline">Reviewed</span>
+                      {% elif req.status == 'quotation_sent' %}
+                        <span class="status-badge-inline status-sent-inline">Quotation Sent</span>
+                      {% else %}
+                        <span class="status-badge-inline" style="background:#F3F4F6;color:#6B7280">{{ req.status | upper | replace('_', ' ') }}</span>
+                      {% endif %}
+                    </td>
+                    <td style="color:#6B7280;font-size:12px">{{ req.created_at.strftime('%b %d, %Y') if req.created_at else '—' }}</td>
+                    <td>
+                      <a href="/admin/solar/{{ req.id }}" class="btn-view-inline" style="white-space:nowrap">
+                        <i class="fa-solid fa-arrow-right"></i> View
+                      </a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="panel-card">
+              <div style="text-align:center;padding:3rem 2rem;color:#6B7280">
+                <i class="fa-solid fa-solar-panel" style="font-size:48px;opacity:0.3;margin-bottom:1rem;display:block"></i>
+                <p style="margin:0"><strong>No solar requests yet</strong></p>
+                <p style="margin:0.5rem 0 0;font-size:12px">Trainee solar PV quotation requests will appear here.</p>
+              </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Progress Reports Section -->
+        <div id="section-progress" class="section" style="display:none">
+            <div class="page-head">
+                <h1>Trainee Progress</h1>
+            </div>
+            <style>
+              .progress-grid{display:grid;gap:1rem}
+              .progress-card{background:#fff;border-radius:12px;padding:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+              .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+              .progress-user{font-size:14px;font-weight:700;color:#111827}
+              .progress-bar{width:100%;height:8px;background:#E5E7EB;border-radius:4px;overflow:hidden;margin-bottom:0.5rem}
+              .progress-fill{height:100%;background:var(--green-pr);transition:width 0.3s}
+              .progress-text{font-size:12px;color:var(--gray);display:flex;justify-content:space-between}
+              .progress-pct{font-weight:600;color:var(--green-pr)}
+              .empty-progress{text-align:center;padding:3rem 2rem;color:var(--gray)}
+              .empty-progress i{font-size:48px;opacity:0.3;margin-bottom:1rem;display:block}
+            </style>
+            {% if progress_list %}
+            <div class="progress-grid">
+              {% for p in progress_list %}
+              <div class="progress-card">
+                <div class="progress-header">
+                  <div>
+                    <div class="progress-user">{{ p.trainee_name }}</div>
+                    <div style="font-size:12px;color:var(--gray)">{{ p.module_title }}</div>
+                  </div>
+                </div>
+                {% set total = modules | length %}
+                {% set completed = progress_list | selectattr('completed', 'equalto', true) | list | length %}
+                {% set pct = (completed / total * 100) | round | int if total > 0 else 0 %}
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width:{{ pct }}%"></div>
+                </div>
+                <div class="progress-text">
+                  <span>{{ completed }}/{{ total }} modules completed</span>
+                  <span class="progress-pct">{{ pct }}%</span>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="panel-card">
+              <div class="empty-progress">
+                <i class="fa-solid fa-chart-line"></i>
+                <p style="margin:0"><strong>No progress data yet</strong></p>
+                <p style="margin:0.5rem 0 0;font-size:12px">Trainee progress will appear here once they start modules.</p>
+              </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="footer">© 2026 EnergyWize · DOE Training Program</div>
+
+    <script>
+        function showSection(sectionId, btn) {
+            document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById('section-' + sectionId).style.display = 'block';
+            btn.classList.add('active');
+        }
+        function filterSolarStatus(status, btn) {
+            document.querySelectorAll('.filter-btn-inline').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('#solar-table-inline tbody tr').forEach(row => {
+                row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+            });
+        }
+        function deleteModule(moduleId) {
+            if (confirm('Delete this module? This action cannot be undone.')) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/lms/modules/' + moduleId + '/delete';
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
+</body>
+</html>

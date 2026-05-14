@@ -1,0 +1,134 @@
+{% from "shared/macros.html" import form_styles, header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practical Exam –“ {{ mod.title }}</title>
+{{ form_styles() }}
+<link rel="stylesheet" href="/static/lms.css">
+</head>
+<body>
+{{ header("My Learning") }}
+<div class="page-body">
+<div class="lms-wrap lms-wrap-narrow">
+
+  <div class="lms-page-header">
+    <div>
+      <h2 class="lms-page-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h2>
+      <p class="lms-page-sub">{{ mod.title }}</p>
+    </div>
+    <a href="/lms/learn/{{ mod.id }}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+
+  {% if exam.requires_camera %}
+  <div class="camera-notice" id="camera-notice">
+    <i class="fa-solid fa-camera"></i>
+    <div>
+      <strong>Camera Required</strong>
+      <p>This exam requires webcam access. Please allow access when prompted.</p>
+    </div>
+    <button onclick="requestCamera()" class="btn-primary btn-sm" id="camera-btn">
+      <i class="fa-solid fa-video"></i> Enable Camera
+    </button>
+  </div>
+  <video id="camera-preview" autoplay muted style="display:none;width:220px;border-radius:12px;margin-bottom:16px"></video>
+  {% endif %}
+
+  <div class="lms-card">
+    <h3 class="card-inner-title">{{ exam.title }}</h3>
+
+    <div class="exam-instructions">
+      <h4><i class="fa-solid fa-list-check"></i> Instructions</h4>
+      <div class="exam-instructions-body">{{ exam.instructions | replace('\n', '<br>') | safe }}</div>
+    </div>
+
+    {% if exam.evaluation_criteria %}
+    <div class="exam-criteria">
+      <h4><i class="fa-solid fa-star"></i> Evaluation Criteria</h4>
+      <div class="exam-criteria-body">{{ exam.evaluation_criteria | replace('\n', '<br>') | safe }}</div>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="exam-form">
+      {% if exam_questions %}
+      <div style="margin-top:24px;padding:16px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;margin-bottom:20px">
+        <h4 style="margin:0 0 12px;color:#166534"><i class="fa-solid fa-circle-info"></i> Answer All Questions Below</h4>
+        <div id="exam-qa-container">
+          {% for q in exam_questions %}
+          <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #DCFCE7">
+            <label class="form-label" style="font-weight:600">{{ loop.index }}. {{ q.question_text }}</label>
+            {% if q.question_type == 'essay' %}
+            <textarea name="eq_{{ q.id }}" class="form-input form-textarea" rows="5"
+                      placeholder="Write your answer here…" required></textarea>
+            {% elif q.question_type == 'identification' %}
+            <input type="text" name="eq_{{ q.id }}" class="form-input"
+                   placeholder="Type your answer" required>
+            {% elif q.question_type == 'enumeration' %}
+            <textarea name="eq_{{ q.id }}" class="form-input form-textarea" rows="3"
+                      placeholder="List each item separated by commas" required></textarea>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="form-group" style="margin-top:24px">
+        <label class="form-label">Upload Your Submission {% if not exam_questions %}<span class="req">*</span>{% endif %}</label>
+        <label class="upload-zone" for="sub-file" id="sub-zone">
+          <div class="upload-icon"><i class="fa-solid fa-file-arrow-up"></i></div>
+          <div class="upload-text">
+            <strong>Click to upload</strong>
+            <span class="hint-txt">PDF, DOCX, ZIP, images –” max 10 MB</span>
+            <span class="file-chosen" id="sub-name" style="display:none"></span>
+          </div>
+        </label>
+        <input type="file" id="sub-file" name="submission_file"
+               accept=".pdf,.docx,.zip,.txt,.png,.jpg,.jpeg"
+               onchange="fileChosen(this)">
+      </div>
+      <div class="form-actions">
+        <a href="/lms/learn/{{ mod.id }}" class="btn-ghost">Cancel</a>
+        <button type="submit" class="btn-primary" id="submit-btn" {% if exam.requires_camera %}disabled{% endif %}>
+          <i class="fa-solid fa-paper-plane"></i> Submit Exam
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+</div>
+
+<script>
+function fileChosen(input) {
+  var zone = document.getElementById('sub-zone');
+  var name = document.getElementById('sub-name');
+  if (input.files && input.files[0]) {
+    zone.classList.add('has-file');
+    name.style.display = 'block';
+    name.innerHTML = '<i class="fa-solid fa-check"></i> ' + input.files[0].name;
+    zone.querySelector('.upload-icon').innerHTML = '<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>';
+  }
+}
+
+{% if exam.requires_camera %}
+var cameraGranted = false;
+async function requestCamera() {
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({video:true});
+    var video  = document.getElementById('camera-preview');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('camera-btn').innerHTML = '<i class="fa-solid fa-circle-check"></i> Camera Active';
+    document.getElementById('camera-btn').classList.replace('btn-primary','btn-ghost');
+    document.getElementById('submit-btn').disabled = false;
+    cameraGranted = true;
+  } catch(e) {
+    alert('Camera access denied. You must allow camera access to submit this exam.');
+  }
+}
+{% endif %}
+</script>
+</body>
+</html>

@@ -30,7 +30,7 @@
 }
 .upload-area:hover{border-color:var(--green-md);background:var(--green-lt)}
 .upload-area.has-file{border-color:#16A34A;border-style:solid;background:#F0FDF4}
-.upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-area input[type=file]{display:block;position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .upload-area i.upload-ico{font-size:26px;color:var(--gray);margin-bottom:8px;display:block}
 .upload-area.has-file i.upload-ico{color:#16A34A}
 .upload-area p{font-size:12.5px;color:var(--gray);margin:0;line-height:1.6}
