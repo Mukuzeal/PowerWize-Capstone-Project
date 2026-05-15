@@ -33,8 +33,9 @@ def employee():
     modules = lms_get_modules(instructor_id=emp_id)
     archived_modules = lms_get_archived_modules(instructor_id=emp_id)
     submissions = lms_get_all_submissions(instructor_id=emp_id)
-    progress_list = lms_get_progress(emp_id)
-    prog_map = {p['module_id']: p for p in progress_list}
+    # Employees are instructors, not trainees, so they don't have progress in their own modules
+    progress_list = []
+    prog_map = {}
 
     return render_template("admin/employee.html",
                            registrations=get_registrations(),

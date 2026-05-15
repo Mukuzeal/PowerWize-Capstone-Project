@@ -13,6 +13,7 @@ from onboarding import onboarding_bp
 from payment_bp import payment_bp
 from solar_bp import solar_bp
 from lms_bp import lms_bp
+from upload_validation import validation_bp
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 app = Flask(__name__, template_folder=os.path.join(base_dir, "templates"), static_folder=os.path.join(base_dir, "static"))
@@ -31,6 +32,7 @@ app.register_blueprint(onboarding_bp)
 app.register_blueprint(payment_bp)
 app.register_blueprint(solar_bp)
 app.register_blueprint(lms_bp)
+app.register_blueprint(validation_bp)
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 init_db()

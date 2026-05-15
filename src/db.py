@@ -2,6 +2,9 @@ from datetime import datetime, timedelta
 import hashlib
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import psycopg2
 import psycopg2.extras
 
@@ -1102,9 +1105,16 @@ def lms_update_progress(user_id, module_id, **fields):
     allowed = {"quiz_score","quiz_passed","exam_graded","exam_grade","completed","completed_at"}
     safe = {k: v for k, v in fields.items() if k in allowed}
     if safe:
+        # Convert booleans to integers for Postgres SMALLINT columns
+        safe_values = []
+        for k, v in safe.items():
+            if isinstance(v, bool):
+                safe_values.append(1 if v else 0)
+            else:
+                safe_values.append(v)
         clauses = ", ".join(f"{k}=%s" for k in safe)
         cur.execute(f"UPDATE lms_progress SET {clauses} WHERE user_id=%s AND module_id=%s",
-                    (*safe.values(), user_id, module_id))
+                    (*safe_values, user_id, module_id))
     conn.commit(); cur.close(); conn.close()
 
 

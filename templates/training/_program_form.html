@@ -1,0 +1,227 @@
+{# Shared training-registration form for new applicants (CEM, CEA, future programs).
+   Parent templates must `{% set %}` the variables below then `{% include %}` this file:
+     page_title              – browser tab title
+     header_badge            – header badge text
+     hero_tag                – small uppercase tag above the hero title
+     hero_title_main         – main hero title (HTML allowed, e.g. "Certified Energy Manager")
+     hero_subtitle           – paragraph under the hero title
+     form_action             – POST endpoint, e.g. "/training/submit"
+     designation_placeholder – placeholder for the Designation field
+     footer_program_label    – label after "EnergyWize ·" in the footer
+#}
+{% from "shared/macros.html" import form_styles, header, upload_field, errors_block, file_js, wizard_init, selfie_capture %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page_title }}</title>
+  {{ form_styles() }}
+  <link rel="stylesheet" href="/static/training-form.css">
+  {{ wizard_init() }}
+</head>
+<body>
+  {{ header(header_badge) }}
+
+  <div class="hero">
+    <a href="/" class="hero-back"><i class="fa-solid fa-arrow-left"></i> All Registration Forms</a>
+    <span class="hero-tag">{{ hero_tag }}</span>
+    <h1>{{ hero_title_main | safe }}<br><em>Training Registration</em></h1>
+    <p>{{ hero_subtitle }}</p>
+  </div>
+
+  <div class="page-body">
+    {{ errors_block(errors) }}
+
+    <form class="form-card" method="POST" action="{{ form_action }}" enctype="multipart/form-data" novalidate data-wizard>
+
+      <!-- Section 1: Participant Information -->
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-user"></i></div>
+        <div>
+          <h2>Participant's Information</h2>
+          <p>Personal and professional details</p>
+        </div>
+      </div>
+      <div class="form-body">
+
+        <div class="row-3">
+          <div class="field">
+            <label>Title <span class="req">*</span></label>
+            <select name="title" required>
+              <option value="" disabled {% if not form_data %}selected{% endif %}>Select</option>
+              {% for t in ['Mr.','Ms.','Engr.','Dr.','Other'] %}
+              <option value="{{ t }}" {% if form_data and form_data.get('title')==t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>Full Name <span class="req">*</span> <span class="hint">(as it will appear on your certificate)</span></label>
+            <input type="text" name="full_name" placeholder="e.g. Juan A. dela Cruz" value="{{ form_data.get('full_name','') if form_data else '' }}" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Middle Name <span class="req">*</span> <span class="hint">(required by the DOE)</span></label>
+          <input type="text" name="middle_name" placeholder="e.g. Andres" value="{{ form_data.get('middle_name','') if form_data else '' }}" required>
+        </div>
+
+        <div class="field">
+          <label>Residence Address <span class="req">*</span></label>
+          <input type="text" name="residence" placeholder="Street, Barangay, City, Province" value="{{ form_data.get('residence','') if form_data else '' }}" required>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Company Name <span class="req">*</span></label>
+            <input type="text" name="company_name" placeholder="Your company or organization" value="{{ form_data.get('company_name','') if form_data else '' }}" required>
+          </div>
+          <div class="field">
+            <label>Designation <span class="req">*</span></label>
+            <input type="text" name="designation" placeholder="{{ designation_placeholder }}" value="{{ form_data.get('designation','') if form_data else '' }}" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Company / Business Address <span class="req">*</span></label>
+          <input type="text" name="company_address" placeholder="Street, City, Province" value="{{ form_data.get('company_address','') if form_data else '' }}" required>
+        </div>
+
+        <div class="row-3">
+          <div class="field">
+            <label>Age <span class="req">*</span></label>
+            <input type="number" name="age" min="18" max="100" placeholder="e.g. 35" value="{{ form_data.get('age','') if form_data else '' }}" required readonly>
+          </div>
+          <div class="field" style="grid-column:span 2">
+            <label>Birthdate <span class="req">*</span></label>
+            <input type="date" name="birthdate" value="{{ form_data.get('birthdate','') if form_data else '' }}" required>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Contact Number <span class="req">*</span></label>
+            <input type="tel" name="contact_number" placeholder="+63 9XX XXX XXXX" value="{{ form_data.get('contact_number','') if form_data else '' }}" required>
+          </div>
+          <div class="field">
+            <label>Email Address <span class="req">*</span></label>
+            <div class="input-icon-wrap">
+              <i class="fa-solid fa-envelope"></i>
+              <input type="email" name="email" placeholder="you@example.com" value="{{ form_data.get('email','') if form_data else '' }}" required>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Section 2: Document Uploads -->
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-paperclip"></i></div>
+        <div>
+          <h2>Required Document Uploads</h2>
+          <p>PDF or image · Max 10 MB each</p>
+        </div>
+      </div>
+      <div class="form-body">
+        {{ upload_field("photo_id","photo_id","Recent 2×2 Photo ID","PDF or image · Max 10 MB","fa-image",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('photo_id')) }}
+        {{ upload_field("resume","resume","Updated Resume or CV","PDF or image · Max 10 MB","fa-file-lines",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('resume')) }}
+        {{ upload_field("valid_id","valid_id","Valid PRC ID or Government-Issued ID","PDF or image · Max 10 MB","fa-id-card",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('valid_id')) }}
+        {{ selfie_capture('valid_id') }}
+      </div>
+
+      <!-- Section 3: Terms -->
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+        <div><h2>Terms &amp; Conditions</h2></div>
+      </div>
+      <div class="form-body">
+        <div class="field">
+          <label>Do you agree with EnergyWize's <a class="terms-link" href="#" onclick="alert('By registering, you agree to EnergyWize\'s privacy policy and training policies.');return false;">Terms &amp; Conditions</a>? <span class="req">*</span></label>
+          <div class="radio-group">
+            <label class="radio-opt success">
+              <input type="radio" name="agree" value="yes" {% if form_data and form_data.get('agree')=='yes' %}checked{% endif %}> Yes, I agree.
+            </label>
+            <label class="radio-opt danger">
+              <input type="radio" name="agree" value="no" {% if form_data and form_data.get('agree')=='no' %}checked{% endif %}> No
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Training Details -->
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+        <div>
+          <h2>Training Details</h2>
+          <p>Select your preferred training type and schedule</p>
+        </div>
+      </div>
+      <div class="form-body">
+
+        <div class="field">
+          <label>Training Type <span class="req">*</span></label>
+          <div class="training-cards">
+            {% set tt = form_data.get('training_type','') if form_data else '' %}
+            <label class="training-card {% if 'Online via Zoom' in tt %}selected{% endif %}" onclick="selectTraining(this,'online')">
+              <input type="radio" name="training_type" value="Online via Zoom, 7 days" {% if 'Online via Zoom' in tt %}checked{% endif %}>
+              <div class="tc-icon"><i class="fa-solid fa-laptop"></i></div>
+              <div class="tc-label">Online via Zoom</div>
+              <div class="tc-detail">7 days · Remote</div>
+            </label>
+            <label class="training-card {% if 'Hybrid' in tt %}selected{% endif %}" onclick="selectTraining(this,'face_to_face')">
+              <input type="radio" name="training_type" value="Hybrid, 5 days online + 2 days face to face at Marvin Plaza, Chino Roces Ave., Makati City, MM" {% if 'Hybrid' in tt %}checked{% endif %}>
+              <div class="tc-icon"><i class="fa-solid fa-building"></i></div>
+              <div class="tc-label">Hybrid</div>
+              <div class="tc-detail">5 days online + 2 days F2F</div>
+            </label>
+            <label class="training-card {% if 'Online Live' in tt %}selected{% endif %}" onclick="selectTraining(this,'selfpaced_online')">
+              <input type="radio" name="training_type" value="Self-paced Online Live Instructors, 3 days" {% if 'Online Live' in tt %}checked{% endif %}>
+              <div class="tc-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
+              <div class="tc-label">Self-paced – Online Live</div>
+              <div class="tc-detail">3 days · Live instructors</div>
+            </label>
+            <label class="training-card {% if 'Self-paced Face' in tt %}selected{% endif %}" onclick="selectTraining(this,'selfpaced_f2f')">
+              <input type="radio" name="training_type" value="Self-paced Face to Face Instructors, 3 days" {% if 'Self-paced Face' in tt %}checked{% endif %}>
+              <div class="tc-icon"><i class="fa-solid fa-person-chalkboard"></i></div>
+              <div class="tc-label">Self-paced – Face to Face</div>
+              <div class="tc-detail">3 days · On-site instructors</div>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Choose your schedule (2026) <span class="req">*</span></label>
+          <div id="schedule-list">
+            <p id="schedule-placeholder"><i class="fa-solid fa-arrow-left"></i> Please select a training type first</p>
+          </div>
+          <input type="hidden" name="batch_id" id="schedule-hidden" value="{{ form_data.get('batch_id','') if form_data else '' }}">
+        </div>
+
+      </div>
+
+      <div class="form-footer">
+        <p>All fields marked <strong style="color:var(--gold-dk)">*</strong> are required.</p>
+        <button type="submit" class="btn-submit">Submit Registration <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+
+    </form>
+  </div>
+
+  <footer class="site-footer">&copy; 2026 EnergyWize &middot; {{ footer_program_label }}</footer>
+  {{ file_js() }}
+  <script src="/static/training-form.js"></script>
+  <script>
+    var SCHEDULES = {{ schedules | tojson }};
+    {% if form_data and form_data.get('training_type') %}
+    (function(){
+      var type = "{{ form_data.get('training_type','') }}";
+      var key = 'online';
+      if (type.indexOf('Online Live') !== -1)          key = 'selfpaced_online';
+      else if (type.indexOf('Self-paced Face') !== -1) key = 'selfpaced_f2f';
+      else if (type.indexOf('Hybrid') !== -1)          key = 'face_to_face';
+      loadSchedules(key);
+    })();
+    {% endif %}
+  </script>
+</body>
+</html>

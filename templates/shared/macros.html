@@ -13,8 +13,10 @@
 </header>
 {% endmacro %}
 
-{% macro upload_field(id, name, label, hint, icon, accept, pdf_only=false, existing=None) %}
-<div class="field">
+{% macro upload_field(id, name, label, hint, icon, accept, pdf_only=false, existing=None, doc_type=None) %}
+{# doc_type auto-detected from field name if not provided: photo_id→photo_2x2, valid_id→valid_id, expired_doe→expired_doe, resume→resume #}
+{% set _doc_type = doc_type or ({'photo_id':'photo_2x2','valid_id':'valid_id','expired_doe':'expired_doe','resume':'resume'}[name] if name in ('photo_id','valid_id','expired_doe','resume') else '') %}
+<div class="field" data-upload-field>
   <label>{{ label }} <span class="req">*</span></label>
   <label class="upload-zone{% if existing %} has-file{% endif %}" id="zone-{{ id }}" for="{{ id }}">
     <div class="upload-icon">{% if existing %}<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>{% else %}<i class="fa-solid {{ icon }}"></i>{% endif %}</div>
@@ -26,9 +28,242 @@
       </span>
     </div>
   </label>
-  <input type="file" id="{{ id }}" name="{{ name }}" accept="{{ accept }}" onchange="fileChosen(this,'zone-{{ id }}','name-{{ id }}')">
+  <input type="file" id="{{ id }}" name="{{ name }}" accept="{{ accept }}" data-doc-type="{{ _doc_type }}" onchange="fileChosen(this,'zone-{{ id }}','name-{{ id }}')">
+  {% if _doc_type %}
+  <div class="upload-validation" id="val-{{ id }}" data-status="idle">
+    <div class="uv-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Validating with AI…</div>
+    <div class="uv-ok"><i class="fa-solid fa-circle-check"></i> <span class="uv-msg"></span></div>
+    <div class="uv-bad"><i class="fa-solid fa-triangle-exclamation"></i> <span class="uv-msg"></span></div>
+  </div>
+  {% endif %}
   {% if existing %}<input type="hidden" name="{{ name }}_existing" value="{{ existing }}">{% endif %}
 </div>
+{% endmacro %}
+
+{% macro selfie_capture(id_input_name='valid_id') %}
+{# Camera-based selfie widget with blink-liveness + face-match against uploaded ID. #}
+<div class="field selfie-capture" data-id-input="{{ id_input_name }}">
+  <label>Identity Verification — Selfie <span class="req">*</span> <span class="hint">(Live photo with liveness check)</span></label>
+  <div class="selfie-stage" data-state="idle">
+    <div class="selfie-empty">
+      <i class="fa-solid fa-camera"></i>
+      <strong>Take a live selfie to verify your identity</strong>
+      <span class="hint-txt">You'll be asked to blink once to prove you're a real person. We'll automatically capture your photo and compare it with your uploaded ID. Nothing is stored.</span>
+      <button type="button" class="btn-selfie-start"><i class="fa-solid fa-video"></i> Open Camera</button>
+    </div>
+    <div class="selfie-live">
+      <video class="selfie-video" autoplay playsinline muted></video>
+      <div class="liveness-banner">
+        <i class="fa-solid fa-eye liveness-icon"></i>
+        <span class="liveness-msg">Loading liveness detector…</span>
+        <span class="blink-pips"><span class="pip"></span><span class="pip"></span></span>
+      </div>
+      <div class="selfie-live-actions">
+        <button type="button" class="btn-selfie-cancel">Cancel</button>
+      </div>
+    </div>
+    <div class="selfie-preview">
+      <img class="selfie-img" alt="Your selfie">
+      <div class="selfie-preview-actions">
+        <button type="button" class="btn-selfie-retake"><i class="fa-solid fa-rotate-left"></i> Retake</button>
+      </div>
+    </div>
+    <div class="selfie-validation" data-status="idle">
+      <div class="uv-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Comparing with your ID…</div>
+      <div class="uv-ok"><i class="fa-solid fa-circle-check"></i> <span class="uv-msg"></span></div>
+      <div class="uv-bad"><i class="fa-solid fa-triangle-exclamation"></i> <span class="uv-msg"></span></div>
+    </div>
+  </div>
+  <input type="hidden" name="selfie_verified" class="selfie-verified-flag" value="" required>
+</div>
+<script>
+(function(){
+  // ── face-api.js loader (lazy, cached) ────────────────────────────────────
+  var FACEAPI_SRC = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+  var FACEAPI_MODELS = 'https://justadudewhohacks.github.io/face-api.js/models';
+  var faceApiReady = null;
+
+  function loadScript(src){
+    return new Promise(function(res, rej){
+      var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  function ensureFaceApi(){
+    if(faceApiReady) return faceApiReady;
+    faceApiReady = (function(){
+      if(window.faceapi) return Promise.resolve();
+      return loadScript(FACEAPI_SRC);
+    })().then(function(){
+      return Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS),
+        faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELS)
+      ]);
+    });
+    return faceApiReady;
+  }
+
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+  function ear(eye){ return (dist(eye[1],eye[5]) + dist(eye[2],eye[4])) / (2*dist(eye[0],eye[3])); }
+
+  function initSelfieWidget(field){
+    var idInputName = field.dataset.idInput;
+    var stage = field.querySelector('.selfie-stage');
+    var video = field.querySelector('.selfie-video');
+    var img   = field.querySelector('.selfie-img');
+    var valBox= field.querySelector('.selfie-validation');
+    var flag  = field.querySelector('.selfie-verified-flag');
+    var msgEl = field.querySelector('.liveness-msg');
+    var pips  = field.querySelectorAll('.blink-pips .pip');
+    var stream = null, capturedBlob = null, livenessLoop = null;
+
+    function setState(s){ stage.dataset.state = s; }
+    function setMsg(t, kind){
+      msgEl.textContent = t;
+      var banner = field.querySelector('.liveness-banner');
+      banner.dataset.kind = kind || '';
+    }
+    function setPip(i, on){ if(pips[i]) pips[i].classList.toggle('on', !!on); }
+    function stopStream(){ if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; } }
+    function stopLoop(){ if(livenessLoop){ cancelAnimationFrame(livenessLoop); livenessLoop=null; } }
+
+    function startLivenessLoop(){
+      var blinks = 0;
+      var wasOpen = true;
+      var consecClosed = 0;
+      var noFaceFrames = 0;
+      var lastBlinkAt = 0;
+      var CLOSED = 0.24, OPEN = 0.30;  // Slightly looser thresholds for faster detection
+      var detectorOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+      setPip(0,false); setPip(1,false);
+      setMsg('Look straight at the camera and BLINK ONCE', 'info');
+
+      function loop(){
+        if(video.readyState < 2){ livenessLoop = requestAnimationFrame(loop); return; }
+        faceapi.detectSingleFace(video, detectorOpts).withFaceLandmarks().then(function(det){
+          if(!det){
+            noFaceFrames++;
+            if(noFaceFrames > 15) setMsg('Please center your face in the frame', 'warn');
+            livenessLoop = requestAnimationFrame(loop); return;
+          }
+          noFaceFrames = 0;
+          var lEAR = ear(det.landmarks.getLeftEye());
+          var rEAR = ear(det.landmarks.getRightEye());
+          var e = (lEAR + rEAR) / 2;
+
+          if(wasOpen && e < CLOSED){
+            consecClosed++;
+            if(consecClosed >= 1) wasOpen = false;
+          } else if(!wasOpen && e > OPEN){
+            var now = Date.now();
+            if(now - lastBlinkAt > 200){  // Reduced from 250ms for faster response
+              blinks++;
+              lastBlinkAt = now;
+              setPip(blinks-1, true);
+              if(blinks >= 1){
+                stopLoop();
+                setMsg('Liveness verified! Capturing your selfie…', 'ok');
+                // Auto-capture after 400ms delay to let the user stabilize
+                setTimeout(function(){
+                  var canvas = document.createElement('canvas');
+                  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                  canvas.getContext('2d').drawImage(video, 0, 0);
+                  canvas.toBlob(function(blob){
+                    capturedBlob = blob;
+                    img.src = URL.createObjectURL(blob);
+                    setState('preview');
+                    runFaceMatch();
+                  }, 'image/jpeg', 0.9);
+                }, 400);
+                return;
+              }
+            }
+            wasOpen = true;
+            consecClosed = 0;
+          }
+          livenessLoop = requestAnimationFrame(loop);
+        }).catch(function(){
+          livenessLoop = requestAnimationFrame(loop);
+        });
+      }
+      loop();
+    }
+
+    field.querySelector('.btn-selfie-start').addEventListener('click', function(){
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        if(typeof Swal !== 'undefined') Swal.fire({icon:'error', title:'Camera not supported', text:'Your browser does not support camera access.'});
+        else alert('Camera not supported.');
+        return;
+      }
+      setState('live');
+      setMsg('Loading liveness detector…', 'info');
+      navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:640}, height:{ideal:480}}, audio:false})
+        .then(function(s){ stream = s; video.srcObject = s; return ensureFaceApi(); })
+        .then(function(){ startLivenessLoop(); })
+        .catch(function(err){
+          stopStream(); setState('idle');
+          if(typeof Swal !== 'undefined'){
+            Swal.fire({icon:'error', title:'Camera or liveness error', text:'Could not start the camera or load the liveness detector. ' + (err && err.message ? err.message : '')});
+          }
+        });
+    });
+
+    field.querySelector('.btn-selfie-cancel').addEventListener('click', function(){
+      stopLoop(); stopStream(); setState('idle');
+    });
+
+    field.querySelector('.btn-selfie-retake').addEventListener('click', function(){
+      capturedBlob = null;
+      flag.value = '';
+      valBox.dataset.status = 'idle';
+      setState('idle');
+    });
+
+    function runFaceMatch(){
+      var idInput = document.querySelector('input[type=file][name="'+idInputName+'"]');
+      if(!idInput || !idInput.files || !idInput.files[0]){
+        valBox.dataset.status = 'invalid';
+        valBox.querySelector('.uv-bad .uv-msg').textContent = 'Please upload your valid government ID first.';
+        if(typeof Swal !== 'undefined') Swal.fire({icon:'warning', title:'ID required first', text:'Please upload your valid ID before taking a selfie.', confirmButtonColor:'#16583C'});
+        return;
+      }
+      if(!capturedBlob) return;
+      valBox.dataset.status = 'validating';
+      var fd = new FormData();
+      fd.append('id', idInput.files[0]);
+      fd.append('selfie', capturedBlob, 'selfie.jpg');
+      fetch('/api/face-match', {method:'POST', body: fd})
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if(j && j.valid){
+            valBox.dataset.status = 'valid';
+            valBox.querySelector('.uv-ok .uv-msg').textContent = (j.reason || 'Your selfie matches the ID.') + ' (confidence ' + (j.confidence || 0) + '%)';
+            flag.value = '1';
+            if(typeof Swal !== 'undefined' && window._swalToast){
+              window._swalToast.fire({icon:'success', title:'Identity verified', text:'Your selfie matches the ID.'});
+            }
+          } else {
+            valBox.dataset.status = 'invalid';
+            var reason = (j && j.reason) ? j.reason : 'The selfie does not match the photo on your ID.';
+            valBox.querySelector('.uv-bad .uv-msg').textContent = reason;
+            flag.value = '';
+            if(typeof Swal !== 'undefined') Swal.fire({icon:'error', title:'Identity check failed', text: reason, confirmButtonColor:'#16583C'});
+          }
+        })
+        .catch(function(){
+          valBox.dataset.status = 'invalid';
+          valBox.querySelector('.uv-bad .uv-msg').textContent = 'Could not reach face-match service. Please try again.';
+          flag.value = '';
+        });
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.selfie-capture').forEach(initSelfieWidget);
+  });
+})();
+</script>
 {% endmacro %}
 
 {% macro errors_block(errors) %}
@@ -40,15 +275,81 @@
 {% endif %}
 {% endmacro %}
 
+{% macro wizard_init() %}
+<link rel="stylesheet" href="/static/wizard.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="/static/wizard.js" defer></script>
+{% endmacro %}
+
 {% macro file_js() %}
 <script>
+window._swalToast = (typeof Swal !== 'undefined') ? Swal.mixin({
+  toast: true, position: 'top-end', showConfirmButton: false,
+  timer: 3500, timerProgressBar: true,
+  didOpen: function(t){ t.addEventListener('mouseenter', Swal.stopTimer); t.addEventListener('mouseleave', Swal.resumeTimer); }
+}) : null;
+var _swalToast = window._swalToast;
+
+function _showAlertOk(title, text){
+  if(_swalToast) _swalToast.fire({ icon:'success', title: title, text: text || '' });
+}
+function _showAlertErr(title, text){
+  if(typeof Swal !== 'undefined'){
+    Swal.fire({ icon:'error', title: title, text: text || '', confirmButtonColor:'#16583C' });
+  } else {
+    alert(title + (text ? ('\n\n' + text) : ''));
+  }
+}
+
 function fileChosen(input,zoneId,nameId){
   const zone=document.getElementById(zoneId),nameEl=document.getElementById(nameId);
-  if(input.files&&input.files[0]){
-    zone.classList.add('has-file');
-    nameEl.innerHTML='<i class="fa-solid fa-check"></i> '+input.files[0].name;
-    zone.querySelector('.upload-icon').innerHTML='<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>';
-  }
+  if(!(input.files && input.files[0])) return;
+  const filename = input.files[0].name;
+  zone.classList.remove('has-bad-file');
+  zone.classList.add('has-file');
+  nameEl.innerHTML='<i class="fa-solid fa-check"></i> '+filename;
+  zone.querySelector('.upload-icon').innerHTML='<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>';
+
+  // AI validation if this field has a doc-type
+  const docType = input.dataset.docType;
+  if(!docType) return;
+  const valId = 'val-' + input.id;
+  const valBox = document.getElementById(valId);
+  if(!valBox) return;
+  valBox.dataset.status = 'validating';
+
+  // friendly label for alerts
+  const label = (input.closest('.field') && input.closest('.field').querySelector('label'))
+    ? input.closest('.field').querySelector('label').textContent.replace(/\s*\*\s*/g,'').replace(/\(.*\)/g,'').trim()
+    : 'Upload';
+
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  fd.append('type', docType);
+  fetch('/api/validate-upload', { method:'POST', body: fd })
+    .then(r => r.json())
+    .then(j => {
+      if(j && j.valid){
+        valBox.dataset.status = 'valid';
+        valBox.querySelector('.uv-ok .uv-msg').textContent = j.reason || 'Looks good.';
+        _showAlertOk(label + ' verified', j.reason || 'Upload looks good.');
+      } else {
+        valBox.dataset.status = 'invalid';
+        const reason = (j && j.reason) ? j.reason : 'This file does not look like the expected document. Please upload a clearer or correct one.';
+        valBox.querySelector('.uv-bad .uv-msg').textContent = reason;
+        zone.classList.remove('has-file');
+        zone.classList.add('has-bad-file');
+        _showAlertErr('Invalid ' + label, reason);
+        // clear the file input so user must re-select
+        try { input.value = ''; } catch(e){}
+      }
+    })
+    .catch(() => {
+      valBox.dataset.status = 'invalid';
+      const msg = 'Could not reach validation service. Please try again.';
+      valBox.querySelector('.uv-bad .uv-msg').textContent = msg;
+      _showAlertErr('Validation failed', msg);
+    });
 }
 </script>
 {% endmacro %}

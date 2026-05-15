@@ -1,0 +1,119 @@
+/* ── Wizard layout ──────────────────────────────────────────────────────────
+   Uses the empty side space to host a step sidebar on desktop, collapses to
+   a horizontal progress bar on mobile.
+*/
+.wizard-layout{
+  max-width:1200px;
+  margin:0 auto;
+  padding:1.75rem 1.5rem 4rem;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  gap:32px;
+  align-items:start;
+}
+@media(max-width:960px){
+  .wizard-layout{grid-template-columns:1fr;gap:16px}
+}
+
+/* Sidebar */
+.wizard-sidebar{
+  position:sticky;top:1.5rem;
+  background:var(--white);
+  border-radius:16px;
+  box-shadow:var(--shadow-sm);
+  padding:1.25rem 1rem;
+  border:1px solid rgba(0,0,0,0.04);
+}
+.wizard-sidebar-title{
+  font-size:11px;font-weight:700;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--gray);
+  padding:0 8px 12px;border-bottom:1px solid var(--border);
+  margin-bottom:8px;
+}
+.wizard-step-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:2px}
+.wizard-step-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:9px;
+  font-size:13px;color:#374151;
+  cursor:default;transition:background 0.15s;
+}
+.wizard-step-item .wizard-step-num{
+  width:24px;height:24px;border-radius:50%;
+  background:#E5E7EB;color:#6B7280;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;font-weight:700;flex-shrink:0;
+  transition:all 0.2s;
+}
+.wizard-step-item.is-current{background:var(--green-lt);color:var(--green-dk);font-weight:600}
+.wizard-step-item.is-current .wizard-step-num{background:var(--green-pr);color:#fff;box-shadow:0 0 0 3px rgba(22,88,60,0.15)}
+.wizard-step-item.is-done{color:var(--green-pr)}
+.wizard-step-item.is-done .wizard-step-num{background:#DCFCE7;color:var(--green-pr)}
+.wizard-step-item.is-done .wizard-step-num::before{content:'\f00c';font-family:'Font Awesome 6 Free';font-weight:900;font-size:10px}
+.wizard-step-item.is-done .wizard-step-num-text{display:none}
+
+/* Mobile progress bar */
+.wizard-progress-mobile{
+  display:none;
+  background:var(--white);border-radius:12px;
+  padding:14px 16px;
+  box-shadow:var(--shadow-sm);
+  margin-bottom:8px;
+}
+@media(max-width:960px){
+  .wizard-sidebar{display:none}
+  .wizard-progress-mobile{display:block}
+}
+.wizard-progress-mobile .wpm-meta{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:12px;color:var(--gray);margin-bottom:8px;
+}
+.wizard-progress-mobile .wpm-meta strong{color:var(--green-dk);font-size:13px}
+.wizard-progress-mobile .wpm-bar{
+  height:6px;background:#E5E7EB;border-radius:3px;overflow:hidden;
+}
+.wizard-progress-mobile .wpm-fill{
+  height:100%;background:linear-gradient(90deg,var(--green-pr),var(--green-md));
+  transition:width 0.3s ease;border-radius:3px;
+}
+
+/* When a form is wizardized, hide all steps except the current */
+.form-card[data-wizard] .wizard-step{display:none}
+.form-card[data-wizard] .wizard-step.is-current{display:block;animation:wizard-fade 0.25s ease-out}
+@keyframes wizard-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* Wizard nav bar (replaces original form footer when active) */
+.wizard-nav{
+  padding:1rem 1.6rem;border-top:1px solid var(--border);
+  background:var(--gray-lt);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.wizard-nav .step-count{font-size:12.5px;color:var(--gray);font-weight:500}
+.wizard-nav .step-count strong{color:var(--green-dk);font-weight:700}
+.btn-back, .btn-next{
+  font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:600;
+  padding:10px 22px;border-radius:var(--radius);cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;
+  transition:all 0.15s;
+  border:1.5px solid transparent;
+}
+.btn-back{background:#fff;color:#374151;border-color:var(--border)}
+.btn-back:hover{border-color:#9CA3AF;background:var(--gray-lt)}
+.btn-back:disabled{opacity:0.4;cursor:not-allowed}
+.btn-next{
+  background:linear-gradient(135deg,var(--green-pr) 0%,var(--green-md) 100%);
+  color:#fff;border:none;
+  box-shadow:0 2px 8px rgba(22,88,60,0.25);
+}
+.btn-next:hover{opacity:0.92;transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,88,60,0.30)}
+
+/* Inline step validation hint */
+.wizard-step-error{
+  margin:0 1.6rem 1rem;padding:10px 14px;
+  background:#FFF5F5;border:1px solid #FED7D7;border-left:3px solid var(--red);
+  border-radius:9px;font-size:12.5px;color:#C53030;
+  display:none;align-items:center;gap:8px;
+}
+.wizard-step-error.show{display:flex}
+
+/* Slight tweak: wider page hero for wizard layout */
+.wizard-layout + .site-footer{margin-top:2rem}

@@ -70,7 +70,7 @@ def payment():
     if get_user_payment_status(session["user_id"]) == "paid":
         return redirect("/portal")
 
-    email = session.get("user_email") or _get_user_email(session["user_id"])
+    email = session.get("user_email")
     reg   = get_registration_by_email(email) if email else None
     fee   = calculate_fee(reg["form_type"], reg["training_type"]) if reg else None
 
@@ -87,16 +87,6 @@ def payment():
                            fee=fee,
                            public_key=os.getenv("PAYMONGO_PUBLIC_KEY", ""),
                            error=error)
-
-
-def _get_user_email(user_id):
-    from db import get_db
-    conn = get_db()
-    cur  = dict_cur(conn)
-    cur.execute("SELECT email FROM users WHERE id=%s", (user_id,))
-    row  = cur.fetchone()
-    cur.close(); conn.close()
-    return row["email"] if row else None
 
 
 # ── Card: create Payment Intent ───────────────────────────────────────────────

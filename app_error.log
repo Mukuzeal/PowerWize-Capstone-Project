@@ -1,0 +1,90 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 803-894-837
+127.0.0.1 - - [16/May/2026 01:54:15] "GET /auth HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 01:54:15] "GET /static/logo.png HTTP/1.1" 304 -
+ * Detected change in 'E:\\CAPSTONE PROJECT\\PowerWize\\src\\auth.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 803-894-837
+ * Detected change in 'E:\\CAPSTONE PROJECT\\PowerWize\\src\\payment_bp.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 803-894-837
+ * Detected change in 'E:\\CAPSTONE PROJECT\\PowerWize\\src\\employee_bp.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 803-894-837
+127.0.0.1 - - [16/May/2026 03:48:57] "POST /auth/login HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\flask\app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\werkzeug\middleware\proxy_fix.py", line 183, in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\flask\app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\CAPSTONE PROJECT\PowerWize\src\auth.py", line 25, in auth_login
+    conn = get_db()
+           ^^^^^^^^
+  File "E:\CAPSTONE PROJECT\PowerWize\src\db.py", line 39, in get_db
+    return psycopg2.connect(DATABASE_URL)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "e:\CAPSTONE PROJECT\PowerWize\venv\Lib\site-packages\psycopg2\__init__.py", line 135, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: could not translate host name "aws-1-ap-northeast-1.pooler.supabase.com" to address: Name or service not known
+
+127.0.0.1 - - [16/May/2026 03:48:57] "GET /auth/login?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:48:57] "GET /auth/login?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:48:57] "GET /auth/login?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:48:57] "GET /auth/login?__debugger__=yes&cmd=resource&f=console.png&s=N7yZnADaiePlpM1xJXuS HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:51:42] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:51:42] "GET /static/logo.png HTTP/1.1" 304 -
+ * Detected change in 'E:\\CAPSTONE PROJECT\\PowerWize\\src\\db.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 803-894-837
+127.0.0.1 - - [16/May/2026 03:51:58] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:51:58] "GET /static/logo.png HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:00] "GET /auth HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:52:00] "GET /static/logo.png HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:06] "POST /auth/login HTTP/1.1" 302 -
+127.0.0.1 - - [16/May/2026 03:52:08] "GET /portal HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:52:08] "GET /static/forms.css HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:08] "GET /static/portal.css HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:09] "GET /static/logo.png HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:15] "GET /lms/learn HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:52:17] "GET /lms/learn HTTP/1.1" 200 -
+127.0.0.1 - - [16/May/2026 03:52:17] "GET /static/forms.css HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:17] "GET /static/lms.css HTTP/1.1" 304 -
+127.0.0.1 - - [16/May/2026 03:52:17] "GET /static/logo.png HTTP/1.1" 304 -
+ * Detected change in 'E:\\CAPSTONE PROJECT\\PowerWize\\src\\db.py', reloading
+ * Restarting with stat
+Traceback (most recent call last):
+  File "E:\CAPSTONE PROJECT\PowerWize\src\app.py", line 38, in <module>
+    init_db()
+  File "E:\CAPSTONE PROJECT\PowerWize\src\db.py", line 47, in init_db
+    conn = get_db()
+           ^^^^^^^^
+  File "E:\CAPSTONE PROJECT\PowerWize\src\db.py", line 39, in get_db
+    return psycopg2.connect(DATABASE_URL)
+           ^^^^^^^^
+NameError: name 'psycopg2' is not defined

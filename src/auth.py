@@ -37,6 +37,7 @@ def auth_login():
             session["user_id"]   = user["id"]
             session["user_role"] = user["role"]
             session["user_name"] = f"{user['fname']} {user['lname']}"
+            session["user_email"] = user["email"]
             if user["role"] == "admin":
                 return redirect("/admin")
             if user["role"] == "employee":

@@ -1,4 +1,4 @@
-{% from "shared/macros.html" import form_styles, header, upload_field, errors_block, file_js %}
+{% from "shared/macros.html" import form_styles, header, upload_field, errors_block, file_js, wizard_init, selfie_capture %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,6 +7,7 @@
 <title>CEM Certificate Renewal – EnergyWize</title>
 {{ form_styles() }}
 <link rel="stylesheet" href="/static/training-form.css">
+{{ wizard_init() }}
 </head>
 <body>
 {{ header("DOE-CEM Renewal 2026") }}
@@ -21,7 +22,7 @@
 <div class="page-body">
   {{ errors_block(errors) }}
 
-  <form class="form-card" method="POST" action="/renewal-cem/submit" enctype="multipart/form-data" novalidate>
+  <form class="form-card" method="POST" action="/renewal-cem/submit" enctype="multipart/form-data" novalidate data-wizard>
 
     <!-- Section 1: Info -->
     <div class="section-header">
@@ -113,6 +114,7 @@
       {{ upload_field("photo_id","photo_id","Recent 2×2 Photo ID","PDF or image · Max 10 MB","fa-image",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('photo_id')) }}
       {{ upload_field("expired_doe","expired_doe","Expired DOE-CEM Certificate","PDF or image · Max 10 MB","fa-file-lines",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('expired_doe')) }}
       {{ upload_field("valid_id","valid_id","Valid PRC ID or Government-Issued ID","PDF or image · Max 10 MB","fa-id-card",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('valid_id')) }}
+      {{ selfie_capture('valid_id') }}
     </div>
 
     <!-- Section 3: Terms -->
