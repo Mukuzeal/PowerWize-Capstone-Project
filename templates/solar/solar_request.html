@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Solar PV Quotation –“ EnergyWize</title>
+<title>Solar PV Quotation – EnergyWize</title>
 {{ form_styles() }}
 <link rel="stylesheet" href="/static/solar-request.css">
 </head>
@@ -14,7 +14,7 @@
 <div class="hero">
   <span class="hero-tag">AI-Assisted Service</span>
   <h1>Solar PV <em>Quotation</em></h1>
-  <p>Get a preliminary solar system estimate powered by AI –” reviewed by our specialists before finalization.</p>
+  <p>Get a preliminary solar system estimate powered by AI – reviewed by our specialists before finalization.</p>
 </div>
 
 <div class="page-body">
@@ -39,7 +39,7 @@
 
   <form method="POST" action="/solar/submit" enctype="multipart/form-data" id="solar-form">
 
-    <!-- â”€â”€ Personal Information â”€â”€ -->
+    <!-- ── Personal Information ── -->
     <div class="form-card">
       <div class="section-header">
         <div class="section-icon"><i class="fa-solid fa-user"></i></div>
@@ -70,7 +70,7 @@
       </div>
     </div>
 
-    <!-- â”€â”€ Establishment Details â”€â”€ -->
+    <!-- ── Establishment Details ── -->
     <div class="form-card">
       <div class="section-header">
         <div class="section-icon"><i class="fa-solid fa-building"></i></div>
@@ -133,7 +133,7 @@
       </div>
     </div>
 
-    <!-- â”€â”€ Energy Consumption â”€â”€ -->
+    <!-- ── Energy Consumption ── -->
     <div class="form-card">
       <div class="section-header">
         <div class="section-icon"><i class="fa-solid fa-bolt"></i></div>
@@ -162,7 +162,7 @@
         </div>
 
         <div class="field">
-          <label>Night-time Usage <span class="hint">% of load after 6 PM –” <strong id="night-pct-display" style="color:var(--green-pr)">20%</strong></span></label>
+          <label>Night-time Usage <span class="hint">% of load after 6 PM – <strong id="night-pct-display" style="color:var(--green-pr)">20%</strong></span></label>
           <div class="range-wrap">
             <span class="range-lbl">0%</span>
             <input type="range" name="time_of_use_night_pct" id="night-slider" min="0" max="100" value="20"
@@ -175,18 +175,18 @@
 
         <!-- Bill upload + OCR -->
         <div class="field">
-          <label>Upload Electric Bill <span class="hint">optional –” auto-fills fields above</span></label>
+          <label>Upload Electric Bill <span class="hint">optional – auto-fills fields above</span></label>
           <div class="upload-area" id="bill-drop">
             <input type="file" name="bill" id="bill-input" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="handleBillUpload(this)">
             <i class="fa-solid fa-file-invoice upload-ico"></i>
-            <p>Click or drag &amp; drop your electric bill<br><small style="font-size:11px">PDF, PNG, JPG –” max 10 MB</small></p>
+            <p>Click or drag &amp; drop your electric bill<br><small style="font-size:11px">PDF, PNG, JPG – max 10 MB</small></p>
             <div class="upload-name" id="bill-name"></div>
           </div>
 
           <div class="ocr-box" id="ocr-result">
             <div class="ocr-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Extracted from Bill</div>
-            <div class="ocr-row"><span class="ocr-label">kWh Consumption</span><span class="ocr-val" id="ocr-kwh-val">–”</span></div>
-            <div class="ocr-row"><span class="ocr-label">Amount Due</span><span class="ocr-val" id="ocr-amount-val">–”</span></div>
+            <div class="ocr-row"><span class="ocr-label">kWh Consumption</span><span class="ocr-val" id="ocr-kwh-val">–</span></div>
+            <div class="ocr-row"><span class="ocr-label">Amount Due</span><span class="ocr-val" id="ocr-amount-val">–</span></div>
             <p class="ocr-note">Values pre-filled above. You may edit them if needed.</p>
           </div>
           <div id="ocr-spinner" style="display:none;font-size:12px;color:var(--gray);margin-top:8px">
@@ -198,7 +198,7 @@
       </div>
     </div>
 
-    <!-- â”€â”€ Preferences â”€â”€ -->
+    <!-- ── Preferences ── -->
     <div class="form-card">
       <div class="section-header">
         <div class="section-icon"><i class="fa-solid fa-sliders"></i></div>
@@ -214,22 +214,22 @@
           <div class="radio-group">
             <label class="radio-opt">
               <input type="radio" name="target_savings" value="100" checked onchange="syncRadio(this)">
-              <i class="fa-solid fa-star"></i> 100% –” Offset entire bill
+              <i class="fa-solid fa-star"></i> 100% – Offset entire bill
             </label>
             <label class="radio-opt">
               <input type="radio" name="target_savings" value="75" onchange="syncRadio(this)">
-              <i class="fa-solid fa-circle-half-stroke"></i> 75% –” Reduce by Â¾
+              <i class="fa-solid fa-circle-half-stroke"></i> 75% – Reduce by ¾
             </label>
             <label class="radio-opt">
               <input type="radio" name="target_savings" value="50" onchange="syncRadio(this)">
-              <i class="fa-solid fa-gauge-high"></i> 50% –” Reduce by half
+              <i class="fa-solid fa-gauge-high"></i> 50% – Reduce by half
             </label>
           </div>
         </div>
 
         <div class="row-2">
           <div class="field">
-            <label>Available Roof Space <span class="hint">mÂ² –” estimate is fine</span></label>
+            <label>Available Roof Space <span class="hint">m² – estimate is fine</span></label>
             <div class="input-icon-wrap">
               <i class="fa-solid fa-vector-square"></i>
               <input type="number" name="roof_sqm" min="0" step="0.5" placeholder="e.g. 40" value="{{ prefill.get('roof_sqm','') }}">
@@ -258,7 +258,7 @@
 
   </form>
 
-  <a href="/home" style="display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;margin-top:4px;margin-bottom:2rem">â† Back to Home</a>
+  <a href="/home" style="display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;margin-top:4px;margin-bottom:2rem"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
 
 </div>
 </div>

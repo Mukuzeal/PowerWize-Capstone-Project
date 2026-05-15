@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Solar PV Estimate –“ EnergyWize</title>
+<title>Solar PV Estimate – EnergyWize</title>
 {{ form_styles() }}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <link rel="stylesheet" href="/static/solar-result.css">
@@ -22,7 +22,7 @@
 <div class="page-body">
 <div class="result-wrap">
 
-  <div class="prelim-badge"><i class="fa-solid fa-triangle-exclamation"></i> Preliminary AI-Generated Estimate –” Not a Final Quotation</div>
+  <div class="prelim-badge"><i class="fa-solid fa-triangle-exclamation"></i> Preliminary AI-Generated Estimate – Not a Final Quotation</div>
 
   {% set status = req.status %}
   <div style="margin-bottom:12px">
@@ -64,7 +64,7 @@
       <div class="spec-item">
         <div class="spec-label">Solar Panels</div>
         <div class="spec-value">{{ req.final_panel_count or req.panel_count }}</div>
-        <div class="spec-unit">Ã— 400W panels</div>
+        <div class="spec-unit">× 400W panels</div>
       </div>
       <div class="spec-item">
         <div class="spec-label">Monthly Savings</div>
@@ -73,7 +73,7 @@
       </div>
       <div class="spec-item">
         <div class="spec-label">Payback Period</div>
-        <div class="spec-value">{{ req.roi_years or "–”" }}</div>
+        <div class="spec-value">{{ req.roi_years or "–" }}</div>
         <div class="spec-unit">years</div>
       </div>
     </div>
@@ -82,7 +82,7 @@
       <div class="result-row">
         <span class="label"><i class="fa-solid fa-peso-sign"></i> Estimated Cost</span>
         <span class="value">
-          {% if req.final_cost %}₱{{ "{:,.0f}".format(req.final_cost) }}{% else %}₱{{ "{:,.0f}".format(req.cost_min) }} –“ ₱{{ "{:,.0f}".format(req.cost_max) }}{% endif %}
+          {% if req.final_cost %}₱{{ "{:,.0f}".format(req.final_cost) }}{% else %}₱{{ "{:,.0f}".format(req.cost_min) }} – ₱{{ "{:,.0f}".format(req.cost_max) }}{% endif %}
         </span>
       </div>
       <div class="result-row">
@@ -223,8 +223,8 @@ function requestContact(decision) {
 </script>
 
   <div style="display:flex;gap:10px;margin-top:4px">
-    <a href="/solar" style="flex:1;display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none">â† New Quotation</a>
-    <a href="/home" style="flex:1;display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none">â† Back to Home</a>
+    <a href="/solar" style="flex:1;display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none"><i class="fa-solid fa-arrow-left"></i> New Quotation</a>
+    <a href="/home" style="flex:1;display:block;text-align:center;font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
   </div>
 
 </div>
