@@ -1,8 +1,8 @@
-from db import get_db
+from db import get_db, dict_cur
 from werkzeug.security import check_password_hash
 
 conn = get_db()
-cur = conn.cursor(dictionary=True)
+cur = dict_cur(conn)
 
 test_accounts = [
     ("admin@ewize.com",              "Admin@1234"),

@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    session, jsonify, send_file, send_from_directory, abort)
 from qr_gen import generate_certificate_qr
-from db import (get_db, save_feedback, get_user_feedback, audit_log, lms_get_wrong_questions,
+from db import (get_db, dict_cur, save_feedback, get_user_feedback, audit_log, lms_get_wrong_questions,
                 lms_create_module, lms_get_modules, lms_get_modules_for_trainee, lms_get_module,
                 lms_update_module, lms_toggle_publish, lms_delete_module,
                 lms_archive_module, lms_restore_module,
@@ -506,7 +506,7 @@ def grade_submission(sub_id):
     feedback = request.form.get('feedback', '').strip()
     lms_grade_submission(sub_id, grade, feedback, _uid())
 
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = dict_cur(conn)
     cur.execute("""SELECT s.user_id, e.module_id FROM lms_exam_submissions s
                    JOIN lms_practical_exams e ON s.exam_id=e.id WHERE s.id=%s""", (sub_id,))
     row = cur.fetchone(); cur.close(); conn.close()

@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, session, jsonify
 from dotenv import load_dotenv
-from db import (log_payment, mark_payment_paid, mark_payment_failed,
+from db import (get_db, dict_cur, log_payment, mark_payment_paid, mark_payment_failed,
                 mark_user_paid, get_user_payment_status, get_registration_by_email,
                 save_blockchain_receipt, get_receipt_by_id, get_receipt_by_user)
 import paymongo
@@ -92,7 +92,7 @@ def payment():
 def _get_user_email(user_id):
     from db import get_db
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute("SELECT email FROM users WHERE id=%s", (user_id,))
     row  = cur.fetchone()
     cur.close(); conn.close()
@@ -271,7 +271,7 @@ def webhook():
 def _handle_payment_paid(paymongo_id):
     from db import get_db
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute("SELECT user_id FROM payments WHERE paymongo_id=%s LIMIT 1", (paymongo_id,))
     row = cur.fetchone()
     cur.close(); conn.close()

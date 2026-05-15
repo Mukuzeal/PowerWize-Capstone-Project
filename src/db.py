@@ -36,6 +36,10 @@ def get_db():
     return psycopg2.connect(DATABASE_URL)
 
 
+def dict_cur(conn):
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+
 def init_db():
     conn = get_db()
     cur = conn.cursor()

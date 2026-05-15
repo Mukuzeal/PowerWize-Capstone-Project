@@ -2,7 +2,7 @@ import re
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, render_template, session, redirect
-from db import get_schedules, insert_registration, get_db, get_registration_by_email
+from db import get_schedules, insert_registration, get_db, dict_cur, get_registration_by_email
 from utils import save_file, check_required
 
 registration_bp = Blueprint("registration", __name__)
@@ -40,7 +40,7 @@ def portal():
 
     # Fetch user info and their registration
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute(
         "SELECT fname, lname, email, payment_status FROM users WHERE id=%s",
         (session["user_id"],)

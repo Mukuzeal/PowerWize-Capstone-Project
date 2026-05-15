@@ -1,7 +1,7 @@
 import io
 from datetime import date
 from flask import Blueprint, request, render_template, redirect, flash, url_for, jsonify, session, send_file
-from db import (get_db, get_batches_full, get_users, get_registrations, set_registration_status,
+from db import (get_db, dict_cur, get_batches_full, get_users, get_registrations, set_registration_status,
                 build_batch_label, TYPE_OFFSETS, create_account_token, get_solar_requests,
                 audit_log, get_audit_logs, get_feedback, get_feedback_summary, get_analytics_data)
 from email_utils import send_acceptance_email
@@ -34,7 +34,7 @@ def admin():
 
     # Get LMS modules (active only)
     conn = get_db()
-    cur = conn.cursor(dictionary=True)
+    cur = dict_cur(conn)
     cur.execute("""
         SELECT m.*, u.fname, u.lname,
                COUNT(DISTINCT q.id) as quiz_count,
@@ -80,7 +80,7 @@ def admin():
 @admin_bp.route("/admin/user/archive/<int:user_id>", methods=["POST"])
 def admin_archive_user(user_id):
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute("SELECT fname, lname FROM users WHERE id = %s", (user_id,))
     user = cur.fetchone()
     cur.execute("UPDATE users SET archived_at = NOW() WHERE id = %s", (user_id,))
@@ -96,7 +96,7 @@ def admin_archive_user(user_id):
 @admin_bp.route("/admin/user/unarchive/<int:user_id>", methods=["POST"])
 def admin_unarchive_user(user_id):
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute("SELECT fname, lname FROM users WHERE id = %s", (user_id,))
     user = cur.fetchone()
     cur.execute("UPDATE users SET archived_at = NULL WHERE id = %s", (user_id,))
@@ -112,7 +112,7 @@ def admin_unarchive_user(user_id):
 @admin_bp.route("/admin/user/delete/<int:user_id>", methods=["POST"])
 def admin_delete_user(user_id):
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute("SELECT fname, lname, archived_at FROM users WHERE id = %s", (user_id,))
     user = cur.fetchone()
     if not user or user["archived_at"] is None:
@@ -139,7 +139,7 @@ def admin_registration_status(reg_id, status):
     if status == "accepted":
         # Fetch the registration to get email and name
         conn = get_db()
-        cur  = conn.cursor(dictionary=True)
+        cur  = dict_cur(conn)
         cur.execute("SELECT email, full_name FROM registrations WHERE id = %s", (reg_id,))
         reg = cur.fetchone()
         cur.close(); conn.close()
@@ -167,7 +167,7 @@ def admin_registration_status(reg_id, status):
 @admin_bp.route("/admin/schedule/delete/<int:schedule_id>", methods=["POST"])
 def admin_delete_schedule(schedule_id):
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute("SELECT name FROM batches WHERE id = %s", (schedule_id,))
     row = cur.fetchone()
     cur.execute("DELETE FROM batches WHERE id = %s", (schedule_id,))
@@ -278,7 +278,7 @@ def export_payments():
     if session.get("user_role") != "admin":
         return redirect("/auth")
     from openpyxl import Workbook
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = dict_cur(conn)
     cur.execute("""
         SELECT p.id, u.fname, u.lname, u.email, p.amount_php, p.method,
                p.status, p.receipt_id, p.tx_hash, p.created_at, p.paid_at
@@ -303,7 +303,7 @@ def export_lms_progress():
     if session.get("user_role") != "admin":
         return redirect("/auth")
     from openpyxl import Workbook
-    conn = get_db(); cur = conn.cursor(dictionary=True)
+    conn = get_db(); cur = dict_cur(conn)
     cur.execute("""
         SELECT u.fname, u.lname, u.email, m.title AS module,
                p.quiz_score, p.quiz_passed, p.exam_grade,

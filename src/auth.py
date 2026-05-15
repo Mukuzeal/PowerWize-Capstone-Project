@@ -1,6 +1,6 @@
 from flask import Blueprint, request, render_template, redirect, session, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
-from db import get_db, create_reset_token, get_reset_token, mark_reset_token_used, reset_user_password, get_user_by_email
+from db import get_db, dict_cur, create_reset_token, get_reset_token, mark_reset_token_used, reset_user_password, get_user_by_email
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -23,7 +23,7 @@ def auth_login():
 
     if not errors:
         conn = get_db()
-        cur  = conn.cursor(dictionary=True)
+        cur  = dict_cur(conn)
         cur.execute("""
             SELECT id, role, fname, lname, email, password_hash, payment_status, archived_at
             FROM users WHERE email = %s AND archived_at IS NULL

@@ -9,14 +9,14 @@ import sys
 from dotenv import load_dotenv
 load_dotenv()
 
-from db import get_db, save_blockchain_receipt
+from db import get_db, dict_cur, save_blockchain_receipt
 from blockchain import generate_receipt_id, create_receipt_hash, store_hash_on_chain
 from qr_gen import generate_receipt_qr
 from datetime import datetime
 
 def fix(paymongo_id):
     conn = get_db()
-    cur  = conn.cursor(dictionary=True)
+    cur  = dict_cur(conn)
     cur.execute(
         "SELECT id, user_id, receipt_id, tx_hash FROM payments WHERE paymongo_id = %s LIMIT 1",
         (paymongo_id,)
