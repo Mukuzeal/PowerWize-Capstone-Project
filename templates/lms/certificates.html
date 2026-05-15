@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Certificate –“ LMS</title>
+<title>My Certificate – LMS</title>
 {{ form_styles() }}
 <link rel="stylesheet" href="/static/lms.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -170,7 +170,7 @@
       badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Expired {{ cert.expires_at.strftime("%b %d, %Y") }}';
       {% elif cert_status == 'expiring' %}
       badge.className = 'cert-expiry-badge expiring';
-      badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Expires {{ cert.expires_at.strftime("%b %d, %Y") }} –” renew soon';
+      badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Expires {{ cert.expires_at.strftime("%b %d, %Y") }} – renew soon';
       {% endif %}
     }
     {% endif %}

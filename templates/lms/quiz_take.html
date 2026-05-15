@@ -1,91 +1,93 @@
 {% from "shared/macros.html" import form_styles, header %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz –“ {{ mod.title }}</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
-<link rel="stylesheet" href="/static/lms-quiz.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz – {{ mod.title }}</title>
+    {{ form_styles() }}
+    <link rel="stylesheet" href="/static/lms.css">
+    <link rel="stylesheet" href="/static/lms-quiz.css">
 </head>
+
 <body class="quiz-body">
 
-<div class="quiz-shell">
+    <div class="quiz-shell">
 
-  <!-- Quiz header -->
-  <div class="quiz-topbar">
-    <div class="quiz-title-wrap">
-      <span class="quiz-module-name">{{ mod.title }}</span>
-      <h1 class="quiz-title">{{ quiz.title }}</h1>
-    </div>
-    <div class="quiz-meta-wrap">
-      <div class="quiz-timer" id="quiz-timer">{{ quiz.time_limit_mins }}:00</div>
-      <div class="quiz-tab-warn" id="tab-warn" style="display:none">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        Tab switch detected! (<span id="tab-count">0</span>)
-      </div>
-    </div>
-  </div>
-
-  <!-- Watermark -->
-  <div class="quiz-watermark" id="quiz-watermark">{{ session.get('fname', '') }} {{ session.get('lname', '') }}</div>
-
-  <!-- Questions -->
-  <form id="quiz-form" method="post" action="/lms/learn/{{ mod.id }}/quiz/submit">
-    <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
-
-    <div class="quiz-questions">
-      {% for q in questions %}
-      <div class="quiz-question-block">
-        <div class="quiz-q-header">
-          <span class="quiz-q-num">{{ loop.index }}</span>
-          <p class="quiz-q-text">{{ q.question_text }}</p>
+        <!-- Quiz header -->
+        <div class="quiz-topbar">
+            <div class="quiz-title-wrap">
+                <span class="quiz-module-name">{{ mod.title }}</span>
+                <h1 class="quiz-title">{{ quiz.title }}</h1>
+            </div>
+            <div class="quiz-meta-wrap">
+                <div class="quiz-timer" id="quiz-timer">{{ quiz.time_limit_mins }}:00</div>
+                <div class="quiz-tab-warn" id="tab-warn" style="display:none">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Tab switch detected! (<span id="tab-count">0</span>)
+                </div>
+            </div>
         </div>
-        {% if q.question_type == 'multiple_choice' %}
-        <div class="quiz-choices">
-          {% for c in q.choices %}
-          <label class="quiz-choice">
+
+        <!-- Watermark -->
+        <div class="quiz-watermark" id="quiz-watermark">{{ session.get('fname', '') }} {{ session.get('lname', '') }}</div>
+
+        <!-- Questions -->
+        <form id="quiz-form" method="post" action="/lms/learn/{{ mod.id }}/quiz/submit">
+            <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
+
+            <div class="quiz-questions">
+                {% for q in questions %}
+                <div class="quiz-question-block">
+                    <div class="quiz-q-header">
+                        <span class="quiz-q-num">{{ loop.index }}</span>
+                        <p class="quiz-q-text">{{ q.question_text }}</p>
+                    </div>
+                    {% if q.question_type == 'multiple_choice' %}
+                    <div class="quiz-choices">
+                        {% for c in q.choices %}
+                        <label class="quiz-choice">
             <input type="radio" name="q_{{ q.id }}" value="{{ c.id }}" required>
             <span class="quiz-choice-text">{{ c.choice_text }}</span>
-          </label>
-          {% endfor %}
-        </div>
-        {% elif q.question_type == 'essay' %}
-        <textarea name="q_{{ q.id }}" class="form-input form-textarea" rows="6"
-                  placeholder="Write your answer here…" required></textarea>
-        {% elif q.question_type == 'identification' %}
-        <input type="text" name="q_{{ q.id }}" class="form-input"
-               placeholder="Type your answer" required>
-        {% elif q.question_type == 'enumeration' %}
-        <textarea name="q_{{ q.id }}" class="form-input form-textarea" rows="4"
-                  placeholder="List each item separated by commas" required></textarea>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
+          </label> {% endfor %}
+                    </div>
+                    {% elif q.question_type == 'essay' %}
+                    <textarea name="q_{{ q.id }}" class="form-input form-textarea" rows="6" placeholder="Write your answer here…" required></textarea> {% elif q.question_type == 'identification' %}
+                    <input type="text" name="q_{{ q.id }}" class="form-input" placeholder="Type your answer" required> {% elif q.question_type == 'enumeration' %}
+                    <textarea name="q_{{ q.id }}" class="form-input form-textarea" rows="4" placeholder="List each item separated by commas" required></textarea> {% endif %}
+                </div>
+                {% endfor %}
+            </div>
 
-    <div class="quiz-submit-row">
-      <p class="quiz-submit-hint">
-        <i class="fa-solid fa-circle-info"></i>
-        Make sure to answer all questions before submitting. You cannot retake this quiz.
-      </p>
-      <button type="submit" class="btn-primary btn-lg" onclick="return confirmSubmit()">
+            <div class="quiz-submit-row">
+                <p class="quiz-submit-hint">
+                    <i class="fa-solid fa-circle-info"></i> Make sure to answer all questions before submitting. You cannot retake this quiz.
+                </p>
+                <button type="submit" class="btn-primary btn-lg" onclick="return confirmSubmit()">
         <i class="fa-solid fa-check"></i> Submit Quiz
       </button>
+            </div>
+        </form>
+
     </div>
-  </form>
 
-</div>
-
-<script src="/static/lms-quiz.js"></script>
-<script>
-initQuiz({
-  attemptId:   {{ attempt_id }},
-  timeLimitMin: {{ quiz.time_limit_mins }},
-  tabSwitchUrl: '/lms/learn/{{ mod.id }}/quiz/tabswitch',
-  submitUrl:    '/lms/learn/{{ mod.id }}/quiz/submit'
-});
-</script>
+    <script src="/static/lms-quiz.js"></script>
+    <script>
+        initQuiz({
+            attemptId: {
+                {
+                    attempt_id
+                }
+            },
+            timeLimitMin: {
+                {
+                    quiz.time_limit_mins
+                }
+            },
+            tabSwitchUrl: '/lms/learn/{{ mod.id }}/quiz/tabswitch',
+            submitUrl: '/lms/learn/{{ mod.id }}/quiz/submit'
+        });
+    </script>
 </body>
+
 </html>

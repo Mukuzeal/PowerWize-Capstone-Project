@@ -1,97 +1,98 @@
 {% from "shared/macros.html" import form_styles, header %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Verify Receipt –“ EnergyWize</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/verify-receipt.css">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Receipt – EnergyWize</title>
+    {{ form_styles() }}
+    <link rel="stylesheet" href="/static/verify-receipt.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
+
 <body>
-{{ header("Verify Receipt") }}
+    {{ header("Verify Receipt") }}
 
-<div class="hero">
-  <span class="hero-tag">Blockchain Verification</span>
-  <h1>Verify <em>Receipt</em></h1>
-  <p>Scan a receipt QR code or paste the Receipt ID to verify payment on the Polygon blockchain.</p>
-</div>
-
-<div class="page-body">
-  <div class="verify-wrap">
-
-    {% if result %}
-    <div class="result-card {{ 'verified' if result.verified else 'unverified' }}">
-      <div class="result-icon">
-        {% if result.verified %}<i class="fa-solid fa-circle-check" style="color:#166534"></i>
-        {% else %}<i class="fa-solid fa-circle-xmark" style="color:#991B1B"></i>{% endif %}
-      </div>
-      <div class="result-title">
-        {% if result.verified %}Payment is in Blockchain <i class="fa-solid fa-check"></i>{% else %}Payment not in Blockchain <i class="fa-solid fa-xmark"></i>{% endif %}
-      </div>
-      <div style="font-size:13px;color:var(--gray)">{{ result.reason }}</div>
-
-      {% if receipt %}
-      <div class="result-meta">
-        <div><strong>Receipt ID:</strong> {{ receipt.receipt_id }}</div>
-        <div><strong>Name:</strong> {{ receipt.fname }} {{ receipt.lname }}</div>
-        <div><strong>Amount:</strong> ₱{{ "%.2f"|format(receipt.amount_php) }}</div>
-        <div><strong>Paid:</strong> {{ receipt.paid_at.strftime("%B %d, %Y %I:%M %p") if receipt.paid_at else "–”" }}</div>
-        {% if result.block_number %}<div><strong>Block:</strong> #{{ result.block_number }}</div>{% endif %}
-      </div>
-      {% endif %}
-
-      {% if result.explorer_url %}
-      <a class="chain-link" href="{{ result.explorer_url }}" target="_blank">
-        <i class="fa-solid fa-cube"></i> View on PolygonScan
-      </a>
-      {% endif %}
-
-      <div style="margin-top:16px">
-        <a href="/verify" style="font-size:13px;color:var(--green-pr);font-weight:600;text-decoration:underline">
-          <i class="fa-solid fa-qrcode"></i> Scan another QR code
-        </a>
-      </div>
+    <div class="hero">
+        <span class="hero-tag">Blockchain Verification</span>
+        <h1>Verify <em>Receipt</em></h1>
+        <p>Scan a receipt QR code or paste the Receipt ID to verify payment on the Polygon blockchain.</p>
     </div>
 
-    {% else %}
+    <div class="page-body">
+        <div class="verify-wrap">
 
-    <div class="verify-card">
-      <h3><i class="fa-solid fa-camera" style="color:var(--green-pr)"></i> Scan QR Code</h3>
-      <p>Click Start Scanner and point your camera at the receipt QR code. It will verify automatically.</p>
-      <div id="qr-reader"></div>
-      <div class="scan-status scanning" id="scan-status" style="display:none">
-        <i class="fa-solid fa-circle-notch fa-spin"></i> Scanning –” point camera at QR code...
-      </div>
-      <div style="display:flex;gap:10px;margin-top:12px">
-        <button class="scan-btn start" id="btn-start" onclick="startScanner()">
+            {% if result %}
+            <div class="result-card {{ 'verified' if result.verified else 'unverified' }}">
+                <div class="result-icon">
+                    {% if result.verified %}<i class="fa-solid fa-circle-check" style="color:#166534"></i> {% else %}<i class="fa-solid fa-circle-xmark" style="color:#991B1B"></i>{% endif %}
+                </div>
+                <div class="result-title">
+                    {% if result.verified %}Payment is in Blockchain <i class="fa-solid fa-check"></i>{% else %}Payment not in Blockchain <i class="fa-solid fa-xmark"></i>{% endif %}
+                </div>
+                <div style="font-size:13px;color:var(--gray)">{{ result.reason }}</div>
+
+                {% if receipt %}
+                <div class="result-meta">
+                    <div><strong>Receipt ID:</strong> {{ receipt.receipt_id }}</div>
+                    <div><strong>Name:</strong> {{ receipt.fname }} {{ receipt.lname }}</div>
+                    <div><strong>Amount:</strong> ₱{{ "%.2f"|format(receipt.amount_php) }}</div>
+                    <div><strong>Paid:</strong> {{ receipt.paid_at.strftime("%B %d, %Y %I:%M %p") if receipt.paid_at else "–" }}</div>
+                    {% if result.block_number %}
+                    <div><strong>Block:</strong> #{{ result.block_number }}</div>{% endif %}
+                </div>
+                {% endif %} {% if result.explorer_url %}
+                <a class="chain-link" href="{{ result.explorer_url }}" target="_blank">
+                    <i class="fa-solid fa-cube"></i> View on PolygonScan
+                </a>
+                {% endif %}
+
+                <div style="margin-top:16px">
+                    <a href="/verify" style="font-size:13px;color:var(--green-pr);font-weight:600;text-decoration:underline">
+                        <i class="fa-solid fa-qrcode"></i> Scan another QR code
+                    </a>
+                </div>
+            </div>
+
+            {% else %}
+
+            <div class="verify-card">
+                <h3><i class="fa-solid fa-camera" style="color:var(--green-pr)"></i> Scan QR Code</h3>
+                <p>Click Start Scanner and point your camera at the receipt QR code. It will verify automatically.</p>
+                <div id="qr-reader"></div>
+                <div class="scan-status scanning" id="scan-status" style="display:none">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Scanning – point camera at QR code...
+                </div>
+                <div style="display:flex;gap:10px;margin-top:12px">
+                    <button class="scan-btn start" id="btn-start" onclick="startScanner()">
           <i class="fa-solid fa-camera"></i> Start Scanner
         </button>
-        <button class="scan-btn stop" id="btn-stop" style="display:none" onclick="stopScanner()">
+                    <button class="scan-btn stop" id="btn-stop" style="display:none" onclick="stopScanner()">
           <i class="fa-solid fa-stop"></i> Stop
         </button>
-      </div>
-    </div>
+                </div>
+            </div>
 
-    <div class="verify-card">
-      <h3><i class="fa-solid fa-keyboard" style="color:var(--green-pr)"></i> Manual Entry</h3>
-      <p>No camera? Paste your Receipt ID (e.g. <code>RCP-20260501-A1B2C3D4</code>) or the full QR data.</p>
-      <form method="POST" action="/verify" id="verify-form">
-        <textarea name="qr_data" id="qr-data-input" placeholder="Paste Receipt ID or QR data here..."></textarea>
-        <button type="submit" class="btn-verify">
+            <div class="verify-card">
+                <h3><i class="fa-solid fa-keyboard" style="color:var(--green-pr)"></i> Manual Entry</h3>
+                <p>No camera? Paste your Receipt ID (e.g. <code>RCP-20260501-A1B2C3D4</code>) or the full QR data.</p>
+                <form method="POST" action="/verify" id="verify-form">
+                    <textarea name="qr_data" id="qr-data-input" placeholder="Paste Receipt ID or QR data here..."></textarea>
+                    <button type="submit" class="btn-verify">
           <i class="fa-solid fa-shield-check"></i> Verify on Blockchain
         </button>
-      </form>
+                </form>
+            </div>
+
+            {% endif %}
+
+        </div>
     </div>
 
-    {% endif %}
+    <footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
 
-  </div>
-</div>
-
-<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
-
-<script src="/static/verify-receipt.js"></script>
+    <script src="/static/verify-receipt.js"></script>
 </body>
+
 </html>

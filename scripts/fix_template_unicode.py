@@ -42,6 +42,10 @@ PAIRS = {
     "â›”": "⛔",
     # âš + NBSP         -> ⚠ (warning)       [bytes E2 9A A0]   ('š' = U+0161)
     "âš ": "⚠",
+    # Two-char remnants where the leading mojibake byte was already cleaned
+    # but the trailing smart-quote was left behind. Both forms collapse to `–`.
+    "–“": "–",  # en-dash + left double curly quote  -> en-dash
+    "–”": "–",  # en-dash + right double curly quote -> en-dash
     # Common 2-byte mojibake:
     "Ã—": "×",  # Ã—  -> ×  (multiplication)
     "Â¾": "¾",  # Â¾  -> ¾

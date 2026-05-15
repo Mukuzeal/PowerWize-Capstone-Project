@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GEMP Training Registration (Gov't Entity) –“ EnergyWize</title>
+    <title>GEMP Training Registration (Gov't Entity) – EnergyWize</title>
     {{ form_styles() }}
     <link rel="stylesheet" href="/static/training-form.css">
 </head>
@@ -103,11 +103,11 @@
                         <option value="" disabled {% if not form_data %}selected{% endif %}>Select your GEMP role</option>
                         {% set gd = form_data.get('gemp_designation','') if form_data else '' %}
                         {% set roles = [
-                            'EEC Officer –“ Head of the Energy Efficiency & Conservation Office (EECO) designated by the Head of the Government Entity',
-                            'Focal Person –“ Designated by the Head of the Department-Level Entity to assist the EEC Officer',
-                            'EEC Coordinator –“ Designated person responsible for assisting both the EEC Officer and Focal Person',
-                            'Authorized Energy Auditor –“ Employee of a GE holding a plantilla position with permanent employment status',
-                            'NONE –“ Just want to attend the GEMP Training'
+                            'EEC Officer – Head of the Energy Efficiency & Conservation Office (EECO) designated by the Head of the Government Entity',
+                            'Focal Person – Designated by the Head of the Department-Level Entity to assist the EEC Officer',
+                            'EEC Coordinator – Designated person responsible for assisting both the EEC Officer and Focal Person',
+                            'Authorized Energy Auditor – Employee of a GE holding a plantilla position with permanent employment status',
+                            'NONE – Just want to attend the GEMP Training'
                         ] %}
                         {% for r in roles %}
                         <option value="{{ r }}" {% if gd == r %}selected{% endif %}>{{ r }}</option>

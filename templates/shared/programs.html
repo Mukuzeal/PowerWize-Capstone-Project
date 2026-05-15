@@ -1,104 +1,177 @@
 {% from "shared/macros.html" import form_styles, header %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Training Programs –“ EnergyWize</title>
-{{ form_styles() }}
-<style>
-.programs-wrap{max-width:680px;margin:0 auto}
-.program-card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;display:flex;align-items:stretch;text-decoration:none;transition:transform 0.15s,box-shadow 0.15s;border:1px solid var(--border)}
-.program-card:hover{transform:translateY(-2px);box-shadow:0 4px 24px rgba(13,59,39,0.15)}
-.program-accent{width:6px;flex-shrink:0}
-.program-accent.training{background:var(--green-pr)}
-.program-accent.renewal{background:var(--gold)}
-.program-body{padding:20px 22px;flex:1}
-.program-tag{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
-.program-tag.training{color:var(--green-pr)}
-.program-tag.renewal{color:var(--gold-dk)}
-.program-accent.gemp{background:#16A34A}
-.program-tag.gemp{color:#15803D}
-.program-body h3{font-size:16px;font-weight:700;color:#111827;margin-bottom:4px}
-.program-body p{font-size:13px;color:var(--gray);line-height:1.5}
-.program-arrow{display:flex;align-items:center;padding:0 20px;color:var(--gray);font-size:18px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Programs – EnergyWize</title>
+    {{ form_styles() }}
+    <style>
+        .programs-wrap {
+            max-width: 680px;
+            margin: 0 auto
+        }
+        
+        .program-card {
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: stretch;
+            text-decoration: none;
+            transition: transform 0.15s, box-shadow 0.15s;
+            border: 1px solid var(--border)
+        }
+        
+        .program-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 24px rgba(13, 59, 39, 0.15)
+        }
+        
+        .program-accent {
+            width: 6px;
+            flex-shrink: 0
+        }
+        
+        .program-accent.training {
+            background: var(--green-pr)
+        }
+        
+        .program-accent.renewal {
+            background: var(--gold)
+        }
+        
+        .program-body {
+            padding: 20px 22px;
+            flex: 1
+        }
+        
+        .program-tag {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 6px
+        }
+        
+        .program-tag.training {
+            color: var(--green-pr)
+        }
+        
+        .program-tag.renewal {
+            color: var(--gold-dk)
+        }
+        
+        .program-accent.gemp {
+            background: #16A34A
+        }
+        
+        .program-tag.gemp {
+            color: #15803D
+        }
+        
+        .program-body h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4px
+        }
+        
+        .program-body p {
+            font-size: 13px;
+            color: var(--gray);
+            line-height: 1.5
+        }
+        
+        .program-arrow {
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: var(--gray);
+            font-size: 18px
+        }
+    </style>
 </head>
+
 <body>
-{{ header("Training Programs") }}
+    {{ header("Training Programs") }}
 
-<div class="hero">
-  <span class="hero-tag">Step 1 of 3</span>
-  <h1>Choose a <em>Program</em></h1>
-  <p>Select the training or renewal program you want to enroll in. After submitting your application, our team will review it and send you an account setup link.</p>
-</div>
+    <div class="hero">
+        <span class="hero-tag">Step 1 of 3</span>
+        <h1>Choose a <em>Program</em></h1>
+        <p>Select the training or renewal program you want to enroll in. After submitting your application, our team will review it and send you an account setup link.</p>
+    </div>
 
-<div class="page-body">
-  <div class="programs-wrap">
+    <div class="page-body">
+        <div class="programs-wrap">
 
-    <a href="/cea-training" class="program-card">
-      <div class="program-accent training"></div>
-      <div class="program-body">
-        <div class="program-tag training">Training</div>
-        <h3>CEA Training Program</h3>
-        <p>Certified Energy Auditor training for engineers and energy professionals seeking DOE certification.</p>
-      </div>
-      <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-    </a>
+            <a href="/cea-training" class="program-card">
+                <div class="program-accent training"></div>
+                <div class="program-body">
+                    <div class="program-tag training">Training</div>
+                    <h3>CEA Training Program</h3>
+                    <p>Certified Energy Auditor training for engineers and energy professionals seeking DOE certification.</p>
+                </div>
+                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            </a>
 
-    <a href="/training" class="program-card">
-      <div class="program-accent training"></div>
-      <div class="program-body">
-        <div class="program-tag training">Training</div>
-        <h3>CEM Training Program</h3>
-        <p>Certified Energy Manager training covering energy planning, auditing, and management strategies.</p>
-      </div>
-      <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-    </a>
+            <a href="/training" class="program-card">
+                <div class="program-accent training"></div>
+                <div class="program-body">
+                    <div class="program-tag training">Training</div>
+                    <h3>CEM Training Program</h3>
+                    <p>Certified Energy Manager training covering energy planning, auditing, and management strategies.</p>
+                </div>
+                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            </a>
 
-    <a href="/renewalCEA" class="program-card">
-      <div class="program-accent renewal"></div>
-      <div class="program-body">
-        <div class="program-tag renewal">Renewal</div>
-        <h3>CEA Certificate Renewal</h3>
-        <p>For existing Certified Energy Auditors renewing their DOE certification before expiry.</p>
-      </div>
-      <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-    </a>
+            <a href="/renewalCEA" class="program-card">
+                <div class="program-accent renewal"></div>
+                <div class="program-body">
+                    <div class="program-tag renewal">Renewal</div>
+                    <h3>CEA Certificate Renewal</h3>
+                    <p>For existing Certified Energy Auditors renewing their DOE certification before expiry.</p>
+                </div>
+                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            </a>
 
-    <a href="/renewalCEM" class="program-card">
-      <div class="program-accent renewal"></div>
-      <div class="program-body">
-        <div class="program-tag renewal">Renewal</div>
-        <h3>CEM Certificate Renewal</h3>
-        <p>For existing Certified Energy Managers renewing their DOE certification before expiry.</p>
-      </div>
-      <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-    </a>
+            <a href="/renewalCEM" class="program-card">
+                <div class="program-accent renewal"></div>
+                <div class="program-body">
+                    <div class="program-tag renewal">Renewal</div>
+                    <h3>CEM Certificate Renewal</h3>
+                    <p>For existing Certified Energy Managers renewing their DOE certification before expiry.</p>
+                </div>
+                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            </a>
 
-    <a href="/gemp-lgu" class="program-card">
-      <div class="program-accent gemp"></div>
-      <div class="program-body">
-        <div class="program-tag gemp">GEMP Training</div>
-        <h3>GEMP Training –“ For Local Government Units</h3>
-        <p>For EEC Officers, Focal Persons, EEC Coordinators, and Authorized Energy Auditors of LGUs. DOE-RTI-GEMP-25041500008.</p>
-      </div>
-      <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-    </a>
+            <a href="/gemp-lgu" class="program-card">
+                <div class="program-accent gemp"></div>
+                <div class="program-body">
+                    <div class="program-tag gemp">GEMP Training</div>
+                    <h3>GEMP Training – For Local Government Units</h3>
+                    <p>For EEC Officers, Focal Persons, EEC Coordinators, and Authorized Energy Auditors of LGUs. DOE-RTI-GEMP-25041500008.</p>
+                </div>
+                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            </a>
 
-    <a href="/gemp-oge" class="program-card">
-      <div class="program-accent gemp"></div>
-      <div class="program-body">
-        <div class="program-tag gemp">GEMP Training</div>
-        <h3>GEMP Training –“ For Other Government Entities</h3>
-        <p>For EEC Professionals of National Government Agencies, GOCCs, and other government entities under RA 11285.</p>
-      </div>
-      <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-    </a>
+            <a href="/gemp-oge" class="program-card">
+                <div class="program-accent gemp"></div>
+                <div class="program-body">
+                    <div class="program-tag gemp">GEMP Training</div>
+                    <h3>GEMP Training – For Other Government Entities</h3>
+                    <p>For EEC Professionals of National Government Agencies, GOCCs, and other government entities under RA 11285.</p>
+                </div>
+                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            </a>
 
-  </div>
-</div>
+        </div>
+    </div>
 
-<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
+    <footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
 </body>
+
 </html>

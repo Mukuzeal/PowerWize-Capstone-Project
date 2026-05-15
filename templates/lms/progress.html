@@ -1,104 +1,93 @@
 {% from "shared/macros.html" import form_styles, header %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Progress –“ LMS</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Progress – LMS</title>
+    {{ form_styles() }}
+    <link rel="stylesheet" href="/static/lms.css">
 </head>
+
 <body>
-{{ header("My Progress") }}
-<div class="page-body">
-<div class="lms-wrap lms-wrap-narrow">
+    {{ header("My Progress") }}
+    <div class="page-body">
+        <div class="lms-wrap lms-wrap-narrow">
 
-  <div class="lms-page-header">
-    <div>
-      <h2 class="lms-page-title"><i class="fa-solid fa-chart-line"></i> My Progress</h2>
-    </div>
-    <a href="/lms/learn" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
-  </div>
+            <div class="lms-page-header">
+                <div>
+                    <h2 class="lms-page-title"><i class="fa-solid fa-chart-line"></i> My Progress</h2>
+                </div>
+                <a href="/lms/learn" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+            </div>
 
-  <!-- Overall -->
-  <div class="lms-card progress-hero">
-    <div class="progress-hero-info">
-      <h2>Overall Progress</h2>
-      <p>{{ completed }} of {{ total }} module{{ 's' if total != 1 }} completed</p>
-      <div class="big-progress-bar">
-        <div class="big-progress-fill" style="width:{{ pct }}%"></div>
-      </div>
-      <p class="pct-label">{{ pct }}% complete</p>
-    </div>
-    <div class="progress-circle-wrap">
-      <div class="progress-circle" style="--pct:{{ pct }}">
-        <span>{{ pct }}%</span>
-      </div>
-    </div>
-  </div>
+            <!-- Overall -->
+            <div class="lms-card progress-hero">
+                <div class="progress-hero-info">
+                    <h2>Overall Progress</h2>
+                    <p>{{ completed }} of {{ total }} module{{ 's' if total != 1 }} completed</p>
+                    <div class="big-progress-bar">
+                        <div class="big-progress-fill" style="width:{{ pct }}%"></div>
+                    </div>
+                    <p class="pct-label">{{ pct }}% complete</p>
+                </div>
+                <div class="progress-circle-wrap">
+                    <div class="progress-circle" style="--pct:{{ pct }}">
+                        <span>{{ pct }}%</span>
+                    </div>
+                </div>
+            </div>
 
-  <!-- Per-module -->
-  {% if modules %}
-  {% for m in modules %}
-  {% set p = prog_map.get(m.id, {}) %}
-  <div class="lms-card progress-module-card">
-    <div class="progress-module-header">
-      <div>
-        <h3 class="progress-module-title">{{ m.title }}</h3>
-        <span class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname }} {{ m.lname }}</span>
-      </div>
-      {% if p.get('completed') %}
-      <span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Completed</span>
-      {% elif p %}
-      <span class="badge badge-blue"><i class="fa-solid fa-spinner"></i> In Progress</span>
-      {% else %}
-      <span class="badge badge-gray">Not Started</span>
-      {% endif %}
-    </div>
-    <div class="progress-module-details">
-      <div class="progress-detail-item">
-        <i class="fa-solid fa-circle-question"></i>
-        <span>Quiz</span>
-        {% if p.get('quiz_passed') %}
-        <span class="badge badge-green">Passed ({{ p.quiz_score }}%)</span>
-        {% elif p.get('quiz_score') is not none %}
-        <span class="badge badge-red">Failed ({{ p.quiz_score }}%)</span>
-        {% else %}
-        <span class="badge badge-gray">Not taken</span>
-        {% endif %}
-      </div>
-      <div class="progress-detail-item">
-        <i class="fa-solid fa-clipboard-list"></i>
-        <span>Practical Exam</span>
-        {% if p.get('exam_graded') %}
-        <span class="badge {{ 'badge-green' if p.exam_grade >= 70 else 'badge-red' }}">
+            <!-- Per-module -->
+            {% if modules %} {% for m in modules %} {% set p = prog_map.get(m.id, {}) %}
+            <div class="lms-card progress-module-card">
+                <div class="progress-module-header">
+                    <div>
+                        <h3 class="progress-module-title">{{ m.title }}</h3>
+                        <span class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname }} {{ m.lname }}</span>
+                    </div>
+                    {% if p.get('completed') %}
+                    <span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Completed</span> {% elif p %}
+                    <span class="badge badge-blue"><i class="fa-solid fa-spinner"></i> In Progress</span> {% else %}
+                    <span class="badge badge-gray">Not Started</span> {% endif %}
+                </div>
+                <div class="progress-module-details">
+                    <div class="progress-detail-item">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Quiz</span> {% if p.get('quiz_passed') %}
+                        <span class="badge badge-green">Passed ({{ p.quiz_score }}%)</span> {% elif p.get('quiz_score') is not none %}
+                        <span class="badge badge-red">Failed ({{ p.quiz_score }}%)</span> {% else %}
+                        <span class="badge badge-gray">Not taken</span> {% endif %}
+                    </div>
+                    <div class="progress-detail-item">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                        <span>Practical Exam</span> {% if p.get('exam_graded') %}
+                        <span class="badge {{ 'badge-green' if p.exam_grade >= 70 else 'badge-red' }}">
           Graded ({{ p.exam_grade }}/100)
-        </span>
-        {% elif p.get('exam_submitted') %}
-        <span class="badge badge-blue">Submitted</span>
-        {% else %}
-        <span class="badge badge-gray">Not submitted</span>
-        {% endif %}
-      </div>
-    </div>
-    {% if p.get('completed') and p.get('completed_at') %}
-    <p style="font-size:11px;color:#9CA3AF;margin-top:8px">
-      Completed on {{ p.completed_at.strftime('%B %d, %Y') }}
-    </p>
-    {% endif %}
-    <a href="/lms/learn/{{ m.id }}" class="btn-sm btn-outline" style="margin-top:12px">
-      <i class="fa-solid fa-book-open"></i> Go to Module
-    </a>
-  </div>
-  {% endfor %}
-  {% else %}
-  <div class="lms-empty">
-    <i class="fa-solid fa-book-open"></i>
-    <p>No modules available yet.</p>
-  </div>
-  {% endif %}
+        </span> {% elif p.get('exam_submitted') %}
+                        <span class="badge badge-blue">Submitted</span> {% else %}
+                        <span class="badge badge-gray">Not submitted</span> {% endif %}
+                    </div>
+                </div>
+                {% if p.get('completed') and p.get('completed_at') %}
+                <p style="font-size:11px;color:#9CA3AF;margin-top:8px">
+                    Completed on {{ p.completed_at.strftime('%B %d, %Y') }}
+                </p>
+                {% endif %}
+                <a href="/lms/learn/{{ m.id }}" class="btn-sm btn-outline" style="margin-top:12px">
+                    <i class="fa-solid fa-book-open"></i> Go to Module
+                </a>
+            </div>
+            {% endfor %} {% else %}
+            <div class="lms-empty">
+                <i class="fa-solid fa-book-open"></i>
+                <p>No modules available yet.</p>
+            </div>
+            {% endif %}
 
-</div>
-</div>
+        </div>
+    </div>
 </body>
+
 </html>

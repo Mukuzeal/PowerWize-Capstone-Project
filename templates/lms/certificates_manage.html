@@ -194,7 +194,7 @@
               <span class="cert-id-chip">{{ c.cert_id[:20] }}…</span>
             </td>
             <td style="font-size:12px;color:var(--gray);white-space:nowrap">
-              {{ c.issued_at.strftime('%b %d, %Y') if c.issued_at else '–”' }}
+              {{ c.issued_at.strftime('%b %d, %Y') if c.issued_at else '–' }}
             </td>
             <td>
               {% if c.tx_hash %}

@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ mod.title }} –“ Learn</title>
+<title>{{ mod.title }} – Learn</title>
 {{ form_styles() }}
 <link rel="stylesheet" href="/static/lms.css">
 </head>
@@ -51,7 +51,7 @@
         {% if quiz and quiz.is_published %}
           {% if quiz_attempt %}
           <span class="badge {{ 'badge-green' if quiz_attempt.score >= quiz.passing_score else 'badge-red' }}">
-            <i class="fa-solid fa-check"></i> Completed –” {{ quiz_attempt.score }}%
+            <i class="fa-solid fa-check"></i> Completed – {{ quiz_attempt.score }}%
           </span>
           {% else %}
           <a href="/lms/learn/{{ mod.id }}/quiz" class="btn-sm btn-primary">
@@ -85,7 +85,7 @@
         </button>
       </div>
       <p style="font-size:13px;color:#6B7280;margin-bottom:0.5rem">
-        You scored <strong>{{ quiz_attempt.score }}%</strong> –” passing is <strong>{{ quiz.passing_score }}%</strong>.
+        You scored <strong>{{ quiz_attempt.score }}%</strong> – passing is <strong>{{ quiz.passing_score }}%</strong>.
         Get targeted AI study hints based on the questions you missed.
       </p>
       <div id="hints-output" style="display:none;margin-top:0.75rem;padding:14px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:13px;line-height:1.7;color:#1F4C35;white-space:pre-wrap"></div>
@@ -104,9 +104,9 @@
           {% if exam_sub %}
           <span class="badge {{ 'badge-green' if exam_sub.grade is not none and exam_sub.grade >= 70 else ('badge-blue' if exam_sub.grade is none else 'badge-red') }}">
             {% if exam_sub.grade is not none %}
-            <i class="fa-solid fa-check"></i> Graded –” {{ exam_sub.grade }}/100
+            <i class="fa-solid fa-check"></i> Graded – {{ exam_sub.grade }}/100
             {% else %}
-            <i class="fa-solid fa-clock"></i> Submitted –” Awaiting Grade
+            <i class="fa-solid fa-clock"></i> Submitted – Awaiting Grade
             {% endif %}
           </span>
           {% else %}
@@ -143,11 +143,11 @@
       {% if my_feedback %}
       <p style="font-size:13px;color:#374151;margin-bottom:0.5rem">
         Your rating: <strong style="color:#D4A72A">{% for _ in range(my_feedback.rating) %}<i class='fa-solid fa-star'></i>{% endfor %}{% for _ in range(5 - my_feedback.rating) %}<i class='fa-regular fa-star'></i>{% endfor %}</strong>
-        {% if my_feedback.comment %} –” {{ my_feedback.comment }}{% endif %}
+        {% if my_feedback.comment %} – {{ my_feedback.comment }}{% endif %}
       </p>
       <p style="font-size:11px;color:#9CA3AF">You can update your feedback by submitting again.</p>
       {% else %}
-      <p style="font-size:13px;color:#6B7280;margin-bottom:0.75rem">Help us improve –” how was this module?</p>
+      <p style="font-size:13px;color:#6B7280;margin-bottom:0.75rem">Help us improve – how was this module?</p>
       {% endif %}
       <form method="POST" action="/lms/learn/{{ mod.id }}/feedback" style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:8px;align-items:center">
