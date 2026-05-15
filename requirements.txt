@@ -9,3 +9,4 @@ qrcode[pil]
 Pillow
 pytesseract
 pdf2image
+openpyxl

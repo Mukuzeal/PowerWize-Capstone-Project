@@ -44,7 +44,7 @@ def admin():
         LEFT JOIN lms_quizzes q ON m.id = q.module_id
         LEFT JOIN lms_practical_exams e ON m.id = e.module_id
         WHERE m.archived_at IS NULL
-        GROUP BY m.id
+        GROUP BY m.id, u.id, u.fname, u.lname
         ORDER BY m.created_at DESC
     """)
     modules = cur.fetchall()
@@ -59,7 +59,7 @@ def admin():
         LEFT JOIN lms_quizzes q ON m.id = q.module_id
         LEFT JOIN lms_practical_exams e ON m.id = e.module_id
         WHERE m.archived_at IS NOT NULL
-        GROUP BY m.id
+        GROUP BY m.id, u.id, u.fname, u.lname
         ORDER BY m.archived_at DESC
     """)
     archived_modules = cur.fetchall()
