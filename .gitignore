@@ -1,9 +1,14 @@
+# Python
 .env
 venv/
 __pycache__/
 *.pyc
+
+# App-specific
 uploads/
 Handoff.md
 scripts/*.sql
+
+# IDE / agent config
 .claude/
 
