@@ -5,4 +5,5 @@ __pycache__/
 uploads/
 Handoff.md
 scripts/*.sql
+.claude/
 
