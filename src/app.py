@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from db import init_db
 from auth import auth_bp
 from admin import admin_bp
@@ -15,6 +16,7 @@ from lms_bp import lms_bp
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 app = Flask(__name__, template_folder=os.path.join(base_dir, "templates"), static_folder=os.path.join(base_dir, "static"))
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['JSON_SORT_KEYS'] = False
 app.jinja_env.add_extension('jinja2.ext.i18n')
 app.secret_key = os.getenv("SECRET_KEY", "energywize-secret-2026")
