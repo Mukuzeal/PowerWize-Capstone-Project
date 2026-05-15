@@ -28,7 +28,7 @@
         {% else %}<i class="fa-solid fa-circle-xmark" style="color:#991B1B"></i>{% endif %}
       </div>
       <div class="result-title">
-        {{ "Payment is in Blockchain âœ“" if result.verified else "Payment not in Blockchain âœ—" }}
+        {% if result.verified %}Payment is in Blockchain <i class="fa-solid fa-check"></i>{% else %}Payment not in Blockchain <i class="fa-solid fa-xmark"></i>{% endif %}
       </div>
       <div style="font-size:13px;color:var(--gray)">{{ result.reason }}</div>
 

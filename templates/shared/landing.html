@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EnergyWize – Welcome</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -69,7 +70,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
   <a href="/" class="logo">
     <img src="/static/logo.png" alt="PowerWize" class="logo-img">
   </a>
-  <a href="/" class="header-link">← Back to Home</a>
+  <a href="/" class="header-link"><i class="fa-solid fa-arrow-left"></i> Back to Home</a>
 </header>
 
 <div class="page">
@@ -85,7 +86,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
       {% if login_errors %}
       <div class="error-box">
-        <p>⚠️ Unable to sign in:</p>
+        <p><i class="fa-solid fa-triangle-exclamation"></i> Unable to sign in:</p>
         <ul>{% for e in login_errors %}<li>{{ e }}</li>{% endfor %}</ul>
       </div>
       {% endif %}
@@ -100,10 +101,10 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
           <label>Password <span class="req">*</span></label>
           <div class="pw-wrap">
             <input type="password" name="password" id="pw-login" placeholder="••••••••" required autocomplete="current-password">
-            <button type="button" class="pw-toggle" onclick="togglePw('pw-login', this)">👁️</button>
+            <button type="button" class="pw-toggle" onclick="togglePw('pw-login', this)"><i class="fa-solid fa-eye"></i></button>
           </div>
         </div>
-        <button type="submit" class="btn-primary">Sign In →</button>
+        <button type="submit" class="btn-primary">Sign In <i class="fa-solid fa-arrow-right"></i></button>
       </form>
 
       <p style="text-align:right;margin-top:10px">
@@ -114,7 +115,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 
       <p class="panel-foot">
         Don't have an account? Submit a registration form first.<br>
-        <a href="/programs">View available training programs →</a>
+        <a href="/programs">View available training programs <i class="fa-solid fa-arrow-right"></i></a>
       </p>
 
     </div>
@@ -126,8 +127,8 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 <script>
 function togglePw(inputId, btn) {
   var input = document.getElementById(inputId);
-  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
-  else { input.type = 'password'; btn.textContent = '👁️'; }
+  if (input.type === 'password') { input.type = 'text'; btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>'; }
+  else { input.type = 'password'; btn.innerHTML = '<i class="fa-solid fa-eye"></i>'; }
 }
 </script>
 </body>

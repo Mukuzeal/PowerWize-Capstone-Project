@@ -142,7 +142,7 @@
       <h3 class="card-inner-title"><i class="fa-solid fa-star"></i> Rate this Module</h3>
       {% if my_feedback %}
       <p style="font-size:13px;color:#374151;margin-bottom:0.5rem">
-        Your rating: <strong style="color:#D4A72A">{{ 'â˜…' * my_feedback.rating }}{{ 'â˜†' * (5 - my_feedback.rating) }}</strong>
+        Your rating: <strong style="color:#D4A72A">{% for _ in range(my_feedback.rating) %}<i class='fa-solid fa-star'></i>{% endfor %}{% for _ in range(5 - my_feedback.rating) %}<i class='fa-regular fa-star'></i>{% endfor %}</strong>
         {% if my_feedback.comment %} –” {{ my_feedback.comment }}{% endif %}
       </p>
       <p style="font-size:11px;color:#9CA3AF">You can update your feedback by submitting again.</p>
@@ -156,7 +156,7 @@
           <label style="cursor:pointer;font-size:22px;color:#D4A72A;line-height:1">
             <input type="radio" name="rating" value="{{ i }}" style="display:none"
               {% if my_feedback and my_feedback.rating == i %}checked{% endif %} required>
-            <span class="star-lbl">{{ 'â˜…' if my_feedback and my_feedback.rating >= i else 'â˜†' }}</span>
+            <span class="star-lbl"><i class='fa-{{ 'solid' if my_feedback and my_feedback.rating >= i else 'regular' }} fa-star'></i></span>
           </label>
           {% endfor %}
         </div>

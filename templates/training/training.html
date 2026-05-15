@@ -113,7 +113,7 @@
                 </div>
             </div>
             <div class="form-body">
-                {{ upload_field("photo_id","photo_id","Recent 2Ã—2 Photo ID","PDF or image · Max 10 MB","fa-image",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('photo_id')) }}
+                {{ upload_field("photo_id","photo_id","Recent 2×2 Photo ID","PDF or image · Max 10 MB","fa-image",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('photo_id')) }}
                 {{ upload_field("resume","resume","Updated Resume or CV","PDF only · Max 10 MB","fa-file-lines",".pdf", existing=uploaded.get('resume')) }}
                 {{ upload_field("valid_id","valid_id","PRC License or Valid Government-Issued ID","PDF or image · Max 10 MB","fa-id-card",".pdf,.png,.jpg,.jpeg,.webp", existing=uploaded.get('valid_id')) }}
             </div>
@@ -183,7 +183,7 @@
                 <div class="field">
                     <label>Choose your schedule (2026) <span class="req">*</span></label>
                     <div id="schedule-list">
-                        <p id="schedule-placeholder">â† Please select a training type first</p>
+                        <p id="schedule-placeholder"><i class="fa-solid fa-arrow-left"></i> Please select a training type first</p>
                     </div>
                     <input type="hidden" name="batch_id" id="schedule-hidden" value="{{ form_data.get('batch_id','') if form_data else '' }}">
                 </div>

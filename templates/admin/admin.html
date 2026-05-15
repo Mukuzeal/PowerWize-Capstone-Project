@@ -173,7 +173,7 @@
         .section.active {
             display: block
         }
-        /* â”€â”€ Page heading â”€â”€ */
+        /* ── Page heading ── */
         
         .page-head {
             display: flex;
@@ -198,7 +198,7 @@
             border-radius: 20px;
             font-weight: 600
         }
-        /* â”€â”€ Stat cards â”€â”€ */
+        /* ── Stat cards ── */
         
         .stats-grid {
             display: grid;
@@ -249,7 +249,7 @@
             color: var(--gray);
             margin-top: 4px
         }
-        /* â”€â”€ Table card â”€â”€ */
+        /* ── Table card ── */
         
         .table-card {
             background: #fff;
@@ -296,7 +296,7 @@
             color: var(--green-dk);
             font-size: 12px
         }
-        /* â”€â”€ Badges â”€â”€ */
+        /* ── Badges ── */
         
         .badge {
             font-size: 11px;
@@ -508,7 +508,7 @@
             background: #F3F4F6;
             color: #9CA3AF
         }
-        /* â”€â”€ Empty state â”€â”€ */
+        /* ── Empty state ── */
         
         .empty {
             text-align: center;
@@ -516,7 +516,7 @@
             color: #9CA3AF;
             font-size: 13px
         }
-        /* â”€â”€ Schedule panel â”€â”€ */
+        /* ── Schedule panel ── */
         
         .panel-card {
             background: #fff;
@@ -846,7 +846,7 @@
         .swal-font {
             font-family: 'DM Sans', sans-serif!important
         }
-        /* â”€â”€ Flatpickr brand overrides â”€â”€ */
+        /* ── Flatpickr brand overrides ── */
         
         .flatpickr-calendar {
             font-family: 'DM Sans', sans-serif;
@@ -912,7 +912,7 @@
             cursor: pointer;
             background: #fff
         }
-        /* â”€â”€ User action buttons â”€â”€ */
+        /* ── User action buttons ── */
         
         .btn-action {
             display: inline-flex;
@@ -955,7 +955,7 @@
         .btn-delete:hover {
             background: #FECACA
         }
-        /* â”€â”€ Table toolbar â”€â”€ */
+        /* ── Table toolbar ── */
         
         .table-toolbar {
             display: flex;
@@ -971,7 +971,7 @@
             font-weight: 600;
             color: #374151
         }
-        /* â”€â”€ Archived panel â”€â”€ */
+        /* ── Archived panel ── */
         
         .archived-panel {
             margin-top: 1rem
@@ -1013,7 +1013,7 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.07);
             margin-top: 2px
         }
-        /* â”€â”€ Charts â”€â”€ */
+        /* ── Charts ── */
         
         .charts-grid {
             display: grid;
@@ -1067,7 +1067,7 @@
         .chart-full .chart-wrap {
             height: 220px
         }
-        /* â”€â”€ Chart filter buttons â”€â”€ */
+        /* ── Chart filter buttons ── */
         
         .chart-filter-row {
             display: flex;
@@ -1128,7 +1128,7 @@
 
 <body>
 
-    <!-- â”€â”€ Top bar â”€â”€ -->
+    <!-- ── Top bar ── -->
     <div class="topbar">
         <div class="topbar-logo">
             <img src="/static/logo.png" alt="PowerWize" class="topbar-logo-img">
@@ -1139,7 +1139,7 @@
         </div>
     </div>
 
-    <!-- â”€â”€ Sidebar â”€â”€ -->
+    <!-- ── Sidebar ── -->
     <nav class="sidebar">
         <span class="nav-section">Overview</span>
         <button class="nav-item active" onclick="showSection('dashboard', this)">
@@ -1177,10 +1177,10 @@
   </button>
     </nav>
 
-    <!-- â”€â”€ Main â”€â”€ -->
+    <!-- ── Main ── -->
     <div class="main">
 
-        <!-- â•â•â• DASHBOARD â•â•â• -->
+        <!-- ═══ DASHBOARD ═══ -->
         <div id="section-dashboard" class="section active">
             <div class="page-head">
                 <h1>Dashboard</h1>
@@ -1309,7 +1309,7 @@
             </div>
         </div>
 
-        <!-- â•â•â• USERS â•â•â• -->
+        <!-- ═══ USERS ═══ -->
         <div id="section-users" class="section">
             <div class="page-head">
                 <h1>Users</h1>
@@ -1453,7 +1453,7 @@
             {% endif %}
         </div>
 
-        <!-- â•â•â• SCHEDULES â•â•â• -->
+        <!-- ═══ SCHEDULES ═══ -->
         <div id="section-schedules" class="section">
             <div class="page-head">
                 <h1>Schedules</h1>
@@ -1584,7 +1584,7 @@
             {% endif %}
         </div>
 
-        <!-- â•â•â• REGISTRATIONS â•â•â• -->
+        <!-- ═══ REGISTRATIONS ═══ -->
         <div id="section-registrations" class="section">
             <div class="page-head">
                 <h1>Registrations</h1>
@@ -1686,7 +1686,7 @@
             </div>
         </div>
 
-        <!-- â•â•â• SOLAR â•â•â• -->
+        <!-- ═══ SOLAR ═══ -->
         <div id="section-solar" class="section">
             <div class="page-head">
                 <h1>Solar Requests</h1>
@@ -1771,7 +1771,7 @@
             </div>
         </div>
 
-        <!-- â•â•â• MODULES â•â•â• -->
+        <!-- ═══ MODULES ═══ -->
         <div id="section-modules" class="section">
             <div class="page-head">
                 <h1>Training Modules (LMS)</h1>
@@ -1885,8 +1885,8 @@
                     <i class="fa-solid fa-circle-info" style="color:#1D4ED8"></i> LMS Quick Guide
                 </div>
                 <ol style="font-size:13px;color:#374151;line-height:2;padding-left:18px;margin:0">
-                    <li>Go to <strong>Create Module</strong> â†’ add title, description, and upload learning materials (PDF, DOCX, video, etc.)</li>
-                    <li>Open the module â†’ <strong>Create Quiz</strong> manually or click <strong>Generate with AI</strong> to auto-generate from uploaded files</li>
+                    <li>Go to <strong>Create Module</strong> <i class="fa-solid fa-arrow-right"></i> add title, description, and upload learning materials (PDF, DOCX, video, etc.)</li>
+                    <li>Open the module <i class="fa-solid fa-arrow-right"></i> <strong>Create Quiz</strong> manually or click <strong>Generate with AI</strong> to auto-generate from uploaded files</li>
                     <li>Add a <strong>Practical Exam</strong> with task instructions and evaluation criteria; optionally require webcam</li>
                     <li><strong>Publish</strong> the module so trainees can access it from their portal</li>
                     <li>Review trainee submissions in <strong>Submissions</strong> and grade each one (0"“100)</li>
@@ -1895,7 +1895,7 @@
             </div>
         </div>
 
-        <!-- â•â•â• REPORTS â•â•â• -->
+        <!-- ═══ REPORTS ═══ -->
         <div id="section-reports" class="section">
             <div class="page-head">
                 <h1>Export Reports</h1>
@@ -1953,7 +1953,7 @@
             </div>
         </div>
 
-        <!-- â•â•â• FEEDBACK â•â•â• -->
+        <!-- ═══ FEEDBACK ═══ -->
         <div id="section-feedback" class="section">
             <div class="page-head">
                 <h1>Trainee Feedback</h1>
@@ -2012,7 +2012,7 @@
             </div>
         </div>
 
-        <!-- â•â•â• AUDIT LOG â•â•â• -->
+        <!-- ═══ AUDIT LOG ═══ -->
         <div id="section-auditlog" class="section">
             <div class="page-head">
                 <h1>Audit Log</h1>
@@ -2090,7 +2090,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // â”€â”€ SweetAlert2 confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── SweetAlert2 confirmation ───────────────────────────────────────────────
         function swalConfirm(event, message, confirmLabel) {
             event.preventDefault();
             const form = event.currentTarget;
@@ -2135,7 +2135,7 @@
             return false;
         }
 
-        // â”€â”€ Toast notifications (flash messages) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Toast notifications (flash messages) ─────────────────────────────────
         const Toast = Swal.mixin({
             toast: true,
             position: 'bottom-end',
@@ -2265,7 +2265,7 @@
             return false;
         }
 
-        // â”€â”€ Analytics charts (Dashboard) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Analytics charts (Dashboard) ───────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
             const _userData = {admin:{{uc.admin}},employee:{{uc.employee}},trainee:{{uc.trainee}},archived:{{uc.archived}}};
             const _regData = [{% for r in registrations %}{"type":"{{r.form_type}}","date":"{{r.submitted_at}}"}{% if not loop.last %},{% endif %}{% endfor %}];
@@ -2418,7 +2418,7 @@
             };
         });
 
-        // â”€â”€ Contact reveal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Contact reveal ────────────────────────────────────────────────────────
         function toggleContact(btn) {
             const detail = btn.nextElementSibling;
             const shown = detail.classList.toggle('shown');
@@ -2427,7 +2427,7 @@
                 : '<i class="fa-solid fa-eye"></i> Contact';
         }
 
-        // â”€â”€ Document viewer modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Document viewer modal ─────────────────────────────────────────────
         function openDocs(btn) {
             var id = btn.dataset.id, name = btn.dataset.name, status = btn.dataset.status;
             var photo = btn.dataset.photo, resume = btn.dataset.resume, doe = btn.dataset.doe, valid = btn.dataset.valid;
@@ -2475,7 +2475,7 @@
             }
         });
 
-        // â”€â”€ Lightbox with zoom + pan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Lightbox with zoom + pan ──────────────────────────────────────────
         (function() {
             var lb = document.getElementById('lightbox');
             var img = document.getElementById('lightbox-img');
@@ -2559,7 +2559,7 @@
             };
         })();
 
-        // â”€â”€ Accept with qualification dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Accept with qualification dialog ─────────────────────────────────────
         function swalAccept(regId, regName) {
             Swal.fire({
                 title: 'Accept Registration',
@@ -2589,7 +2589,7 @@
             });
         }
 
-        // â”€â”€ Registrations status filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Registrations status filter ───────────────────────────────────────────
         function filterRegs(status, btn) {
             document.querySelectorAll('.reg-filter').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -2598,7 +2598,7 @@
             });
         }
 
-        // â”€â”€ Solar status filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Solar status filter ───────────────────────────────────────────────────
         function filterSolar(status, btn) {
             document.querySelectorAll('#section-solar .reg-filter').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -2607,7 +2607,7 @@
             });
         }
 
-        // â”€â”€ Solar review modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Solar review modal ────────────────────────────────────────────────────
         async function openSolarReview(id) {
             var overlay = document.getElementById('solar-overlay');
             var body    = document.getElementById('solar-body');
@@ -2796,13 +2796,13 @@
                 if (column === 'type' && h.textContent.includes('Type')) {
                     const icon = h.querySelector('.sort-icon');
                     if (icon) {
-                        icon.textContent = moduleSortState.direction === 'asc' ? 'â–²' : 'â–¼';
+                        icon.innerHTML = moduleSortState.direction === 'asc' ? '<i class="fa-solid fa-caret-up"></i>' : '<i class="fa-solid fa-caret-down"></i>';
                         icon.style.color = '#374151';
                     }
                 } else if (column === 'status' && h.textContent.includes('Status')) {
                     const icon = h.querySelector('.sort-icon');
                     if (icon) {
-                        icon.textContent = moduleSortState.direction === 'asc' ? 'â–²' : 'â–¼';
+                        icon.innerHTML = moduleSortState.direction === 'asc' ? '<i class="fa-solid fa-caret-up"></i>' : '<i class="fa-solid fa-caret-down"></i>';
                         icon.style.color = '#374151';
                     }
                 }
@@ -2874,7 +2874,7 @@
     </div>
 
 <script>
-// â”€â”€ Analytics charts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Analytics charts ─────────────────────────────────────────────────────────
 
 const GREEN = '#1E7A4B', GOLD = '#D4A72A', BLUE = '#3B82F6', PURPLE = '#8B5CF6';
 const PIE_COLORS = [GREEN, GOLD, BLUE, PURPLE, '#F59E0B', '#EF4444', '#10B981'];
@@ -2950,7 +2950,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (hash === 'auditlog')  loadAuditLog();
 });
 
-// â”€â”€ Feedback loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Feedback loader ──────────────────────────────────────────────────────────
 
 let feedbackLoaded = false;
 function loadFeedback() {
@@ -2975,7 +2975,7 @@ function loadFeedback() {
                     <td>${esc(s.module_title)}</td>
                     <td style="text-align:center">${s.count}</td>
                     <td style="text-align:center;font-weight:700;color:#1E7A4B">${s.avg_rating}</td>
-                    <td style="text-align:center">${'â˜…'.repeat(Math.round(s.avg_rating))}${'â˜†'.repeat(5-Math.round(s.avg_rating))}</td>
+                    <td style="text-align:center">${'<i class="fa-solid fa-star"></i>'.repeat(Math.round(s.avg_rating))}${'<i class="fa-regular fa-star"></i>'.repeat(5-Math.round(s.avg_rating))}</td>
                 </tr>`).join('');
             }
 
@@ -2986,7 +2986,7 @@ function loadFeedback() {
                 db.innerHTML = fb.map(f => `<tr>
                     <td>${esc(f.fname)} ${esc(f.lname)}</td>
                     <td>${esc(f.module_title)}</td>
-                    <td style="text-align:center;font-size:16px">${'â˜…'.repeat(f.rating)}${'â˜†'.repeat(5-f.rating)}</td>
+                    <td style="text-align:center;font-size:16px">${'<i class="fa-solid fa-star"></i>'.repeat(f.rating)}${'<i class="fa-regular fa-star"></i>'.repeat(5-f.rating)}</td>
                     <td style="color:#374151">${esc(f.comment || '"”')}</td>
                     <td style="color:#9CA3AF;white-space:nowrap">${fmtDate(f.created_at)}</td>
                 </tr>`).join('');
@@ -2995,7 +2995,7 @@ function loadFeedback() {
         .catch(() => {});
 }
 
-// â”€â”€ Audit log loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Audit log loader ─────────────────────────────────────────────────────────
 
 let auditLoaded = false;
 let auditRows   = [];
@@ -3035,7 +3035,7 @@ function filterAudit(q) {
     ));
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
