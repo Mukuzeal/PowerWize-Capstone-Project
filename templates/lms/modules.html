@@ -38,6 +38,8 @@
             {% elif m.training_type == 'renewal' %}Renewal
             {% elif m.training_type == 'cea_renewal' %}CEA Renewal
             {% elif m.training_type == 'cem_renewal' %}CEM Renewal
+            {% elif m.training_type == 'gemp_lgu' %}GEMP – LGU
+            {% elif m.training_type == 'gemp_oge' %}GEMP – Gov't Entity
             {% else %}{{ m.training_type }}{% endif %}
           </span>
         </div>

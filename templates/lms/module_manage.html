@@ -53,8 +53,6 @@
         {% if files %}
         {% for f in files %}
         <div class="file-row" id="file-{{ f.id }}">
-          <span class="file-icon">{{ {'pdf':'fa-file-pdf','docx':'fa-file-word','pptx':'fa-file-powerpoint',
-            'mp4':'fa-file-video','mkv':'fa-file-video','txt':'fa-file-lines'}.get(f.file_type,'fa-file') }}</span>
           <i class="fa-solid {{ {'pdf':'fa-file-pdf','docx':'fa-file-word','pptx':'fa-file-powerpoint',
             'mp4':'fa-file-video','mkv':'fa-file-video','txt':'fa-file-lines'}.get(f.file_type,'fa-file') }}"></i>
           <span class="file-name">{{ f.original_name }}</span>

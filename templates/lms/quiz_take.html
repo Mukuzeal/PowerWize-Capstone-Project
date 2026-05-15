@@ -74,16 +74,8 @@
     <script src="/static/lms-quiz.js"></script>
     <script>
         initQuiz({
-            attemptId: {
-                {
-                    attempt_id
-                }
-            },
-            timeLimitMin: {
-                {
-                    quiz.time_limit_mins
-                }
-            },
+            attemptId: {{ attempt_id }},
+            timeLimitMin: {{ quiz.time_limit_mins }},
             tabSwitchUrl: '/lms/learn/{{ mod.id }}/quiz/tabswitch',
             submitUrl: '/lms/learn/{{ mod.id }}/quiz/submit'
         });

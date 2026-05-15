@@ -144,11 +144,7 @@
     </div>
 
     <script>
-        let qCount = {
-            {
-                questions | length
-            }
-        };
+        let qCount = {{ questions | length }};
 
         function toggleQuestionType(select, qi) {
             const block = select.closest('.question-block');
