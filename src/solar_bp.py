@@ -387,7 +387,7 @@ def solar_chat_msg():
         form_data = {k: v for k, v in collected.items() if v is not None}
         form_data.setdefault("target_savings", "100")
         req_id = _process_and_save(form_data)
-        dest = "/admin#solar" if session.get("user_role") in ("admin", "employee") else f"/solar/result/{req_id}"
+        dest = f"/solar/result/{req_id}"
         return jsonify({"redirect": dest})
 
     # ── Find next priority missing field ────────────────────────────────────────

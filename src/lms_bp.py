@@ -31,7 +31,10 @@ EXAM_UPLOAD_DIR  = os.path.join(os.path.dirname(__file__), 'uploads', 'exam_subm
 os.makedirs(LMS_UPLOAD_DIR,  exist_ok=True)
 os.makedirs(EXAM_UPLOAD_DIR, exist_ok=True)
 
-LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL",   "http://localhost:1234")
+AI_PROVIDER     = os.getenv("AI_PROVIDER", "groq")
+GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL      = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
 LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "local-model")
 
 ALLOWED_MATERIAL = {'pdf','docx','pptx','xlsx','txt','mp4','mkv','avi','png','jpg','jpeg'}
@@ -536,9 +539,9 @@ def certificate_issue(user_id):
         cid, cert_id = lms_issue_certificate(user_id, _uid())
         try:
             from blockchain_utils import store_certificate_hash
-            tx = store_certificate_hash(cert_id, user_id)
-            if tx:
-                lms_update_cert_blockchain(cert_id, tx, cert_id)
+            result = store_certificate_hash(cert_id, user_id)
+            if result:
+                lms_update_cert_blockchain(cert_id, result["tx_hash"], result["token_id"])
         except Exception:
             pass
         audit_log(_uid(), "issue_certificate", "certificate", cert_id,
@@ -664,13 +667,23 @@ def quiz_hints(module_id):
         'not just restating facts. Keep each hint to 2-3 sentences. Use numbered list format.'
     )
     try:
-        resp = _http.post(
-            f"{LM_STUDIO_URL}/v1/chat/completions",
-            json={"model": LM_STUDIO_MODEL,
-                  "messages": [{"role": "user", "content": prompt}],
-                  "max_tokens": 800, "temperature": 0.5, "stream": False},
-            timeout=120,
-        )
+        if AI_PROVIDER == "lmstudio":
+            resp = _http.post(
+                f"{LM_STUDIO_URL}/v1/chat/completions",
+                json={"model": LM_STUDIO_MODEL,
+                      "messages": [{"role": "user", "content": prompt}],
+                      "max_tokens": 800, "temperature": 0.5, "stream": False},
+                timeout=120,
+            )
+        else:
+            resp = _http.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={"model": GROQ_MODEL,
+                      "messages": [{"role": "user", "content": prompt}],
+                      "max_tokens": 800, "temperature": 0.5},
+                timeout=30,
+            )
         resp.raise_for_status()
         hints_text = resp.json()["choices"][0]["message"]["content"].strip()
         return jsonify(hints=hints_text)

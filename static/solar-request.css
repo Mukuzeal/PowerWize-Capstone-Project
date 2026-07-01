@@ -1,5 +1,3 @@
-.solar-wrap{max-width:700px;margin:0 auto}
-
 .mode-tabs{display:flex;gap:10px;margin-bottom:20px}
 .mode-tab{
   flex:1;padding:13px 16px;border:1.5px solid var(--border);

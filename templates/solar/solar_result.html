@@ -180,7 +180,29 @@
   {% endif %}
 
 <script>
+var _savedEmail   = {{ (req.email   or '') | tojson }};
+var _savedContact = {{ (req.contact or '') | tojson }};
+
+function _submitDecision(decision, email, contact) {
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/solar/decision/{{ req.id }}';
+  [['decision', decision], ['email', email], ['contact', contact]].forEach(function(pair) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = pair[0]; inp.value = pair[1];
+    form.appendChild(inp);
+  });
+  document.body.appendChild(form);
+  form.submit();
+}
+
 function requestContact(decision) {
+  // If contact details already captured (manual form), submit immediately.
+  if (_savedEmail && _savedContact) {
+    _submitDecision(decision, _savedEmail, _savedContact);
+    return;
+  }
+
   var titles = {
     expert_review: 'Request Expert Review',
     consult:       'Schedule a Consultation',
@@ -189,8 +211,8 @@ function requestContact(decision) {
     title: titles[decision],
     html:
       '<p style="font-size:13px;color:#6B7280;margin-bottom:16px">So our specialist can reach you, please share your contact details.</p>' +
-      '<input id="swal-email"   class="swal2-input" type="email"  placeholder="Email address" style="font-size:13px">' +
-      '<input id="swal-contact" class="swal2-input" type="tel"    placeholder="Phone / mobile number" style="font-size:13px">',
+      '<input id="swal-email"   class="swal2-input" type="email" placeholder="Email address" value="' + _savedEmail + '" style="font-size:13px">' +
+      '<input id="swal-contact" class="swal2-input" type="tel"   placeholder="Phone / mobile number" value="' + _savedContact + '" style="font-size:13px">',
     confirmButtonText: 'Submit Request',
     confirmButtonColor: '#16583C',
     showCancelButton: true,
@@ -207,16 +229,7 @@ function requestContact(decision) {
     }
   }).then(function(result) {
     if (result.isConfirmed) {
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/solar/decision/{{ req.id }}';
-      [['decision', decision], ['email', result.value.email], ['contact', result.value.contact]].forEach(function(pair) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = pair[0]; inp.value = pair[1];
-        form.appendChild(inp);
-      });
-      document.body.appendChild(form);
-      form.submit();
+      _submitDecision(decision, result.value.email, result.value.contact);
     }
   });
 }
