@@ -56,17 +56,17 @@ async function payCard() {
     var init = await fetch('/payment/card/initiate', { method: 'POST' }).then(function(r) { return r.json(); });
     if (init.error) { showError(init.error); resetCardBtn(); return; }
 
-    var pm = await paymongo.createPaymentMethod({
-      type: 'card',
-      card: { number: numRaw, exp_month: expMonth, exp_year: expYear, cvc: cvc },
-      billing: { name: name }
-    });
-    if (!pm?.data?.id) { showError('Failed to process card. Please check your details.'); resetCardBtn(); return; }
+    var pmRes = await fetch('/payment/card/method', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number: numRaw, exp_month: expMonth, exp_year: expYear, cvc: cvc, name: name })
+    }).then(function(r) { return r.json(); });
+    if (pmRes.error) { showError('Card error: ' + pmRes.error); resetCardBtn(); return; }
 
     var attach = await fetch('/payment/card/attach', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_method_id: pm.data.id, client_key: init.client_key })
+      body: JSON.stringify({ payment_method_id: pmRes.pm_id, client_key: init.client_key })
     }).then(function(r) { return r.json(); });
 
     if (attach.status === 'paid') {

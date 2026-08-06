@@ -111,6 +111,29 @@ def card_initiate():
         return jsonify({"error": str(e)}), 500
 
 
+# ── Card: create Payment Method (server-side, avoids JS SDK auth issues) ─────
+
+@payment_bp.route("/payment/card/method", methods=["POST"])
+def card_create_method():
+    uid = _require_unpaid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json(force=True)
+    try:
+        num = str(data["number"]).replace(" ", "").replace("-", "").strip()
+        pm_id = paymongo.create_card_payment_method(
+            number    = num,
+            exp_month = int(data["exp_month"]),
+            exp_year  = int(data["exp_year"]),
+            cvc       = str(data["cvc"]).strip(),
+            name      = str(data["name"]).strip(),
+            email     = session.get("user_email", "user@powerwize.com"),
+        )
+        return jsonify({"pm_id": pm_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
 # ── Card: attach Payment Method ───────────────────────────────────────────────
 
 @payment_bp.route("/payment/card/attach", methods=["POST"])

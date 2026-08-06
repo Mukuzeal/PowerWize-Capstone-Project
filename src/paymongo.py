@@ -43,6 +43,19 @@ def create_payment_intent(amount_php, description):
     }
 
 
+def create_card_payment_method(number, exp_month, exp_year, cvc, name, email):
+    pub_key = os.environ.get("PAYMONGO_PUBLIC_KEY") or os.environ["PAYMONGO_SECRET_KEY"]
+    payload = {"data": {"attributes": {
+        "type": "card",
+        "details": {"card_number": number, "exp_month": exp_month,
+                    "exp_year": exp_year, "cvc": cvc},
+        "billing": {"name": name, "email": email},
+    }}}
+    r = requests.post(f"{BASE}/payment_methods", headers=_auth(pub_key), json=payload)
+    _raise(r)
+    return r.json()["data"]["id"]
+
+
 def attach_payment_method(pi_id, pm_id, client_key, return_url):
     r = requests.post(
         f"{BASE}/payment_intents/{pi_id}/attach",

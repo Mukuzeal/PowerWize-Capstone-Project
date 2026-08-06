@@ -166,25 +166,25 @@
               <input type="radio" name="training_type" value="Online via Zoom, 7 days" {% if 'Online via Zoom' in tt %}checked{% endif %}>
               <div class="tc-icon"><i class="fa-solid fa-laptop"></i></div>
               <div class="tc-label">Online via Zoom</div>
-              <div class="tc-detail">7 days · Remote</div>
+              <div class="tc-detail">7 days · Remote · {{ online_price }}</div>
             </label>
             <label class="training-card {% if 'Hybrid' in tt %}selected{% endif %}" onclick="selectTraining(this,'face_to_face')">
               <input type="radio" name="training_type" value="Hybrid, 5 days online + 2 days face to face at Marvin Plaza, Chino Roces Ave., Makati City, MM" {% if 'Hybrid' in tt %}checked{% endif %}>
               <div class="tc-icon"><i class="fa-solid fa-building"></i></div>
               <div class="tc-label">Hybrid</div>
-              <div class="tc-detail">5 days online + 2 days F2F</div>
+              <div class="tc-detail">5 days online + 2 days F2F · {{ hybrid_price }}</div>
             </label>
             <label class="training-card {% if 'Online Live' in tt %}selected{% endif %}" onclick="selectTraining(this,'selfpaced_online')">
               <input type="radio" name="training_type" value="Self-paced Online Live Instructors, 3 days" {% if 'Online Live' in tt %}checked{% endif %}>
               <div class="tc-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
               <div class="tc-label">Self-paced – Online Live</div>
-              <div class="tc-detail">3 days · Live instructors</div>
+              <div class="tc-detail">3 days · Live instructors · {{ selfpaced_online_price }}</div>
             </label>
             <label class="training-card {% if 'Self-paced Face' in tt %}selected{% endif %}" onclick="selectTraining(this,'selfpaced_f2f')">
               <input type="radio" name="training_type" value="Self-paced Face to Face Instructors, 3 days" {% if 'Self-paced Face' in tt %}checked{% endif %}>
               <div class="tc-icon"><i class="fa-solid fa-person-chalkboard"></i></div>
               <div class="tc-label">Self-paced – Face to Face</div>
-              <div class="tc-detail">3 days · On-site instructors</div>
+              <div class="tc-detail">3 days · On-site instructors · {{ selfpaced_f2f_price }}</div>
             </label>
           </div>
         </div>
