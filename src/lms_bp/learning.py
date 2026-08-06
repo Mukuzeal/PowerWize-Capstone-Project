@@ -1,0 +1,97 @@
+from flask import render_template, request, redirect, url_for, jsonify, abort
+
+from db import (lms_get_modules_for_trainee, lms_get_progress, lms_get_module,
+                lms_get_files, lms_get_quiz, lms_get_exam, lms_get_user_attempt,
+                lms_get_user_exam_submission, get_user_feedback, lms_update_progress,
+                lms_get_modules, save_feedback)
+
+from . import lms_bp
+from ._shared import _uid, _is_trainee, _module_content_text, _ai_module_chat
+
+
+# ── TRAINEE ROUTES ────────────────────────────────────────────────────────────
+
+@lms_bp.route('/lms/learn')
+def learn():
+    if not _uid():
+        return redirect(url_for('auth.auth'))
+    mods         = lms_get_modules_for_trainee(_uid(), published_only=True)
+    progress_list = lms_get_progress(_uid())
+    prog_map     = {p['module_id']: p for p in progress_list}
+    total        = len(mods)
+    completed    = sum(1 for m in mods if prog_map.get(m['id'], {}).get('completed'))
+    pct          = round(completed / total * 100) if total else 0
+    return render_template('lms/learn.html', modules=mods, prog_map=prog_map,
+                           completed=completed, total=total, pct=pct)
+
+
+@lms_bp.route('/lms/learn/<int:module_id>')
+def learn_module(module_id):
+    if not _uid():
+        return redirect(url_for('auth.auth'))
+    mod = lms_get_module(module_id)
+    if not mod or not mod['is_published']:
+        abort(404)
+    uid          = _uid()
+    files        = lms_get_files(module_id)
+    quiz         = lms_get_quiz(module_id=module_id)
+    exam         = lms_get_exam(module_id=module_id)
+    quiz_attempt = lms_get_user_attempt(uid, quiz['id']) if quiz and quiz['is_published'] else None
+    exam_sub     = lms_get_user_exam_submission(uid, exam['id']) if exam else None
+    progress     = lms_get_progress(uid, module_id)
+    my_feedback  = get_user_feedback(uid, module_id) if _is_trainee() else None
+    lms_update_progress(uid, module_id)
+    return render_template('lms/learn_module.html', mod=mod, files=files,
+                           quiz=quiz, exam=exam, quiz_attempt=quiz_attempt,
+                           exam_sub=exam_sub, progress=progress, my_feedback=my_feedback)
+
+
+@lms_bp.route('/lms/progress')
+def progress():
+    if not _uid():
+        return redirect(url_for('auth.auth'))
+    uid          = _uid()
+    mods         = lms_get_modules(published_only=True)
+    progress_list = lms_get_progress(uid)
+    prog_map     = {p['module_id']: p for p in progress_list}
+    total        = len(mods)
+    completed    = sum(1 for m in mods if prog_map.get(m['id'], {}).get('completed'))
+    pct          = round(completed / total * 100) if total else 0
+    return render_template('lms/progress.html', modules=mods, prog_map=prog_map,
+                           completed=completed, total=total, pct=pct)
+
+
+# AI chatbot per module
+
+@lms_bp.route('/lms/learn/<int:module_id>/feedback', methods=['POST'])
+def submit_feedback(module_id):
+    if not _uid() or not _is_trainee():
+        return jsonify(error="Unauthorized"), 403
+    rating  = request.form.get('rating', '').strip()
+    comment = request.form.get('comment', '').strip()
+    if not rating or not rating.isdigit() or not (1 <= int(rating) <= 5):
+        return jsonify(error="Rating must be 1–5"), 400
+    save_feedback(_uid(), module_id, int(rating), comment or None)
+    return redirect(url_for('lms.learn_module', module_id=module_id))
+
+
+@lms_bp.route('/lms/chat/<int:module_id>/msg', methods=['POST'])
+def chat_msg(module_id):
+    if not _uid():
+        return jsonify(error="Unauthorized"), 403
+    mod = lms_get_module(module_id)
+    if not mod:
+        return jsonify(error="Module not found"), 404
+    data     = request.get_json() or {}
+    messages = data.get('messages', [])
+    user_msg = data.get('user_message', '').strip()
+    if not user_msg:
+        return jsonify(error="Empty message"), 400
+    content_text   = _module_content_text(module_id)
+    messages_out   = messages + [{"role": "user", "content": user_msg}]
+    try:
+        reply = _ai_module_chat(messages_out, mod['title'], content_text)
+        return jsonify(text=reply,
+                       messages=messages_out + [{"role": "assistant", "content": reply}])
+    except Exception as e:
+        return jsonify(error=str(e)), 500

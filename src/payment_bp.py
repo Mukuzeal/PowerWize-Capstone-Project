@@ -4,7 +4,8 @@ from flask import Blueprint, request, render_template, redirect, session, jsonif
 from dotenv import load_dotenv
 from db import (get_db, dict_cur, log_payment, mark_payment_paid, mark_payment_failed,
                 mark_user_paid, get_user_payment_status, get_registration_by_email,
-                save_blockchain_receipt, get_receipt_by_id, get_receipt_by_user)
+                save_blockchain_receipt, get_receipt_by_id, get_receipt_by_user,
+                get_user_id_for_paymongo)
 import paymongo
 from blockchain import generate_receipt_id, create_receipt_hash, store_hash_on_chain, verify_hash_on_chain
 from qr_gen import generate_receipt_qr
@@ -282,15 +283,10 @@ def webhook():
 
 
 def _handle_payment_paid(paymongo_id):
-    from db import get_db
-    conn = get_db()
-    cur  = dict_cur(conn)
-    cur.execute("SELECT user_id FROM payments WHERE paymongo_id=%s LIMIT 1", (paymongo_id,))
-    row = cur.fetchone()
-    cur.close(); conn.close()
-    if row:
+    user_id = get_user_id_for_paymongo(paymongo_id)
+    if user_id:
         mark_payment_paid(paymongo_id)
-        mark_user_paid(row["user_id"])
+        mark_user_paid(user_id)
 
 
 # ── Success / Failed pages ────────────────────────────────────────────────────
