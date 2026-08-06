@@ -9,6 +9,19 @@ uploads/
 Handoff.md
 scripts/*.sql
 
+# Local-only maintenance/seed scripts (not for the repo)
+create_demo_accounts.py
+scripts/create_admin.py
+scripts/fix_receipt.py
+scripts/seed_all_data.py
+scripts/seed_registrations.py
+scripts/_guard.py
+
 # IDE / agent config
 .claude/
+CLAUDE.md
+.impeccable/
+
+# graphify knowledge graph (generated, regenerate with `graphify update .`)
+graphify-out/
 
