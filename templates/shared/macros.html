@@ -48,7 +48,7 @@
     <div class="selfie-empty">
       <i class="fa-solid fa-camera"></i>
       <strong>Take a live selfie to verify your identity</strong>
-      <span class="hint-txt">You'll be asked to blink twice to prove you're a real person. We'll automatically capture your photo and compare it with your uploaded ID. Nothing is stored.</span>
+      <span class="hint-txt">Blink once to prove you're a real person. We'll automatically capture your photo and compare it with your uploaded ID. Nothing is stored.</span>
       <button type="button" class="btn-selfie-start"><i class="fa-solid fa-video"></i> Open Camera</button>
     </div>
     <div class="selfie-live">
@@ -138,7 +138,7 @@
       var detectorOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
       setPip(0,false); setPip(1,false);
-      setMsg('Look straight at the camera and BLINK TWICE', 'info');
+      setMsg('Look straight at the camera and BLINK', 'info');
 
       function loop(){
         if(video.readyState < 2){ livenessLoop = requestAnimationFrame(loop); return; }
@@ -162,11 +162,10 @@
               blinks++;
               lastBlinkAt = now;
               setPip(blinks-1, true);
-              if(blinks === 1) setMsg('Good — one more blink please', 'info');
-              if(blinks >= 2){
+              if(blinks >= 1){
                 stopLoop();
                 setMsg('Liveness verified! Capturing your selfie…', 'ok');
-                // Wait 1 second after eyes open for face to stabilize
+                // Wait 300ms after eyes open for face to stabilize
                 setTimeout(function(){
                   var canvas = document.createElement('canvas');
                   canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -177,7 +176,7 @@
                     setState('preview');
                     runFaceMatch();
                   }, 'image/jpeg', 0.9);
-                }, 1000);
+                }, 300);
                 return;
               }
             }
