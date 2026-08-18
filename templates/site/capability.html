@@ -1,0 +1,68 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import masthead, shead, btn, tlink, cap_card, cta with context %}
+
+{% block title %}{{ c.title }} — {{ c.kicker }} | EnergyWize Solutions{% endblock %}
+{% block description %}{{ c.blurb }}{% endblock %}
+
+{% block main %}
+
+{{ masthead([('Home', url_for('registration.index')), ('Capabilities', url_for('site.capabilities'))],
+            c.title, c.hero_lines, c.lede,
+            [('Reference', c.no),
+             ('Delivered by', 'DOE-Registered ESCO'),
+             ('Scope', c.specs|join(' · '))]) }}
+
+<section class="band band--tight band--edge">
+  <div class="shell">
+    <div class="grid">
+      <div class="c6 start2" data-reveal-group>
+        {% for para in c.body %}<p class="prose" data-reveal>{{ para }}</p>{% endfor %}
+      </div>
+      <div class="c3 start9" data-reveal>
+        <div class="panel"><div class="panel__core">
+          <p class="mono mono--fg">Scope tags</p>
+          <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1rem">
+            {% for s in c.specs %}<span class="mono" style="border:1px solid var(--line-mid);padding:.35rem .6rem">{{ s }}</span>{% endfor %}
+          </div>
+          <div style="margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid var(--line)">
+            {{ tlink(c.cta[0], cta_href) }}
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="shell">
+    {{ shead(c.no, 'What is included', ('<h2 class="d1">' ~ c.kicker ~ '</h2>')|safe,
+             'Each line below is a deliverable, not a capability statement. Ask for any of them individually.') }}
+    <div class="spec">
+      {%- for k, v, bullets in c.rows %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">{{ '%02d'|format(loop.index) }}</div>
+        <div class="spec__k">{{ k }}</div>
+        <div class="spec__v">{{ v }}
+          {%- if bullets %}<ul>{% for b in bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge">
+  <div class="shell">
+    {{ shead('→', 'Also from EnergyWize', '<h2 class="d2">Related capabilities</h2>'|safe) }}
+    <div class="bento" data-reveal-group>
+      {% for o in related %}{{ cap_card(o, blurb_key='kicker') }}{% endfor %}
+    </div>
+  </div>
+</section>
+
+{{ cta(c.cta[0] ~ '.',
+       'Send us the building, the process, or the fleet. We will come back with scope, duration, and what the deliverable actually contains.',
+       (c.cta[0], cta_href),
+       ('All capabilities', url_for('site.capabilities'))) }}
+
+{% endblock %}

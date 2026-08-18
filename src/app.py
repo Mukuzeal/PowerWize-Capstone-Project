@@ -9,6 +9,7 @@ from auth import auth_bp
 from admin import admin_bp
 from employee_bp import employee_bp
 from registration import registration_bp
+from site_bp import site_bp
 from onboarding import onboarding_bp
 from payment_bp import payment_bp
 from solar_bp import solar_bp
@@ -28,6 +29,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(employee_bp)
 app.register_blueprint(registration_bp)
+app.register_blueprint(site_bp)
 app.register_blueprint(onboarding_bp)
 app.register_blueprint(payment_bp)
 app.register_blueprint(solar_bp)

@@ -1,0 +1,84 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import masthead, shead, cta, marquee with context %}
+
+{% block title %}Company — DOE-Recognized Training Institution & registered ESCO | EnergyWize Solutions{% endblock %}
+{% block description %}EnergyWize Solutions Inc. is a DOE-Recognized Training Institution for CEM, CEA, AEA and GEMP courses, and a DOE-Registered Energy Service Company based in Makati, Philippines.{% endblock %}
+
+{% block main %}
+
+{{ masthead([('Home', url_for('registration.index'))], 'Company',
+            ABOUT.hero_lines, ABOUT.lede,
+            [('Standing', 'DOE-Recognized Training Institution'),
+             ('Also registered as', 'DOE-Registered ESCO'),
+             ('Based in', 'Makati, Metro Manila')]) }}
+
+<section class="band band--tight band--edge">
+  <div class="shell">
+    <div class="grid">
+      <div class="c6 start2" data-reveal-group>
+        {% for para in ABOUT.body %}<p class="prose" data-reveal>{{ para }}</p>{% endfor %}
+      </div>
+      <div class="c4 start9" data-reveal>
+        <p class="mono mono--fg">Services under ESCO registration</p>
+        <ul style="margin-top:1rem">
+          {%- for s in ABOUT.services_list %}
+          <li style="display:flex;gap:1rem;padding-block:.9rem;border-top:1px solid var(--line)">
+            <span class="mono mono--signal">{{ '%02d'|format(loop.index) }}</span>
+            <span style="color:var(--fg-dim);font-size:.95rem;line-height:1.6">{{ s }}</span>
+          </li>
+          {%- endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="shell">
+    {{ shead('A-01', 'Vision & mission', '<h2 class="d1">Why the company<br>exists.</h2>'|safe) }}
+    <div class="grid" data-reveal-group>
+      <div class="c5" data-reveal>
+        <div class="panel"><div class="panel__core" style="padding:2rem">
+          <p class="mono mono--signal">Vision</p>
+          <p class="prose" style="margin-top:1.1rem;font-size:1.05rem">{{ ABOUT.vision }}</p>
+        </div></div>
+      </div>
+      <div class="c5 start7" data-reveal>
+        <div class="panel"><div class="panel__core" style="padding:2rem">
+          <p class="mono mono--amber">Mission</p>
+          <p class="prose" style="margin-top:1.1rem;font-size:1.05rem">{{ ABOUT.mission }}</p>
+        </div></div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:var(--sp-block)">
+      <div class="c6 start2" data-reveal-group>
+        {% for para in ABOUT.closing %}<p class="prose" data-reveal>{{ para }}</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge">
+  <div class="shell">
+    {{ shead('A-02', 'On the record', '<h2 class="d1">DOE registrations.</h2>'|safe,
+             'Each program runs under its own Department of Energy registration number. These are printed on the corporate seal and can be verified with the DOE.') }}
+    <div class="spec">
+      {%- for name, code, kind in REGISTRATIONS %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">R-0{{ loop.index }}</div>
+        <div class="spec__k">{{ name }}</div>
+        <div class="spec__v"><span class="mono mono--signal">{{ code }}</span><br>{{ kind }}</div>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+{{ marquee() }}
+
+{{ cta('Work with a registered ESCO.',
+       'Whether you need an audit, a management system, or a certified energy manager on staff, the conversation starts the same way.',
+       ('Start an enquiry', url_for('site.contact') ~ '#enquiry'),
+       ('View capabilities', url_for('site.capabilities'))) }}
+
+{% endblock %}

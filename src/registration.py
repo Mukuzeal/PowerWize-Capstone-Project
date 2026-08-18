@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, request, render_template, session, redirect
 from db import get_schedules, insert_registration, get_registration_by_email, get_user_basic_info
+from site_bp import render_home, render_programs
 from utils import save_file, check_required
 
 registration_bp = Blueprint("registration", __name__)
@@ -18,19 +19,21 @@ def _file_prefix(form):
     return f"{uid}_{role}_{fname}_{lname}"
 
 
+# The public-facing pages live in site_bp; these endpoints keep their names
+# because the rest of the app links to them by endpoint.
 @registration_bp.route("/")
 def index():
-    return render_template("shared/home.html")
+    return render_home()
 
 
 @registration_bp.route("/home")
 def home():
-    return render_template("shared/home.html")
+    return render_home()
 
 
 @registration_bp.route("/programs")
 def programs():
-    return render_template("shared/programs.html")
+    return render_programs()
 
 
 @registration_bp.route("/portal")

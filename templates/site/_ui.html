@@ -1,0 +1,179 @@
+{# ---------------------------------------------------------------------------
+   Public-site UI primitives. Everything on the marketing pages is built from
+   these, so the design system stays in one place.
+   --------------------------------------------------------------------------- #}
+
+{% macro lines(items, cls='display display--hero', underline=None) -%}
+<span class="{{ cls }}">
+  {%- for ln in items %}
+  <span class="reveal-line" style="--i:{{ loop.index0 }}"><span>
+    {%- if underline is not none and loop.index0 == underline -%}
+      <span class="ul-draw">{{ ln }}</span>
+    {%- else -%}{{ ln }}{%- endif -%}
+  </span></span>
+  {%- endfor %}
+</span>
+{%- endmacro %}
+
+{% macro btn(label, href, kind='', magnetic=True) -%}
+<a class="btn{% if kind %} {{ kind }}{% endif %}" href="{{ href }}"{% if magnetic %} data-magnetic{% endif %}>
+  <span class="btn__label">{{ label }}</span>
+  <span class="btn__pip" aria-hidden="true">{{ icon('arrow') }}</span>
+</a>
+{%- endmacro %}
+
+{% macro tlink(label, href) -%}
+<a class="tlink" href="{{ href }}"><span>{{ label }}</span>{{ icon('arrow') }}</a>
+{%- endmacro %}
+
+{% macro shead(no, label, title, aside='') -%}
+<header class="shead" data-reveal-group>
+  <div class="shead__idx" data-reveal><b>{{ no }}</b><span>{{ label }}</span></div>
+  <div class="shead__title" data-reveal>{{ title }}</div>
+  <div class="shead__aside" data-reveal>{% if aside %}<p class="prose">{{ aside }}</p>{% endif %}</div>
+</header>
+{%- endmacro %}
+
+{% macro cap_card(c, wide=False, side=None, blurb_key='blurb') -%}
+{%- set inner %}
+  <p class="cap__no">{{ c.no }}</p>
+  <div class="cap__ico">{{ icon(c.icon) }}</div>
+  <h3 class="d3"><a class="stretch" href="{{ url_for('site.capability', slug=c.slug) }}">{{ c.title }}</a></h3>
+  <p>{{ c[blurb_key] }}</p>
+  {%- if c.specs %}
+  <div class="cap__spec">{% for s in c.specs %}<span class="mono">{{ s }}</span>{% endfor %}</div>
+  {%- endif %}
+{%- endset %}
+{%- if wide %}
+<article class="cap cap--wide" data-reveal>
+  <div class="cap__main">
+    <span class="cap__go" aria-hidden="true">{{ icon('arrow') }}</span>
+    {{ inner }}
+  </div>
+  <div class="cap__side">
+    <p class="mono mono--fg">Programs under this line</p>
+    <ul>
+      {%- for p in side %}
+      <li><a href="{{ url_for('site.program', code=p.code|lower) }}"><b>{{ p.code }}</b><span>{{ p.title }}</span></a></li>
+      {%- endfor %}
+    </ul>
+  </div>
+</article>
+{%- else %}
+<article class="cap" data-reveal>
+  <span class="cap__go" aria-hidden="true">{{ icon('arrow') }}</span>
+  {{ inner }}
+</article>
+{%- endif %}
+{%- endmacro %}
+
+{% macro prog_card(p) -%}
+<article class="cap" data-reveal>
+  <span class="cap__go" aria-hidden="true">{{ icon('arrow') }}</span>
+  <p class="cap__no">{{ p.no }} · {{ p.code }}</p>
+  <div class="cap__ico">{{ icon('training') }}</div>
+  <h3 class="d3"><a class="stretch" href="{{ url_for('site.program', code=p.code|lower) }}">{{ p.title }}</a></h3>
+  <p>{{ p.blurb }}</p>
+  <div class="cap__spec">
+    <span class="mono">{{ p.length }}</span>
+    <span class="mono mono--signal">{{ p.reg }}</span>
+  </div>
+</article>
+{%- endmacro %}
+
+{# Batch rows come straight from the `batches` table via db.get_public_schedule(). #}
+{% macro sched(rows, note) -%}
+<div class="sched__wrap" data-reveal>
+  {%- if rows %}
+  <table class="sched sched--meta">
+    <caption class="mono">{{ note }}</caption>
+    <thead><tr>
+      <th scope="col">Batch</th><th scope="col">Run dates</th><th scope="col">Days</th>
+    </tr></thead>
+    <tbody>
+      {%- for r in rows %}
+      <tr>
+        <td>{{ r.name }}</td>
+        <td>{{ r.dates }}, {{ r.year }}</td>
+        <td>{{ r.days }}</td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <div class="emptystate">
+    <p class="mono mono--fg">No batches published yet</p>
+    <p class="prose">Dates for this program have not been scheduled. Email
+      <a href="mailto:{{ SITE.emails[1][1] }}">{{ SITE.emails[1][1] }}</a> and we will tell you
+      when the next batch opens.</p>
+  </div>
+  {%- endif %}
+</div>
+{%- endmacro %}
+
+{% macro readouts(items) -%}
+<div class="readouts">
+  {%- for k, v in items %}
+  <div class="readout"><p class="mono">{{ k }}</p><p class="readout__v">{{ v }}</p></div>
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{% macro masthead(crumbs, label, title_lines, lede, meta=[]) -%}
+<section class="masthead">
+  <div class="masthead__glow" aria-hidden="true"></div>
+  <div class="shell">
+    <div class="grid is-in" data-reveal-group>
+      <div class="c7">
+        <div class="crumbs">
+          {%- for t, h in crumbs %}<a class="mono" href="{{ h }}">{{ t }}</a><span class="mono">/</span>{% endfor %}
+          <span class="mono mono--signal">{{ label }}</span>
+        </div>
+        <h1 class="d1" style="margin-block:1.75rem 1.5rem">{{ lines(title_lines, 'd1') }}</h1>
+        <p class="lead" data-reveal>{{ lede }}</p>
+      </div>
+      <div class="c4 start9" data-reveal>{{ readouts(meta) }}</div>
+    </div>
+  </div>
+</section>
+{%- endmacro %}
+
+{% macro cta(line, sub, primary, secondary) -%}
+<section class="cta band">
+  <div class="cta__glow" aria-hidden="true"></div>
+  <div class="shell">
+    <div class="grid" data-reveal-group>
+      <div class="c7">
+        <p class="mono mono--signal" data-reveal>Next step</p>
+        <h2 class="cta__big" style="margin-block:1.5rem 1.75rem" data-reveal>{{ line }}</h2>
+        <p class="lead" data-reveal>{{ sub }}</p>
+        <div class="btnrow" style="margin-top:2.5rem" data-reveal>
+          {{ btn(primary[0], primary[1]) }}
+          {{ btn(secondary[0], secondary[1], 'btn--ghost') }}
+        </div>
+      </div>
+      <div class="c4 start9" data-reveal>
+        <div class="panel"><div class="panel__core">
+          <p class="mono mono--fg">Direct lines</p>
+          <ul style="margin-top:1.1rem;display:grid;gap:.65rem">
+            {%- for ph in SITE.phones %}
+            <li class="mono" style="color:var(--fg-dim)"><a href="tel:{{ ph|replace(' ','') }}">{{ ph }}</a></li>
+            {%- endfor %}
+          </ul>
+          <p class="mono" style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--line)">
+            <a href="mailto:{{ SITE.emails[0][1] }}" style="color:var(--signal)">{{ SITE.emails[0][1] }}</a>
+          </p>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+{%- endmacro %}
+
+{% macro marquee() -%}
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    {%- for _ in range(2) %}<div>{% for c in CREDENTIALS %}<span>{{ c }}</span>{% endfor %}</div>{% endfor %}
+  </div>
+</div>
+{%- endmacro %}

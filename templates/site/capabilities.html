@@ -1,0 +1,49 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import masthead, shead, cap_card, cta, marquee with context %}
+
+{% block title %}Capabilities — Energy audits, EnMS, solar & MEPF | EnergyWize Solutions{% endblock %}
+{% block description %}Level 1–3 energy audits, ISO 50001 energy management systems, solar PV, MEPF solutions, and DOE-recognised technical training from a registered Philippine ESCO.{% endblock %}
+
+{% block main %}
+
+{{ masthead([('Home', url_for('registration.index'))], 'Capabilities',
+            ['Everything between', 'the meter', 'and the roof'],
+            'Five service lines delivered under one Department of Energy registration. You can buy any one of them on its own — most clients start with an audit because it tells them which of the others is worth the money.',
+            [('Service lines', 'Five'),
+             ('Standing', 'DOE-Registered ESCO'),
+             ('Standards applied', 'ISO 50001 · ISO 50002 · RA 11285')]) }}
+
+<section class="band band--tight">
+  <div class="shell">
+    <div class="bento" data-reveal-group>
+      {% for c in CAPABILITIES %}{{ cap_card(c, wide=loop.last, side=PROGRAMS) }}{% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge">
+  <div class="shell">
+    {{ shead('C-M', 'How work runs',
+             '<h2 class="d1">One sequence,<br>whatever you buy.</h2>'|safe,
+             'Projects fail at the handovers. Keeping assessment, delivery, and verification inside one registered ESCO removes most of them.') }}
+    <div class="method" data-reveal-group>
+      {%- for no, name, desc, out in HOME.method %}
+      <div class="step" data-reveal>
+        <p class="step__no">{{ no }}</p>
+        <h3 class="d3">{{ name }}</h3>
+        <p>{{ desc }}</p>
+        <p class="step__out">{{ out }}</p>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+{{ marquee() }}
+
+{{ cta('Scope it before you buy it.',
+       'Tell us the floor area, the fuel mix, and what your last twelve months of bills looked like. We will tell you which audit level answers your question.',
+       ('Start an enquiry', url_for('site.contact') ~ '#enquiry'),
+       ('View programs', url_for('registration.programs'))) }}
+
+{% endblock %}

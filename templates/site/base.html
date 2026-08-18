@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en-PH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ SITE.legal }}{% endblock %}</title>
+<meta name="description" content="{% block description %}{{ SITE.tagline }}{% endblock %}">
+<meta name="theme-color" content="#071009">
+<link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ SITE.legal }}">
+<meta property="og:title" content="{{ self.title() }}">
+<meta property="og:description" content="{{ self.description() }}">
+<meta property="og:image" content="{{ url_for('static', filename='logo.png', _external=True) }}">
+<meta name="twitter:card" content="summary">
+<!-- Applies with the HTML itself, so the first paint is already on-brand even if
+     a stylesheet is still in flight. Without it a slow load shows white page /
+     default-blue links for a frame. -->
+<style>
+  html { background: #071009; color-scheme: dark; }
+  body { margin: 0; background: #071009; color: #E7F1EA;
+         font-family: system-ui, sans-serif; }
+  a { color: inherit; text-decoration: none; }
+  .curtain { position: fixed; inset: 0; z-index: 600; background: #040907;
+             pointer-events: none; transform: scaleY(1); transform-origin: top; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Loaded without blocking first paint; Archivo swaps in when it arrives. -->
+<link rel="stylesheet" media="print" onload="this.media='all';this.onload=null"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@300;400;500&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@300;400;500&display=swap"></noscript>
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="rails" aria-hidden="true"><div class="rails__inner">
+  {% for i in range(12) %}<span style="--i:{{ i }}"></span>{% endfor %}
+</div></div>
+<div class="curtain" aria-hidden="true"></div>
+
+<nav class="nav" aria-label="Primary">
+  <a class="nav__brand" href="{{ url_for('registration.index') }}">
+    <span class="nav__seal"><img src="{{ url_for('static', filename='logo.png') }}" alt="" width="64" height="64"></span>
+    <span class="nav__word"><b>ENERGYWIZE</b><span>Solutions</span></span>
+  </a>
+
+  <div class="nav__rail">
+    <span class="nav__ind" aria-hidden="true"></span>
+    {%- for label, endpoint in NAV %}
+    <a class="nav__item" href="{{ url_for(endpoint) }}"
+       {% if endpoint == active %}aria-current="page"{% endif %}>{{ label }}</a>
+    {%- endfor %}
+  </div>
+
+  <div class="nav__actions">
+    <a class="nav__signin" href="{{ url_for('auth.auth') if has_auth else '/auth' }}">
+      <span>Sign in</span>{{ icon('arrow') }}
+    </a>
+    <button class="nav__burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
+      <i></i><i></i><i></i>
+    </button>
+  </div>
+</nav>
+
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="shell">
+    <div class="menu__group">
+      <p class="mono menu__label">Navigate</p>
+      <ul class="menu__list">
+        {%- for label, endpoint in NAV %}
+        <li style="--i:{{ loop.index0 }}"><a href="{{ url_for(endpoint) }}">{{ label }}</a></li>
+        {%- endfor %}
+        <li style="--i:{{ NAV|length }}"><a href="{{ url_for('auth.auth') if has_auth else '/auth' }}">Sign in</a></li>
+      </ul>
+    </div>
+    <div class="menu__group">
+      <p class="mono menu__label">Programs</p>
+      <ul class="menu__list menu__list--sub">
+        {%- for p in PROGRAMS %}
+        <li style="--i:{{ loop.index0 }}"><a href="{{ url_for('site.program', code=p.code|lower) }}">{{ p.title }}</a></li>
+        {%- endfor %}
+      </ul>
+    </div>
+    <div class="menu__foot">
+      <p class="mono">{{ SITE.phones[3] }}</p>
+      <p class="mono">{{ SITE.emails[0][1] }}</p>
+      <p class="mono">Makati · NCR</p>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+{% block main %}{% endblock %}
+</main>
+
+<footer class="foot">
+  <div class="shell">
+    <div class="foot__grid">
+      <div>
+        <div class="foot__lock">
+          <span class="foot__seal"><img src="{{ url_for('static', filename='logo.png') }}" alt="{{ SITE.legal }} seal" width="96" height="96"></span>
+          <div>
+            <p class="d4">{{ SITE.legal }}</p>
+            <p class="mono" style="margin-top:.5rem">{{ SITE.tagline }}</p>
+          </div>
+        </div>
+        <address style="font-style:normal;margin-top:1.75rem;color:var(--fg-dim);font-size:.9rem;line-height:1.7">
+          {% for l in SITE.address_lines %}{{ l }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+        </address>
+        <div class="social">
+          {%- for name, url, ic in SITE.social %}
+          <a href="{{ url }}" aria-label="{{ name }}" rel="noopener" target="_blank">{{ icon(ic) }}</a>
+          {%- endfor %}
+        </div>
+      </div>
+      <div class="foot__col">
+        <h4 class="mono mono--fg">Capabilities</h4>
+        <ul>{% for c in CAPABILITIES %}
+          <li><a href="{{ url_for('site.capability', slug=c.slug) }}">{{ c.title }}</a></li>{% endfor %}
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h4 class="mono mono--fg">Programs</h4>
+        <ul>{% for p in PROGRAMS %}
+          <li><a href="{{ url_for('site.program', code=p.code|lower) }}">{{ p.title }}</a></li>{% endfor %}
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h4 class="mono mono--fg">Contact</h4>
+        <ul>
+          {%- for label, addr in SITE.emails %}
+          <li><a href="mailto:{{ addr }}">{{ addr }}</a></li>
+          {%- endfor %}
+          <li><a href="tel:{{ SITE.phones[3]|replace(' ','') }}">{{ SITE.phones[3] }}</a></li>
+          <li><a href="{{ url_for('site.about') }}">Company</a></li>
+          <li><a href="{{ url_for('site.contact') }}">Enquiries</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="foot__word" aria-hidden="true">ENERGYWIZE</p>
+    <div class="foot__legal">
+      <p class="mono">© {{ year }} {{ SITE.legal }} · All rights reserved</p>
+      <nav aria-label="Legal">
+        <a class="mono" href="{{ url_for('site.contact') }}">Legal notice</a>
+        <a class="mono" href="{{ url_for('site.contact') }}">Privacy policy</a>
+        <a class="mono" href="{{ url_for('site.contact') }}">Terms &amp; conditions</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+<div class="grain" aria-hidden="true"></div>
+<script src="{{ url_for('static', filename='ewize.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

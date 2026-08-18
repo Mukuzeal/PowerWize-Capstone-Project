@@ -1,6 +1,45 @@
 import psycopg2.extras
 
-from .core import get_db, build_batch_label, TYPE_OFFSETS
+from .core import get_db, build_batch_dates, build_batch_label, TYPE_OFFSETS
+
+# Batch type in `batches` -> the offset key used to expand its run dates.
+PUBLIC_BATCH_TYPES = {
+    "training": "training",
+    "renewal": "renewal",
+    "gemp_training": "gemp_training",
+}
+
+
+def get_public_schedule():
+    """Upcoming batches for the public site, grouped by batch type.
+
+    Returns {batch_type: [{"name", "dates", "year", "days", "start"}]}. Rows are
+    read from the same `batches` table the registration forms use, so the
+    published calendar and the form dropdowns can never drift apart.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT name, type, start_date FROM batches "
+        "WHERE type = ANY(%s) ORDER BY start_date, id",
+        (list(PUBLIC_BATCH_TYPES),),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    out = {t: [] for t in PUBLIC_BATCH_TYPES}
+    for name, btype, start_date in rows:
+        offsets = TYPE_OFFSETS[PUBLIC_BATCH_TYPES[btype]]
+        dates, year = build_batch_dates(offsets, start_date)
+        out[btype].append({
+            "name": name,
+            "dates": dates,
+            "year": year,
+            "days": len(offsets),
+            "start": start_date,
+        })
+    return out
 
 
 def get_schedules():

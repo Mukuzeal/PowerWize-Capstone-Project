@@ -1,0 +1,134 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import masthead, shead, btn, marquee with context %}
+
+{% block title %}Contact — audits, quotations & training registration | EnergyWize Solutions{% endblock %}
+{% block description %}Reach EnergyWize Solutions Inc. in Makati for energy audit scoping, solar PV quotations, MEPF packages, and CEM / CEA / GEMP training registration.{% endblock %}
+
+{% block main %}
+
+{{ masthead([('Home', url_for('registration.index'))], 'Contact',
+            CONTACT.hero_lines, CONTACT.lede,
+            [('Office', 'Makati, Metro Manila'),
+             ('General enquiries', SITE.emails[0][1]),
+             ('Training desk', SITE.emails[1][1])]) }}
+
+{# Anything with a real form in the system gets sent straight there, not into a
+   generic enquiry inbox. #}
+<section class="band band--tight band--edge" id="forms">
+  <div class="shell">
+    {{ shead('X-01', 'Go straight to a form',
+             '<h2 class="d1">Some things<br>skip the inbox.</h2>'|safe,
+             'Training registration and solar quotations are handled by their own forms. They capture what we need first time, so use these rather than the general enquiry below.') }}
+    <div class="spec">
+      {%- for p in PROGRAMS %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">{{ p.code }}</div>
+        <div class="spec__k"><a href="{{ url_for('site.program', code=p.code|lower) }}">{{ p.title }}</a></div>
+        <div class="spec__v">
+          <div class="btnrow">
+            {%- for label, endpoint in p.forms %}{{ btn(label, url_for(endpoint), 'btn--ghost btn--sm') }}{% endfor %}
+          </div>
+        </div>
+      </div>
+      {%- endfor %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">SOLAR</div>
+        <div class="spec__k">Solar PV quotation</div>
+        <div class="spec__v">
+          <div class="btnrow">{{ btn('Request a solar quote', solar_url, 'btn--sm btn--amber') }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge" id="enquiry">
+  <div class="shell">
+    <div class="grid">
+      <div class="c6" data-reveal>
+        <p class="mono mono--signal">General enquiry</p>
+        <h2 class="d2" style="margin-block:1.25rem 2rem">Send us the details.</h2>
+        <form class="form" data-form novalidate>
+          <div class="form__grid">
+            <div class="field">
+              <label for="f-name">Name</label>
+              <input id="f-name" name="name" type="text" required autocomplete="name" placeholder="Full name">
+              <p class="field__err">Please enter your name.</p>
+            </div>
+            <div class="field">
+              <label for="f-org">Organisation</label>
+              <input id="f-org" name="organisation" type="text" autocomplete="organization" placeholder="Company, agency, or LGU">
+              <p class="field__help">Optional — helps us scope the right audit level.</p>
+            </div>
+            <div class="field">
+              <label for="f-email">Email</label>
+              <input id="f-email" name="email" type="email" required autocomplete="email" placeholder="you@organisation.com">
+              <p class="field__err">Please enter a valid email address.</p>
+            </div>
+            <div class="field">
+              <label for="f-phone">Phone</label>
+              <input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="+63">
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-reason">What is this about</label>
+            <select id="f-reason" name="reason" required>
+              {% for r in CONTACT.reasons %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-msg">Message</label>
+            <textarea id="f-msg" name="message" required
+              placeholder="Floor area, fuel mix, monthly consumption, or the training batch you want."></textarea>
+            <p class="field__err">Please tell us a little about the enquiry.</p>
+          </div>
+          <label class="check">
+            <input type="checkbox" name="terms" required>
+            <span>I accept the terms and conditions and consent to EnergyWize Solutions contacting me about this enquiry.</span>
+          </label>
+          <div class="btnrow">
+            <button class="btn" type="submit" data-magnetic>
+              <span class="btn__label">Send enquiry</span>
+              <span class="btn__pip" aria-hidden="true">{{ icon('arrow') }}</span>
+            </button>
+          </div>
+          <p class="formnote" role="status"></p>
+        </form>
+      </div>
+
+      <div class="c5 start8" data-reveal>
+        <div class="contacts">
+          <div class="contacts__row">
+            <p class="mono mono--fg">Office</p>
+            <address style="font-style:normal">
+              {% for l in SITE.address_lines %}{{ l }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+            </address>
+          </div>
+          <div class="contacts__row">
+            <p class="mono mono--fg">Email</p>
+            {%- for label, addr in SITE.emails %}
+            <div class="contacts__item">
+              <span class="mono">{{ label }}</span>
+              <a href="mailto:{{ addr }}">{{ addr }}</a>
+            </div>
+            {%- endfor %}
+          </div>
+          <div class="contacts__row">
+            <p class="mono mono--fg">Telephone</p>
+            <ul style="display:grid;gap:.45rem">
+              {% for ph in SITE.phones %}<li><a href="tel:{{ ph|replace(' ','') }}">{{ ph }}</a></li>{% endfor %}
+            </ul>
+          </div>
+          <div class="contacts__row">
+            <p class="mono mono--fg">Hours</p>
+            <p>Monday to Friday, 8:00am — 5:00pm PHT.<br>Training runs 9:00am — 4:00pm.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{ marquee() }}
+
+{% endblock %}

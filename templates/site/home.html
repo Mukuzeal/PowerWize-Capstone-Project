@@ -1,0 +1,155 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import lines, btn, tlink, shead, cap_card, sched, cta, marquee with context %}
+
+{% block title %}EnergyWize Solutions — Energy audits, management systems & DOE certification{% endblock %}
+{% block description %}DOE-Recognized Training Institution and registered ESCO in Makati. Level 1–3 energy audits, ISO 50001 energy management systems, solar PV, MEPF, and CEM / CEA / GEMP certification training.{% endblock %}
+
+{% block head %}
+<script type="application/ld+json">{{ org_jsonld|tojson }}</script>
+{% endblock %}
+
+{% block main %}
+
+<section class="hero">
+  <div class="hero__field" data-field aria-hidden="true"></div>
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="hero__glow hero__glow--b" aria-hidden="true"></div>
+  <div class="shell">
+    <div class="grid is-in" data-reveal-group>
+      <div class="hero__type c9">
+        <p class="tag">DOE-Recognized Training Institution · Registered ESCO</p>
+        <h1>{{ lines(HOME.hero_lines, underline=HOME.hero_underline) }}</h1>
+        <p class="lead hero__sub" data-reveal>{{ HOME.hero_sub }}</p>
+        <div class="btnrow" data-reveal>
+          {{ btn('Request an energy audit', url_for('site.contact') ~ '#enquiry') }}
+          {{ btn('2026 training schedule', url_for('registration.programs') ~ '#schedule', 'btn--ghost') }}
+        </div>
+      </div>
+    </div>
+    <div class="hero__rail">
+      <div class="hero__creds">
+        {% for c in CREDENTIALS[:4] %}<p class="mono">{{ c }}</p>{% endfor %}
+      </div>
+      <div class="scrollcue"><i aria-hidden="true"></i><span class="mono">Scroll</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge" id="mandate">
+  <div class="shell">
+    {{ shead('01', 'The mandate', lines(HOME.mandate_title, 'd1'), HOME.mandate_aside) }}
+    <div class="rule" data-reveal></div>
+    <div class="spec" style="margin-top:var(--sp-block)">
+      {%- for n, k, v in HOME.mandate_rows %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">{{ n }}</div>
+        <div class="spec__k">{{ k }}</div>
+        <div class="spec__v">{{ v }}</div>
+      </div>
+      {%- endfor %}
+    </div>
+    <div class="stats" style="margin-top:var(--sp-block)">
+      {%- for val, lab, note in stats %}
+      <div class="stat" data-reveal>
+        <p class="stat__val"><span data-count="{{ val }}">0</span></p>
+        <p class="mono stat__lab">{{ lab }}</p>
+        <p class="stat__note">{{ note }}</p>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge" id="pathways">
+  <div class="shell">
+    {{ shead('02', 'Two ways in',
+             '<h2 class="d1">Two audiences.<br>One body of expertise.</h2>'|safe,
+             'Organisations buy outcomes. Professionals buy credentials. EnergyWize is registered to deliver both, and each one keeps the other honest.') }}
+    <div class="doors" data-reveal>
+      {%- for d in HOME.doors %}
+      <article class="door" style="--door-hue:{{ d.hue }}">
+        <p class="door__no">{{ d.no }}</p>
+        <p class="mono mono--fg" style="margin-top:1.5rem">{{ d.kicker }}</p>
+        <h3 class="d2">{{ d.title }}</h3>
+        <p class="prose" style="max-width:38ch">{{ d.body }}</p>
+        <ul class="door__list">
+          {%- for code, txt in d.list %}
+          <li><b>{{ code }}</b><span>{{ txt }}</span></li>
+          {%- endfor %}
+        </ul>
+        <div class="door__cta">
+          {{ tlink(d.cta[0], url_for('site.capabilities') if loop.first else url_for('registration.programs')) }}
+        </div>
+      </article>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge" id="capabilities">
+  <div class="shell">
+    {{ shead('03', 'Capabilities',
+             '<h2 class="d1">Everything between<br>the meter and the roof.</h2>'|safe,
+             'Five service lines under one DOE registration, so accountability does not change hands halfway through a project.') }}
+    <div class="bento" data-reveal-group>
+      {%- for c in CAPABILITIES %}
+      {{ cap_card(c, wide=loop.last, side=PROGRAMS) }}
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge" id="method">
+  <div class="shell">
+    {{ shead('04', 'Method',
+             '<h2 class="d1">Assess. Model.<br>Implement. Verify.</h2>'|safe,
+             HOME.commitment) }}
+    <div class="method" data-reveal-group>
+      {%- for no, name, desc, out in HOME.method %}
+      <div class="step" data-reveal>
+        <p class="step__no">{{ no }}</p>
+        <h3 class="d3">{{ name }}</h3>
+        <p>{{ desc }}</p>
+        <p class="step__out">{{ out }}</p>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--paper band--edge" id="schedule">
+  <div class="shell">
+    {{ shead('05', 'Training calendar',
+             '<h2 class="d1">Printed once.<br>Booked quickly.</h2>'|safe,
+             'Batch dates come straight from our registration system, so what you read here is what the enrolment form offers. Batches close when the room is full.') }}
+    {{ sched(schedule.training, 'Certified Energy Manager / Certified Energy Auditor.') }}
+    <div class="btnrow" style="margin-top:2.5rem" data-reveal>
+      {{ btn('All programs and dates', url_for('registration.programs'), 'btn--ghost') }}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge" id="credentials">
+  <div class="shell">
+    {{ shead('06', 'On the record',
+             '<h2 class="d1">Five registrations,<br>printed on the seal.</h2>'|safe,
+             'Every program we run is recognised by the Department of Energy under its own registration number. Verify any of them before you enrol.') }}
+    <div class="spec">
+      {%- for name, code, kind in REGISTRATIONS %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">R-0{{ loop.index }}</div>
+        <div class="spec__k">{{ name }}</div>
+        <div class="spec__v"><span class="mono mono--signal">{{ code }}</span><br>{{ kind }}</div>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+{{ marquee() }}
+
+{{ cta(HOME.cta_line, HOME.cta_sub,
+       ('Start an enquiry', url_for('site.contact') ~ '#enquiry'),
+       ('View capabilities', url_for('site.capabilities'))) }}
+
+{% endblock %}

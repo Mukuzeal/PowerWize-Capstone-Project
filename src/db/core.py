@@ -20,7 +20,8 @@ TYPE_OFFSETS = {
 }
 
 
-def build_batch_label(name, offsets, start_date):
+def build_batch_dates(offsets, start_date):
+    """Human-readable run dates for a batch, e.g. 'January 29, 30, 31 & February 5'."""
     dates = [start_date + timedelta(days=d) for d in offsets]
     parts = []
     current_month = None
@@ -31,7 +32,12 @@ def build_batch_label(name, offsets, start_date):
         else:
             parts.append(str(d.day))
     date_str = (", ".join(parts[:-1]) + " & " + parts[-1]) if len(parts) > 1 else parts[0]
-    return f"{name} - {date_str}, {dates[0].year}"
+    return date_str, dates[0].year
+
+
+def build_batch_label(name, offsets, start_date):
+    date_str, year = build_batch_dates(offsets, start_date)
+    return f"{name} - {date_str}, {year}"
 
 
 def get_db():

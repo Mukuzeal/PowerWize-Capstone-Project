@@ -1,0 +1,119 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import masthead, shead, btn, sched, cta with context %}
+
+{% block title %}{{ p.title }} ({{ p.code }}) — schedule & registration | EnergyWize Solutions{% endblock %}
+{% block description %}{{ p.blurb }}{% endblock %}
+
+{% block head %}
+<script type="application/ld+json">{{ course_jsonld|tojson }}</script>
+{% endblock %}
+
+{% block main %}
+
+{{ masthead([('Home', url_for('registration.index')), ('Programs', url_for('registration.programs'))],
+            p.code, [p.title], p.lede,
+            [('DOE registration', p.reg),
+             ('Duration', p.length),
+             ('Who it is for', p.audience)]) }}
+
+{# The registration form is the point of the page, so it sits above the detail. #}
+<section class="band band--tight band--edge" id="register">
+  <div class="shell">
+    <div class="grid">
+      <div class="c6" data-reveal>
+        <p class="mono mono--signal">Registration</p>
+        <h2 class="d2" style="margin-block:1.25rem 1.25rem">
+          {% if p.forms|length > 1 %}Pick the form that matches your organisation.{% else %}Register for {{ p.code }}.{% endif %}
+        </h2>
+        <p class="prose">
+          {%- if p.forms|length > 1 -%}
+            Local government units and other government entities submit different supporting documents,
+            so each has its own form. Both open the same batches.
+          {%- else -%}
+            The form asks for your details, your supporting documents, and the batch you want.
+            Open batches are listed in the form's schedule field.
+          {%- endif -%}
+        </p>
+        <div class="btnrow" style="margin-top:2rem">
+          {%- for label, endpoint in p.forms %}
+          {{ btn(label, url_for(endpoint), '' if loop.first else 'btn--ghost') }}
+          {%- endfor %}
+        </div>
+      </div>
+      <div class="c5 start8" data-reveal>
+        <div class="panel"><div class="panel__core">
+          <p class="mono mono--fg">Next batches</p>
+          <ul style="margin-top:1.1rem;display:grid;gap:.75rem">
+            {%- for r in rows[:4] %}
+            <li style="display:grid;gap:.2rem;padding-bottom:.7rem;border-bottom:1px solid var(--line)">
+              <span class="mono mono--signal">{{ r.name }}</span>
+              <span style="font-size:.92rem;color:var(--fg-dim)">{{ r.dates }}, {{ r.year }}</span>
+            </li>
+            {%- else %}
+            <li class="mono">No batches published yet</li>
+            {%- endfor %}
+          </ul>
+          <p class="mono" style="margin-top:1rem">
+            <a href="#schedule" style="color:var(--signal)">Full schedule below</a>
+          </p>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge">
+  <div class="shell">
+    {{ shead(p.no, 'Curriculum',
+             '<h2 class="d1">Key topics<br>covered.</h2>'|safe,
+             'Delivered by practising energy professionals and certified instructors. Sessions combine classroom work with hands-on use of audit instrumentation.') }}
+    <div class="spec">
+      {%- for k, v in p.topics %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">{{ '%02d'|format(loop.index) }}</div>
+        <div class="spec__k">{{ k }}</div>
+        <div class="spec__v">{{ v }}</div>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--edge">
+  <div class="shell">
+    <div class="grid">
+      <div class="c5" data-reveal>
+        <p class="mono mono--signal">Certification &amp; benefits</p>
+        <h2 class="d2" style="margin-block:1.5rem 1.25rem">What you walk out with.</h2>
+        <p class="prose" style="max-width:34ch">Registered with the Department of Energy under
+          <span class="mono mono--signal">{{ p.reg }}</span>.</p>
+        <div style="margin-top:2rem">{{ btn('Register for ' ~ p.code, url_for(p.forms[0][1])) }}</div>
+      </div>
+      <div class="c6 start7" data-reveal>
+        <ul>
+          {%- for b in p.benefits %}
+          <li style="display:flex;gap:1rem;padding-block:.9rem;border-top:1px solid var(--line)">
+            <span class="mono mono--signal">{{ '%02d'|format(loop.index) }}</span>
+            <span style="color:var(--fg-dim);font-size:.95rem;line-height:1.6">{{ b }}</span>
+          </li>
+          {%- endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band--paper band--edge" id="schedule">
+  <div class="shell">
+    {{ shead('CAL', 'Dates', ('<h2 class="d1">' ~ p.code ~ ' schedule.</h2>')|safe,
+             'Read live from our registration system. Slots are held on confirmation — email the training desk with your batch preference and headcount.') }}
+    {{ sched(rows, note) }}
+  </div>
+</section>
+
+{{ cta('Reserve a ' ~ p.code ~ ' slot.',
+       'Confirm your batch with the training desk and we will send the registration pack, requirements, and payment details.',
+       ('Open the ' ~ p.code ~ ' form', url_for(p.forms[0][1])),
+       ('All programs', url_for('registration.programs'))) }}
+
+{% endblock %}

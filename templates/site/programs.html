@@ -1,0 +1,79 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import masthead, shead, btn, prog_card, sched, cta, marquee with context %}
+
+{% block title %}Training programs & schedule — CEM, CEA, GEMP | EnergyWize Solutions{% endblock %}
+{% block description %}DOE-recognised CEM, CEA, GEMP and recertification training in the Philippines, with the live batch schedule and direct links to every registration form.{% endblock %}
+
+{% block main %}
+
+{{ masthead([('Home', url_for('registration.index'))], 'Programs',
+            ['Get certified.', 'Stay certified.'],
+            'EnergyWize Solutions is a DOE-Recognized Training Institution. Completing our programs qualifies participants to apply to the Department of Energy for certification — and our recertification tracks keep existing credentials current.',
+            [('Programs', 'Five'),
+             ('Published batches', batch_count),
+             ('Training desk', SITE.emails[1][1])]) }}
+
+<section class="band band--tight">
+  <div class="shell">
+    <div class="bento" data-reveal-group>
+      {% for p in PROGRAMS %}{{ prog_card(p) }}{% endfor %}
+    </div>
+  </div>
+</section>
+
+{# Every program's registration form, reachable in one click. #}
+<section class="band band--edge" id="register">
+  <div class="shell">
+    {{ shead('P-REG', 'Registration forms',
+             '<h2 class="d1">One form<br>per program.</h2>'|safe,
+             'Each form asks only for what its program needs, and offers the batches currently open for it. Government programs have a separate form for LGUs and for other government entities.') }}
+    <div class="spec">
+      {%- for p in PROGRAMS %}
+      <div class="spec__row" data-reveal>
+        <div class="spec__n">{{ p.code }}</div>
+        <div class="spec__k">
+          <a href="{{ url_for('site.program', code=p.code|lower) }}">{{ p.title }}</a>
+          <p class="mono" style="margin-top:.45rem">{{ p.length }}</p>
+        </div>
+        <div class="spec__v">
+          <p>{{ p.audience }}</p>
+          <div class="btnrow" style="margin-top:1rem">
+            {%- for label, endpoint in p.forms %}
+            {{ btn(label, url_for(endpoint), 'btn--ghost btn--sm') }}
+            {%- endfor %}
+          </div>
+        </div>
+      </div>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="band band--paper band--edge" id="schedule">
+  <div class="shell">
+    {{ shead('P-CAL', 'Training calendar',
+             '<h2 class="d1">Every run,<br>every date.</h2>'|safe,
+             'These dates are read live from our registration system — the same records the enrolment forms use. Registration closes when a batch fills.') }}
+
+    {%- for key, label, note in schedule_groups %}
+    <div style="margin-top:var(--sp-block)">
+      <h3 class="d3" data-reveal>{{ label }}</h3>
+      <div style="margin-top:1.5rem">{{ sched(schedule[key], note) }}</div>
+    </div>
+    {%- endfor %}
+
+    <div class="btnrow" style="margin-top:3rem" data-reveal>
+      {{ btn('Register for a batch', url_for('site.contact') ~ '#enquiry') }}
+      <span class="mono">{{ SITE.emails[1][1] }}</span>
+    </div>
+  </div>
+</section>
+
+{{ marquee() }}
+
+{{ cta('Name the batch. We will hold the slot.',
+       'Tell us the program, the batch, and how many people you are sending. Group bookings and in-house delivery are available for organisations.',
+       ('Register now', url_for('site.contact') ~ '#enquiry'),
+       ('View capabilities', url_for('site.capabilities'))) }}
+
+{% endblock %}
