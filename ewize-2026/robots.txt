@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://e-wizesolutions.com/sitemap.xml
