@@ -585,10 +585,28 @@ ABOUT = {
     ],
     "vision": "To be the trusted partner in advancing energy efficiency and renewable energy solutions, "
               "empowering businesses and individuals with expert consultancy, innovative technologies, and "
-              "specialised training.",
-    "mission": "To drive efficiency and sustainability through comprehensive solutions — consultancy, "
-               "audits, training, and MEPF installations — that reduce consumption, enhance operational "
-               "efficiency, and contribute to a greener future.",
+              "specialized training. We envision a sustainable future where smart energy management drives "
+              "economic growth, environmental responsibility, and long-term resilience—ensuring that every "
+              "watt counts for a better tomorrow.",
+    "mission": "At EnergyWize Solutions Inc., doing business as E-Wize Solutions, we are dedicated to driving "
+               "energy efficiency, sustainability, and innovation through comprehensive energy solutions. We "
+               "provide expert energy management consultancy, energy audits, and technical training, equipping "
+               "organizations and individuals with the knowledge and strategies to optimize energy use. Our "
+               "services also include the sales and installation of renewable energy systems, solar products, "
+               "and Mechanical, Electrical, Plumbing, and Fire Protection (MEPF) solutions, ensuring seamless "
+               "integration of cutting-edge technologies for maximum efficiency and reliability. Committed to "
+               "environmental stewardship and energy conservation, we strive to be a trusted partner in "
+               "transforming energy practices, reducing carbon footprints, and building a cleaner, more "
+               "energy-efficient future.",
+    "commitment": "At EnergyWize Solutions, we are dedicated to helping our clients achieve their energy "
+                  "efficiency goals while maintaining the highest industry standards and regulatory compliance, "
+                  "including The Energy Efficiency and Conservation Act (RA 11285). Our experienced team is "
+                  "committed to delivering tailored solutions that not only address the unique needs of our "
+                  "clients but also contribute to a more sustainable future.",
+    "core_values": "At EnergyWize Solutions Inc., we are committed to integrity, innovation, and sustainability in "
+                   "delivering energy solutions. We empower businesses and individuals with efficient, compliant, and "
+                   "future-ready energy management practices, driving lasting impact for a greener and more resilient "
+                   "future.",
 }
 
 # ---------------------------------------------------------------------------

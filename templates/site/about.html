@@ -50,9 +50,24 @@
         </div></div>
       </div>
     </div>
-    <div class="grid" style="margin-top:var(--sp-block)">
-      <div class="c6 start2" data-reveal-group>
-        {% for para in ABOUT.closing %}<p class="prose" data-reveal>{{ para }}</p>{% endfor %}
+  </div>
+</section>
+
+<section class="band">
+  <div class="shell">
+    {{ shead('A-03', 'Our commitment', '<h2 class="d1">Dedication to<br>excellence.</h2>'|safe) }}
+    <div class="grid" data-reveal-group>
+      <div class="c5" data-reveal>
+        <div class="panel"><div class="panel__core" style="padding:2rem">
+          <p class="mono mono--signal">Commitment</p>
+          <p class="prose" style="margin-top:1.1rem;font-size:1.05rem">{{ ABOUT.commitment }}</p>
+        </div></div>
+      </div>
+      <div class="c5 start7" data-reveal>
+        <div class="panel"><div class="panel__core" style="padding:2rem">
+          <p class="mono mono--amber">Values</p>
+          <p class="prose" style="margin-top:1.1rem;font-size:1.05rem">{{ ABOUT.core_values }}</p>
+        </div></div>
       </div>
     </div>
   </div>
