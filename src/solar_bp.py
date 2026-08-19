@@ -167,6 +167,19 @@ def _extract_answer(field: str, text: str, lenient: bool = False):
         if "residential" in t: return "residential"
         if "commercial"  in t: return "commercial"
         if "industrial"  in t: return "industrial"
+        # People say "my home", not "residential" — and the chat's own opening
+        # chips are worded that way too, so without these the answer the user
+        # just clicked would never reach the quotation.
+        if any(w in t for w in ("my home", "our home", "my house", "our house",
+                                "a home", "a house", "for home", "condo",
+                                "townhouse", "apartment", "bahay")):
+            return "residential"
+        if any(w in t for w in ("my business", "our business", "my shop", "my store",
+                                "my office", "our office", "restaurant", "retail",
+                                "hotel", "for business")):
+            return "commercial"
+        if any(w in t for w in ("factory", "plant", "warehouse", "manufacturing")):
+            return "industrial"
 
     elif field == "ownership":
         if any(w in t for w in ("owned", "own", "owner")): return "owned"
@@ -251,6 +264,24 @@ def _extract_answer(field: str, text: str, lenient: bool = False):
         if field == "name":
             # Reject if technical terms or digits are present — not a name
             if any(k in fl for k in _TECH) or any(c.isdigit() for c in fl):
+                return None
+            # Reject sentences. A name is a couple of proper nouns, so a
+            # function word or any property vocabulary means the user was
+            # answering a different question — "It's for my home" is not a
+            # customer called It's For My Home. Single letters stay legal so
+            # middle initials survive.
+            _NOT_NAME = {
+                "it", "its", "it's", "is", "for", "the", "this", "that",
+                "we", "our", "my", "have", "want", "need", "just", "only",
+                "home", "house", "condo", "townhouse", "apartment", "building",
+                "business", "shop", "store", "office", "factory", "warehouse",
+                "residential", "commercial", "industrial",
+                "appliance", "aircon", "fridge", "pump", "unit",
+                "yes", "no", "none", "hello", "hi", "hey", "thanks",
+                "ok", "okay", "sure", "please",
+            }
+            words = re.findall(r"[a-z']+", result.lower())
+            if not words or len(words) > 6 or any(w in _NOT_NAME for w in words):
                 return None
             # A bare line only counts as a name when we actually asked for one.
             # Without this the opening handshake ("Hello") is banked as the
