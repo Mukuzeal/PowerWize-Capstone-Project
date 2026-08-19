@@ -20,6 +20,11 @@
       wrap.appendChild(header);
       wrap.appendChild(body);
 
+      // Index the fields so the step's contents can follow it in as a cascade.
+      Array.prototype.forEach.call(body.children, function(kid, i){
+        kid.style.setProperty('--fi', i);
+      });
+
       steps.push({el: wrap, title: title});
     });
     if(steps.length < 2) return;
@@ -90,6 +95,9 @@
 
     function setStep(idx){
       if(idx < 0 || idx >= steps.length) return;
+      // Content travels one way going forward and the other way coming back, so
+      // moving through the form has a direction instead of just changing.
+      form.dataset.dir = idx >= current ? 'fwd' : 'back';
       steps[current].el.classList.remove('is-current');
       steps[idx].el.classList.add('is-current');
       current = idx;

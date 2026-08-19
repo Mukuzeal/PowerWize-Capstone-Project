@@ -583,35 +583,64 @@ section { position: relative; }
 .nav__burger[aria-expanded="true"] i:nth-child(2) { opacity: 0; transform: scaleX(0.3); }
 .nav__burger[aria-expanded="true"] i:nth-child(3) { transform: rotate(-45deg); }
 
-/* Full-screen menu */
+/* Slide-over menu — the panel arrives from the right edge and leaves the same
+   way, so the spatial relationship survives the round trip. The scrim is a
+   pseudo-element, which keeps the markup a plain container. */
 .menu {
   position: fixed; inset: 0;
   z-index: var(--z-menu);
-  background: color-mix(in oklab, var(--ink-000) 88%, transparent);
-  backdrop-filter: blur(26px) saturate(1.2);
-  /* start, not center: centred content taller than the viewport overflows past
-     the top padding and clips the back control. */
-  display: grid; align-content: start;
-  padding: 6.5rem var(--gut) 3rem;
-  opacity: 0; visibility: hidden;
-  transition: opacity 420ms var(--e-out), visibility 0s 420ms;
-  overflow-y: auto;
+  pointer-events: none; visibility: hidden;
+  transition: visibility 0s 560ms;
+  overscroll-behavior: contain;
 }
-.menu.is-open { opacity: 1; visibility: visible; transition: opacity 420ms var(--e-out), visibility 0s; }
+.menu.is-open { pointer-events: auto; visibility: visible; transition: visibility 0s; }
+
+.menu::before {
+  content: ""; position: absolute; inset: 0;
+  background: color-mix(in oklab, var(--ink-000) 58%, transparent);
+  opacity: 0;
+  transition: opacity 420ms var(--e-out), backdrop-filter 420ms var(--e-out);
+}
+/* Blur ramps with the panel so the surface reads as material arriving, not a
+   sheet of colour fading up. */
+.menu.is-open::before { opacity: 1; backdrop-filter: blur(16px) saturate(1.15); }
+
+/* The panel. --drag is written by the pointer handler during a swipe, so one
+   transform serves both the transition and 1:1 finger tracking. */
+.menu > .shell {
+  position: absolute; inset-block: 0; right: 0;
+  width: min(100%, 30rem); max-width: none; margin: 0;
+  padding: 6.5rem var(--gut) 3rem;
+  overflow-y: auto; overscroll-behavior: contain;
+  background: color-mix(in oklab, var(--ink-000) 86%, transparent);
+  backdrop-filter: blur(28px) saturate(1.25);
+  border-left: var(--rule) solid var(--line-mid);
+  box-shadow: -32px 0 80px -30px rgba(0, 0, 0, 0.75);
+  transform: translate3d(calc(100% + var(--drag, 0px)), 0, 0);
+  transition: transform 560ms var(--e-out);
+  will-change: transform;
+}
+.menu.is-open > .shell { transform: translate3d(var(--drag, 0px), 0, 0); }
+/* While a finger is on the panel there is no transition — the panel is the finger. */
+.menu.is-dragging > .shell { transition: none; }
+
 .menu__group + .menu__group { margin-top: 2.5rem; }
 .menu__label { margin-bottom: 1rem; }
 .menu__list li { overflow: hidden; }
 .menu__list a {
   display: block;
-  font-size: clamp(1.9rem, 6.5vw, 3.25rem);
+  font-size: clamp(1.6rem, 5.6vw, 2.5rem);
   font-variation-settings: "wdth" 108, "wght" 600;
-  letter-spacing: -0.04em; line-height: 1.12;
+  letter-spacing: -0.035em; line-height: 1.15;
   color: var(--fg-dim);
   transform: translateY(110%);
-  transition: transform 720ms var(--e-out), color 260ms var(--e-out);
+  transition: transform 620ms var(--e-out), color 260ms var(--e-out);
 }
-.menu.is-open .menu__list a { transform: translateY(0); transition-delay: calc(var(--i) * 45ms + 90ms); }
+/* Items start after the panel is already underway, so the two motions read as
+   one arrival rather than two events. */
+.menu.is-open .menu__list a { transform: translateY(0); transition-delay: calc(var(--i) * 38ms + 140ms); }
 .menu__list a:hover { color: var(--signal); }
+.menu__list a:active { color: var(--signal); }
 /* Secondary list: program titles are long, so they get their own smaller scale
    rather than an em multiple of the primary clamp. */
 .menu__list--sub a {
@@ -1171,6 +1200,44 @@ section { position: relative; }
 }
 [data-reveal].is-in { opacity: 1; transform: none; filter: blur(0); }
 
+/* Direction-aware variants. An element should enter from the side it belongs
+   to, so the motion says where it came from instead of just announcing itself. */
+[data-reveal="left"]  { transform: translate3d(-34px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(34px, 0, 0); }
+[data-reveal="scale"] { transform: scale(0.94); filter: blur(8px); }
+[data-reveal="fade"]  { transform: none; filter: blur(0); }
+
+/* Shorter throw for dense, repeated surfaces — the more often a user sees a
+   motion, the less of it they should have to sit through. */
+[data-reveal="tight"] {
+  transform: translate3d(0, 14px, 0);
+  filter: blur(3px);
+  transition-duration: 620ms, 620ms, 480ms;
+  transition-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* --------------------------------------------------------------------------
+   22b. PRESS FEEDBACK
+   Feedback belongs on pointer-down, not on release — waiting for the click to
+   land reads as lag even when nothing is actually slow.
+   -------------------------------------------------------------------------- */
+.btn, .btn-submit, .btn-send, .dec-btn, .mode-tab,
+.nav__signin, .switch-btn, .pw-toggle, .wizard-nav button {
+  transition:
+    transform 120ms var(--e-out),
+    background-color var(--t-fast) var(--e-out),
+    border-color var(--t-fast) var(--e-out),
+    color var(--t-fast) var(--e-out),
+    opacity var(--t-fast) var(--e-out);
+}
+.btn:active, .btn-submit:active, .btn-send:active, .dec-btn:active,
+.mode-tab:active, .nav__signin:active, .switch-btn:active,
+.pw-toggle:active, .wizard-nav button:active {
+  transform: scale(0.97);
+}
+.btn:disabled:active, .btn-submit:disabled:active,
+.btn-send:disabled:active, .wizard-nav button:disabled:active { transform: none; }
+
 /* --------------------------------------------------------------------------
    23. REDUCED MOTION
    -------------------------------------------------------------------------- */
@@ -1189,4 +1256,23 @@ section { position: relative; }
   .draw { stroke-dashoffset: 0; }
   .draw-fill { opacity: 1; }
   .hero__field { display: none; }
+
+  /* Reduced motion is not "no feedback" — the panel still arrives, it just
+     cross-fades in place instead of travelling across the viewport. */
+  .menu > .shell,
+  .menu.is-open > .shell { transform: none; opacity: 0; transition: opacity 200ms ease !important; }
+  .menu.is-open > .shell { opacity: 1; }
+  .menu__list a { transform: none; }
+  .bubble-row, .form-card, .chat-shell { animation: none !important; }
+}
+
+/* Translucency is a preference, not a given. When it is turned down the
+   material goes solid rather than merely less blurred — a half-frosted panel
+   is the worst of both. */
+@media (prefers-reduced-transparency: reduce) {
+  .menu > .shell, .menu::before,
+  .nav__brand, .nav__signin, .chat-header, .input-area {
+    backdrop-filter: none;
+    background: var(--ink-000);
+  }
 }

@@ -97,12 +97,141 @@
       };
       burger.addEventListener("click", function () { toggle(); });
       menu.addEventListener("click", function (e) {
+        // A tap on the scrim is a request to dismiss; the panel swallows its own.
+        if (e.target === menu) { toggle(false); return; }
         if (e.target.closest("a")) toggle(false);
       });
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && open) { toggle(false); burger.focus(); }
       });
+
+      initMenuGesture(menu, toggle);
     }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Menu swipe-to-dismiss.
+   * The panel tracks the finger 1:1, resists past its open edge, and on
+   * release lands where the flick was actually heading rather than
+   * wherever the finger happened to lift.
+   * ------------------------------------------------------------------ */
+  function initMenuGesture(menu, toggle) {
+    var panel = menu.querySelector(".shell");
+    if (!panel || reduced || !window.PointerEvent) return;
+
+    var startX = 0, startY = 0, dx = 0, width = 0;
+    var tracking = false, committed = false, id = null;
+    var hist = [];
+
+    // The further past the boundary, the less the panel follows — real things
+    // slow down before they stop.
+    function rubberband(overshoot, dimension) {
+      var c = 0.55;
+      return (overshoot * dimension * c) / (dimension + c * Math.abs(overshoot));
+    }
+
+    // Where momentum would come to rest, using scroll-style exponential decay.
+    function project(velocity) {
+      var d = 0.998;
+      return (velocity / 1000) * d / (1 - d);
+    }
+
+    function velocity() {
+      if (hist.length < 2) return 0;
+      var a = hist[0], b = hist[hist.length - 1];
+      var dt = b.t - a.t;
+      return dt > 0 ? ((b.x - a.x) / dt) * 1000 : 0;
+    }
+
+    panel.addEventListener("pointerdown", function (e) {
+      if (!menu.classList.contains("is-open")) return;
+      if (e.pointerType === "mouse") return;   // pointer-fine has the scrim and Esc
+      startX = e.clientX; startY = e.clientY;
+      dx = 0; tracking = true; committed = false; id = e.pointerId;
+      width = panel.getBoundingClientRect().width || 1;
+      hist = [{ x: e.clientX, t: performance.now() }];
+    }, { passive: true });
+
+    panel.addEventListener("pointermove", function (e) {
+      if (!tracking || e.pointerId !== id) return;
+      var ox = e.clientX - startX;
+      var oy = e.clientY - startY;
+
+      if (!committed) {
+        // Hysteresis, then let the dominant axis win — a vertical intent is a
+        // scroll and must be handed back untouched.
+        if (Math.abs(ox) < 10 && Math.abs(oy) < 10) return;
+        if (Math.abs(oy) >= Math.abs(ox)) { tracking = false; return; }
+        committed = true;
+        menu.classList.add("is-dragging");
+        try { panel.setPointerCapture(id); } catch (err) {}
+      }
+
+      hist.push({ x: e.clientX, t: performance.now() });
+      if (hist.length > 6) hist.shift();
+
+      dx = ox > 0 ? ox : rubberband(ox, width);
+      panel.style.setProperty("--drag", dx + "px");
+    }, { passive: true });
+
+    function release() {
+      if (!tracking) return;
+      tracking = false;
+      if (!committed) return;
+
+      var v = velocity();
+      var landing = dx + project(v);
+
+      // Velocity decides, not position: a fast flick dismisses even from a
+      // panel that has barely moved, and a slow drag past halfway does too.
+      var dismiss = v > 150 || (v > -150 && landing > width * 0.4);
+
+      menu.classList.remove("is-dragging");
+      void panel.offsetWidth;                  // flush, so the transition has a start value
+      panel.style.removeProperty("--drag");
+      committed = false;
+
+      if (dismiss) toggle(false);
+    }
+
+    panel.addEventListener("pointerup", release, { passive: true });
+    panel.addEventListener("pointercancel", release, { passive: true });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Form & chat pages — wire the reveal system without touching each of
+   * the ten templates that render them.
+   * ------------------------------------------------------------------ */
+  function initFormReveals() {
+    var page = document.querySelector(".formpage");
+    if (!page) return;
+
+    var mark = function (el, kind) {
+      if (el && !el.hasAttribute("data-reveal")) el.setAttribute("data-reveal", kind);
+    };
+
+    // The page header reads better as a short cascade than as one slab.
+    var head = page.querySelector(".fhead");
+    if (head && !head.hasAttribute("data-reveal-group")) {
+      head.setAttribute("data-reveal-group", "");
+      Array.prototype.forEach.call(head.children, function (kid) { mark(kid, "tight"); });
+    }
+
+    var blocks = page.querySelectorAll(
+      ".error-banner, .mode-tabs, .info-card, .notice-box, .form-card, .chat-shell, " +
+      ".prelim-badge, .status-line, .admin-note, .result-card, .ai-card, " +
+      ".decision-card, .result-foot"
+    );
+    Array.prototype.forEach.call(blocks, function (el) { mark(el, "tight"); });
+
+    // Sections inside a wizard are display:none until their step is current, so
+    // an observer would never see them and they would stay invisible. The
+    // wizard plays its own step transition instead.
+    var plain = page.querySelectorAll(".form-card:not([data-wizard])");
+    Array.prototype.forEach.call(plain, function (form) {
+      var parts = form.querySelectorAll(".section-header, .form-body");
+      Array.prototype.forEach.call(parts, function (el) { mark(el, "tight"); });
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -386,6 +515,7 @@
    * Boot
    * ------------------------------------------------------------------ */
   function boot() {
+    initFormReveals();   // tags nodes, so it has to land before the observer
     initReveals();
     initDraw();
     initNav();

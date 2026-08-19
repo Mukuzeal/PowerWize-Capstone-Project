@@ -445,10 +445,11 @@ input[type=file] { display: none; }
   font-variation-settings: "wdth" 100, "wght" 600;
   letter-spacing: -0.012em;
   cursor: pointer;
-  transition: background-color 200ms var(--e-out), transform 200ms var(--e-out);
+  transition: background-color 200ms var(--e-out), transform 120ms var(--e-out);
 }
 .btn-submit:hover { background: color-mix(in oklab, var(--signal) 88%, #fff); transform: translateY(-1px); }
-.btn-submit:active { transform: translateY(0); }
+/* The press reads as the button taking the weight, not as it returning to rest. */
+.btn-submit:active { transform: scale(0.97); }
 .btn-submit:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
 .btn-submit:disabled { background: var(--ink-400); color: var(--fg-mute); cursor: not-allowed; transform: none; }
 
@@ -912,6 +913,8 @@ input[type=file] { display: none; }
   transition: background-color 180ms var(--e-out), transform 180ms var(--e-out);
 }
 .btn-send:hover:not(:disabled) { background: color-mix(in oklab, var(--signal) 88%, #fff); transform: translateY(-1px); }
+/* Matches the hover rule's specificity so the press still wins while hovering. */
+.btn-send:active:not(:disabled) { transform: scale(0.94); }
 .btn-send:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
 .btn-send:disabled { background: var(--ink-400); color: var(--fg-mute); cursor: not-allowed; transform: none; }
 .input-hint { margin-top: 0.55rem; text-align: center; font-family: var(--mono); font-size: var(--fs-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-ghost); }
@@ -924,9 +927,82 @@ input[type=file] { display: none; }
 }
 
 /* --------------------------------------------------------------------------
-   15. REDUCED MOTION
+   15. MOTION
+   Transitions here report state — which step you are on, that a message
+   landed, that a control took the press. Nothing is decorative, because a
+   form is a task and choreography in the middle of a task is friction.
+   -------------------------------------------------------------------------- */
+
+/* Wizard steps. The step that arrives comes from the side you are travelling
+   toward, so Back visibly undoes Next rather than replaying it. */
+@keyframes stepInFwd  { from { opacity: 0; transform: translate3d(26px, 0, 0);  } to { opacity: 1; transform: none; } }
+@keyframes stepInBack { from { opacity: 0; transform: translate3d(-26px, 0, 0); } to { opacity: 1; transform: none; } }
+.form-card[data-wizard][data-dir="fwd"]  .wizard-step.is-current { animation: stepInFwd  420ms var(--e-out) both; }
+.form-card[data-wizard][data-dir="back"] .wizard-step.is-current { animation: stepInBack 420ms var(--e-out) both; }
+
+/* Fields inside the arriving step follow it in, a beat behind and shallower —
+   the step is the event, the fields are its follow-through. */
+@keyframes fieldIn { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+.form-card[data-wizard] .wizard-step.is-current .form-body > * {
+  animation: fieldIn 400ms var(--e-out) both;
+  animation-delay: calc(120ms + var(--fi, 0) * 45ms);
+}
+
+/* Chat messages. Each bubble arrives from its own side of the thread, so who
+   spoke is legible from the motion before the colour registers. */
+@keyframes bubbleInAi   { from { opacity: 0; transform: translate3d(-12px, 8px, 0) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes bubbleInUser { from { opacity: 0; transform: translate3d(12px, 8px, 0)  scale(0.97); } to { opacity: 1; transform: none; } }
+.bubble-row.ai-row   { animation: bubbleInAi   360ms var(--e-out) both; }
+.bubble-row.user-row { animation: bubbleInUser 320ms var(--e-out) both; }
+
+/* The typing indicator arrives a touch quicker than a real message — it is a
+   promise that something is coming, not the thing itself. */
+#typing-indicator { animation: bubbleInAi 280ms var(--e-out) both; }
+
+/* Upload zones acknowledge the drop itself, not the validation that follows. */
+@keyframes zoneAccept { 0% { transform: scale(1); } 45% { transform: scale(1.012); } 100% { transform: scale(1); } }
+.upload-zone.has-file, .upload-area.has-file { animation: zoneAccept 320ms var(--e-out); }
+
+/* Inline errors shake once. A second shake would be nagging, not reporting. */
+@keyframes fieldShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.field.is-err input, .field.is-err select, .field.is-err textarea,
+.wizard-step-error.show { animation: fieldShake 380ms var(--e-out); }
+
+/* Press feedback sits on the press, not the release. */
+.radio-opt:active, .training-card:active, .sched-opt:active,
+.upload-zone:active, .upload-area:active { transform: scale(0.99); }
+.radio-opt, .training-card, .sched-opt {
+  transition: border-color var(--t-fast) var(--e-out),
+              background-color var(--t-fast) var(--e-out),
+              transform 120ms var(--e-out);
+}
+
+/* --------------------------------------------------------------------------
+   16. REDUCED MOTION
    -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .status-dot, .typing-dot { animation: none; }
   .typing-dot { opacity: 0.6; }
+
+  /* Keep the state report, drop the travel. */
+  .form-card[data-wizard][data-dir="fwd"]  .wizard-step.is-current,
+  .form-card[data-wizard][data-dir="back"] .wizard-step.is-current,
+  .form-card[data-wizard] .wizard-step.is-current .form-body > *,
+  .bubble-row.ai-row, .bubble-row.user-row, #typing-indicator {
+    animation: fadeInFlat 180ms ease both;
+  }
+  @keyframes fadeInFlat { from { opacity: 0; } to { opacity: 1; } }
+
+  .upload-zone.has-file, .upload-area.has-file,
+  .field.is-err input, .field.is-err select, .field.is-err textarea,
+  .wizard-step-error.show { animation: none; }
+
+  .radio-opt:active, .training-card:active, .sched-opt:active,
+  .upload-zone:active, .upload-area:active { transform: none; }
 }
