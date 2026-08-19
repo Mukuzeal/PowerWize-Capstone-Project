@@ -1,5 +1,4 @@
 {% extends "site/base.html" %}
-{% from "site/_ui.html" import fhead %}
 
 {% block title %}Chat with Solara – EnergyWize{% endblock %}
 {% block description %}Talk to Solara, EnergyWize's AI solar consultant, for a preliminary solar PV estimate.{% endblock %}
@@ -13,14 +12,16 @@
 
 {% block main %}
 <section class="formpage">
-  <div class="shell" style="max-width:52rem">
+  <div class="shell" style="max-width:54rem">
 
-    {{ fhead(
-      [('Home', url_for('registration.index')), ('Solar PV', url_for('solar.solar_form'))],
-      'Solara',
-      'Chat with <em>Solara</em>',
-      'Answer a few questions and Solara will put together a preliminary solar system estimate — reviewed by a human specialist before it becomes a quotation.'
-    ) }}
+    <header class="chathead">
+      <div class="chathead__crumbs">
+        <a class="mono" href="{{ url_for('registration.index') }}">Home</a><span class="mono">/</span>
+        <a class="mono" href="{{ url_for('solar.solar_form') }}">Solar PV</a><span class="mono">/</span>
+        <span class="mono mono--signal">Solara</span>
+      </div>
+      <h1>Chat with <em>Solara</em></h1>
+    </header>
 
     <div class="chat-shell">
 
@@ -42,6 +43,12 @@
           <i class="fa-solid fa-circle-info"></i>
           Solara is an AI assistant. Final quotations are reviewed by human specialists.
         </div>
+      </div>
+
+      <div class="chat-starters" id="chat-starters" hidden>
+        <button type="button" class="starter" style="--i:0"><i class="fa-solid fa-house"></i> It's for my home</button>
+        <button type="button" class="starter" style="--i:1"><i class="fa-solid fa-store"></i> It's for my business</button>
+        <button type="button" class="starter" style="--i:2"><i class="fa-solid fa-plug"></i> Just for one appliance</button>
       </div>
 
       <div class="input-area">

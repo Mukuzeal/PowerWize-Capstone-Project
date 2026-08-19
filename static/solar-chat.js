@@ -53,12 +53,30 @@ function removeTyping() {
   if (el) el.remove();
 }
 
+/* Openers. They exist only for the empty state — once the user has taken a
+   turn the conversation itself is the prompt, and leaving them up would just
+   be furniture. */
+function showStarters() {
+  var box = document.getElementById('chat-starters');
+  if (box) box.hidden = false;
+}
+
+function hideStarters() {
+  var box = document.getElementById('chat-starters');
+  if (!box || box.hidden) return;
+  var done = function () { box.hidden = true; box.classList.remove('is-leaving'); };
+  box.classList.add('is-leaving');
+  box.addEventListener('animationend', done, { once: true });
+  setTimeout(done, 400);   // in case the animation is suppressed
+}
+
 async function sendMessage() {
   if (isWaiting) return;
   var input = document.getElementById('chat-input');
   var text  = input.value.trim();
   if (!text) return;
 
+  hideStarters();
   addBubble(text, 'user');
   input.value = '';
   input.style.height = 'auto';
@@ -124,6 +142,17 @@ function confirmSwitchToForm(e) {
   });
 }
 
+var _starters = document.getElementById('chat-starters');
+if (_starters) {
+  _starters.addEventListener('click', function (e) {
+    var chip = e.target.closest('.starter');
+    if (!chip || isWaiting) return;
+    var input = document.getElementById('chat-input');
+    input.value = chip.textContent.trim();
+    sendMessage();
+  });
+}
+
 var _input = document.getElementById('chat-input');
 
 _input.addEventListener('input', function() {
@@ -155,9 +184,11 @@ _input.addEventListener('keydown', function(e) {
       if (data.collected) collected = data.collected;
       if (data.q_index !== undefined) qIndex = data.q_index;
     }
+    showStarters();
   } catch (e) {
     removeTyping();
     addBubble("Hey! I'm Solara, your solar energy assistant from EnergyWize. What's your name and what kind of property are we working with?", 'ai');
+    showStarters();
   }
   document.getElementById('send-btn').disabled = false;
   document.getElementById('chat-input').focus();

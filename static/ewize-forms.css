@@ -19,8 +19,12 @@
 /* --------------------------------------------------------------------------
    1. PAGE SHELL
    -------------------------------------------------------------------------- */
+/* The top padding clears the floating nav, which is fixed and would otherwise
+   sit on top of the breadcrumb. The nav bottom lands between 60px and 70px
+   across the range, so the floor has to stay above that on the narrowest
+   screen, not just the widest. */
 .formpage {
-  padding-block: clamp(2rem, 4vw, 3.5rem) var(--sp-section);
+  padding-block: clamp(6rem, 8vw, 7.5rem) var(--sp-section);
 }
 
 /* The masthead on a form page is quieter than the brochure masthead: it
@@ -778,13 +782,34 @@ input[type=file] { display: none; }
    A transcript, not a messaging app: square hairline blocks on the substrate,
    monospaced timestamps, the operator's own turns tinted with signal.
    -------------------------------------------------------------------------- */
+/* The shell sizes to the conversation rather than reserving a fixed slab of
+   viewport, so a two-line exchange does not sit in an acre of nothing. It
+   floors at a height that still reads as a room to talk in, and once the
+   thread outgrows the ceiling the log scrolls inside it. */
 .chat-shell {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  height: min(72vh, 46rem);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  min-height: min(26rem, 58vh);
+  max-height: min(78vh, 50rem);
   border: var(--rule) solid var(--line-mid);
   background: var(--ink-100);
 }
+
+/* Compact page header. The shell carries its own identity bar, so a full
+   masthead above it would introduce Solara twice and push the conversation
+   below the fold for no gain. */
+.chathead { margin-bottom: 1.25rem; }
+.chathead__crumbs { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.chathead__crumbs .mono { font-size: var(--fs-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-ghost); }
+.chathead__crumbs a:hover { color: var(--fg-dim); }
+.chathead h1 {
+  margin-top: 0.6rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.15; letter-spacing: -0.025em;
+  font-variation-settings: "wdth" 105, "wght" 600;
+  color: var(--fg);
+}
+.chathead h1 em { font-style: normal; color: var(--signal); }
 
 .chat-header {
   display: flex; align-items: center; gap: 0.85rem;
@@ -822,8 +847,38 @@ input[type=file] { display: none; }
   padding: 1.25rem;
   scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
 }
+/* The thread sits on the composer and grows upward, the way every messaging
+   app people already use behaves. The auto margin collapses to nothing once
+   the content overflows, so long conversations still scroll normally. */
+.chat-box > :first-child { margin-top: auto; }
 .chat-box::-webkit-scrollbar { width: 4px; }
 .chat-box::-webkit-scrollbar-thumb { background: var(--line-strong); }
+
+/* Openers. The empty state is the one moment a chat has nothing to say, so it
+   offers the three answers that actually start a quotation instead of a void.
+   They retire the moment the user takes their first turn. */
+.chat-starters {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+  padding: 0 1.25rem 0.25rem;
+}
+.chat-starters[hidden] { display: none; }
+.starter {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: var(--rule) solid var(--line-strong);
+  background: transparent;
+  color: var(--fg-dim);
+  font: inherit; font-size: 0.82rem;
+  cursor: pointer; text-align: left;
+  transition: border-color 180ms var(--e-out), color 180ms var(--e-out),
+              background-color 180ms var(--e-out), transform 120ms var(--e-out);
+}
+.starter i { color: var(--fg-mute); font-size: 0.75rem; transition: color 180ms var(--e-out); }
+.starter:hover { border-color: var(--signal-dim); color: var(--fg); background: color-mix(in oklab, var(--signal) 7%, transparent); }
+.starter:hover i { color: var(--signal); }
+.starter:active { transform: scale(0.97); }
+.starter:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
 
 .system-notice {
   align-self: center; max-width: 52ch; text-align: center;
@@ -921,9 +976,14 @@ input[type=file] { display: none; }
 .input-hint strong { color: var(--fg-mute); font-variation-settings: "wght" 500; }
 
 @media (max-width: 640px) {
-  .chat-shell { height: calc(100dvh - 11rem); }
+  /* On a phone the conversation is the page, so it takes the screen rather
+     than floating in it. */
+  .chat-shell { min-height: calc(100dvh - 13rem); max-height: calc(100dvh - 13rem); }
   .bubble-col { max-width: 88%; }
   .solara-status { display: none; }
+  .chathead h1 { font-size: 1.35rem; }
+  .chat-starters { padding-inline: 1rem; }
+  .starter { font-size: 0.78rem; padding: 0.45rem 0.8rem; }
 }
 
 /* --------------------------------------------------------------------------
@@ -958,6 +1018,17 @@ input[type=file] { display: none; }
 /* The typing indicator arrives a touch quicker than a real message — it is a
    promise that something is coming, not the thing itself. */
 #typing-indicator { animation: bubbleInAi 280ms var(--e-out) both; }
+
+/* Openers cascade in behind the greeting they answer, so they read as part of
+   Solara's turn rather than as chrome that was always sitting there. */
+@keyframes starterIn { from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.96); } to { opacity: 1; transform: none; } }
+.chat-starters .starter {
+  animation: starterIn 320ms var(--e-out) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+/* Leaving is quicker than arriving — the user has already moved on. */
+@keyframes startersOut { to { opacity: 0; transform: translate3d(0, -6px, 0); } }
+.chat-starters.is-leaving { animation: startersOut 180ms var(--e-out) forwards; pointer-events: none; }
 
 /* Upload zones acknowledge the drop itself, not the validation that follows. */
 @keyframes zoneAccept { 0% { transform: scale(1); } 45% { transform: scale(1.012); } 100% { transform: scale(1); } }
@@ -994,9 +1065,12 @@ input[type=file] { display: none; }
   .form-card[data-wizard][data-dir="fwd"]  .wizard-step.is-current,
   .form-card[data-wizard][data-dir="back"] .wizard-step.is-current,
   .form-card[data-wizard] .wizard-step.is-current .form-body > *,
-  .bubble-row.ai-row, .bubble-row.user-row, #typing-indicator {
+  .bubble-row.ai-row, .bubble-row.user-row, #typing-indicator,
+  .chat-starters .starter {
     animation: fadeInFlat 180ms ease both;
   }
+  .chat-starters.is-leaving { animation: none; opacity: 0; }
+  .starter:active { transform: none; }
   @keyframes fadeInFlat { from { opacity: 0; } to { opacity: 1; } }
 
   .upload-zone.has-file, .upload-area.has-file,
