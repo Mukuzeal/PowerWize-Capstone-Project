@@ -53,6 +53,62 @@ function removeTyping() {
   if (el) el.remove();
 }
 
+/* The quotation rail. Solara returns everything she has banked on each turn;
+   this puts it on screen so the user can see the estimate assembling instead
+   of having to trust that it is. */
+function titleCase(s) {
+  return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+}
+
+function peso(n) {
+  return '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+}
+
+function clip(s, max) {
+  s = String(s).trim();
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
+}
+
+function railValue(field, c) {
+  var v = c[field];
+  switch (field) {
+    case 'name':    return v ? clip(v, 28) : null;
+    case 'address': return v ? clip(v, 46) : null;
+    case 'notes':   return v ? clip(v, 46) : null;
+    case 'establishment_type': return v ? titleCase(v) : null;
+    case 'ownership':          return v ? titleCase(v) : null;
+    case 'electrical_phase':   return v ? (v === 'three' ? 'Three phase' : 'Single phase') : null;
+    // One row serves both: the backend stores whichever the user gave and
+    // nulls the other, so showing two rows would always leave one dead.
+    case 'monthly_bill_php':
+      if (c.monthly_bill_php != null) return peso(c.monthly_bill_php) + ' / mo';
+      if (c.kwh_monthly      != null) return c.kwh_monthly + ' kWh / mo';
+      return null;
+    case 'time_of_use_night_pct': return v != null ? v + '% at night' : null;
+    case 'target_savings':        return v != null ? v + '% of bill'  : null;
+    case 'roof_sqm':              return v != null ? v + ' m²'   : null;
+    default: return v != null && v !== '' ? clip(v, 40) : null;
+  }
+}
+
+function renderRail(c) {
+  var rail = document.getElementById('quote-rail');
+  if (!rail || !c) return;
+
+  var items = rail.querySelectorAll('.qr-item');
+  var done  = 0;
+
+  Array.prototype.forEach.call(items, function (li) {
+    var val = railValue(li.dataset.f, c);
+    li.querySelector('.qr-v').textContent = val || '—';
+    li.classList.toggle('is-set', !!val);
+    if (val) done++;
+  });
+
+  document.getElementById('qr-done').textContent = done;
+  document.getElementById('qr-fill').style.transform = 'scaleX(' + (done / items.length) + ')';
+}
+
 /* Openers. They exist only for the empty state — once the user has taken a
    turn the conversation itself is the prompt, and leaving them up would just
    be furniture. */
@@ -112,7 +168,7 @@ async function sendMessage() {
       addBubble(data.text, 'ai');
       if (data.messages)  messages  = data.messages;
       else messages.push({ role: 'assistant', content: data.text });
-      if (data.collected) collected = data.collected;
+      if (data.collected) { collected = data.collected; renderRail(collected); }
       if (data.q_index !== undefined) qIndex = data.q_index;
     }
   } catch (e) {
@@ -181,7 +237,7 @@ _input.addEventListener('keydown', function(e) {
     if (data.text) {
       addBubble(data.text, 'ai');
       messages  = [{ role: 'user', content: 'Hello' }, { role: 'assistant', content: data.text }];
-      if (data.collected) collected = data.collected;
+      if (data.collected) { collected = data.collected; renderRail(collected); }
       if (data.q_index !== undefined) qIndex = data.q_index;
     }
     showStarters();

@@ -782,6 +782,24 @@ input[type=file] { display: none; }
    A transcript, not a messaging app: square hairline blocks on the substrate,
    monospaced timestamps, the operator's own turns tinted with signal.
    -------------------------------------------------------------------------- */
+/* A conversation column plus the readout it is filling in. The chat cannot
+   simply grow to the full page width — a bubble 1400px wide is unreadable —
+   so the width that a chat should not take is given to the quotation instead
+   of to nothing. */
+.chat-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  gap: clamp(1rem, 1.6vw, 1.75rem);
+  align-items: stretch;
+}
+@media (max-width: 1080px) {
+  /* Stacked, the rail is a summary you scroll to rather than a panel you
+     glance at, so it drops its own scroller and just tells you where you are. */
+  .chat-layout { grid-template-columns: minmax(0, 1fr); }
+  .quote-rail { max-height: none; overflow: visible; }
+  .qr-head { position: static; }
+}
+
 /* The shell sizes to the conversation rather than reserving a fixed slab of
    viewport, so a two-line exchange does not sit in an acre of nothing. It
    floors at a height that still reads as a room to talk in, and once the
@@ -789,10 +807,76 @@ input[type=file] { display: none; }
 .chat-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  min-height: min(26rem, 58vh);
-  max-height: min(78vh, 50rem);
+  min-height: min(34rem, 62vh);
+  max-height: min(82vh, 56rem);
   border: var(--rule) solid var(--line-mid);
   background: var(--ink-100);
+}
+
+/* --------------------------------------------------------------------------
+   13b. QUOTATION RAIL
+   The answers Solara has banked so far. The data already came back on every
+   turn and was being discarded; showing it turns a chat into something the
+   user can see progress in, and answers "how much more of this is there?"
+   without them having to ask.
+   -------------------------------------------------------------------------- */
+.quote-rail {
+  display: flex; flex-direction: column;
+  border: var(--rule) solid var(--line-mid);
+  background: var(--ink-100);
+  max-height: min(82vh, 56rem);
+  overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+}
+.quote-rail::-webkit-scrollbar { width: 4px; }
+.quote-rail::-webkit-scrollbar-thumb { background: var(--line-strong); }
+
+.qr-head {
+  padding: 0.95rem 1.1rem 0.8rem;
+  border-bottom: var(--rule) solid var(--line-mid);
+  background: var(--ink-200);
+  position: sticky; top: 0; z-index: 1;
+}
+.qr-head .mono { font-size: var(--fs-mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.qr-count { margin-top: 0.3rem; font-size: 0.8rem; color: var(--fg-mute); }
+.qr-count b { color: var(--fg); font-variation-settings: "wght" 600; }
+
+/* Progress is a filled rule, not a number people have to parse. */
+.qr-bar { height: 2px; background: var(--line-mid); overflow: hidden; }
+.qr-bar span {
+  display: block; height: 100%; width: 100%;
+  background: var(--signal);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 520ms var(--e-out);
+}
+
+.qr-list { padding: 0.4rem 0; list-style: none; margin: 0; }
+.qr-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+  padding: 0.55rem 1.1rem;
+  border-left: 2px solid transparent;
+  transition: border-color 320ms var(--e-out), background-color 320ms var(--e-out);
+}
+.qr-k {
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--fg-ghost); white-space: nowrap;
+}
+.qr-v {
+  font-size: 0.85rem; color: var(--fg-mute);
+  text-align: right; overflow-wrap: anywhere;
+}
+/* A captured answer lights its own row, so new information announces itself
+   in peripheral vision without interrupting the conversation. */
+.qr-item.is-set { border-left-color: var(--signal); background: color-mix(in oklab, var(--signal) 5%, transparent); }
+.qr-item.is-set .qr-k { color: var(--fg-mute); }
+.qr-item.is-set .qr-v { color: var(--fg); font-variation-settings: "wght" 500; }
+
+.qr-note {
+  margin-top: auto;
+  padding: 0.85rem 1.1rem;
+  border-top: var(--rule) solid var(--line-mid);
+  font-size: 0.78rem; line-height: 1.6; color: var(--fg-ghost);
 }
 
 /* Compact page header. The shell carries its own identity bar, so a full
@@ -979,6 +1063,7 @@ input[type=file] { display: none; }
   /* On a phone the conversation is the page, so it takes the screen rather
      than floating in it. */
   .chat-shell { min-height: calc(100dvh - 13rem); max-height: calc(100dvh - 13rem); }
+  .qr-item { padding-inline: 1rem; }
   .bubble-col { max-width: 88%; }
   .solara-status { display: none; }
   .chathead h1 { font-size: 1.35rem; }

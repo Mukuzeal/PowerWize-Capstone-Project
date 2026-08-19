@@ -11,8 +11,20 @@
 {% endblock %}
 
 {% block main %}
+{% set QR_FIELDS = [
+  ('name',                  'Full name'),
+  ('address',               'Address'),
+  ('establishment_type',    'Property'),
+  ('ownership',             'Ownership'),
+  ('electrical_phase',      'Electrical'),
+  ('monthly_bill_php',      'Consumption'),
+  ('time_of_use_night_pct', 'Night use'),
+  ('target_savings',        'Target savings'),
+  ('roof_sqm',              'Roof area'),
+  ('notes',                 'Notes')
+] %}
 <section class="formpage">
-  <div class="shell" style="max-width:54rem">
+  <div class="shell">
 
     <header class="chathead">
       <div class="chathead__crumbs">
@@ -22,6 +34,8 @@
       </div>
       <h1>Chat with <em>Solara</em></h1>
     </header>
+
+    <div class="chat-layout">
 
     <div class="chat-shell">
 
@@ -60,6 +74,25 @@
         </div>
         <div class="input-hint"><strong>Enter</strong> to send &nbsp;·&nbsp; <strong>Shift + Enter</strong> for new line</div>
       </div>
+
+    </div>
+
+    <aside class="quote-rail" id="quote-rail" aria-label="Quotation details captured so far">
+      <div class="qr-head">
+        <p class="mono mono--signal">Quotation so far</p>
+        <p class="qr-count"><b id="qr-done">0</b> of {{ QR_FIELDS|length }} details captured</p>
+      </div>
+      <div class="qr-bar"><span id="qr-fill"></span></div>
+      <ul class="qr-list">
+        {%- for key, label in QR_FIELDS %}
+        <li class="qr-item" data-f="{{ key }}">
+          <span class="qr-k">{{ label }}</span>
+          <span class="qr-v">—</span>
+        </li>
+        {%- endfor %}
+      </ul>
+      <p class="qr-note">Solara fills this in as you talk. Nothing is submitted until your estimate is generated.</p>
+    </aside>
 
     </div>
 

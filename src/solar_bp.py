@@ -252,6 +252,11 @@ def _extract_answer(field: str, text: str, lenient: bool = False):
             # Reject if technical terms or digits are present — not a name
             if any(k in fl for k in _TECH) or any(c.isdigit() for c in fl):
                 return None
+            # A bare line only counts as a name when we actually asked for one.
+            # Without this the opening handshake ("Hello") is banked as the
+            # customer's name and rides all the way into the saved quotation.
+            if not lenient and not has_lead:
+                return None
         elif not lenient and not has_lead:
             return None  # Strict: address/email/contact require a lead-in phrase
 
