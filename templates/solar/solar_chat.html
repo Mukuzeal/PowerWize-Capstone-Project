@@ -1,57 +1,66 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat with Solara – EnergyWize</title>
-{{ form_styles() }}
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+
+{% block title %}Chat with Solara – EnergyWize{% endblock %}
+{% block description %}Talk to Solara, EnergyWize's AI solar consultant, for a preliminary solar PV estimate.{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-<link rel="stylesheet" href="/static/solar-chat.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+<section class="formpage">
+  <div class="shell" style="max-width:52rem">
+
+    {{ fhead(
+      [('Home', url_for('registration.index')), ('Solar PV', url_for('solar.solar_form'))],
+      'Solara',
+      'Chat with <em>Solara</em>',
+      'Answer a few questions and Solara will put together a preliminary solar system estimate — reviewed by a human specialist before it becomes a quotation.'
+    ) }}
+
+    <div class="chat-shell">
+
+      <div class="chat-header">
+        <div class="solara-avatar"><i class="fa-solid fa-solar-panel"></i></div>
+        <div class="solara-info">
+          <div class="solara-name">Solara</div>
+          <div class="solara-status"><span class="status-dot"></span> AI Solar Consultant · EnergyWize</div>
+        </div>
+        <div class="header-actions">
+          <a href="#" class="switch-btn" onclick="confirmSwitchToForm(event)">
+            <i class="fa-solid fa-file-lines"></i> Form Mode
+          </a>
+        </div>
+      </div>
+
+      <div class="chat-box" id="chat-box">
+        <div class="system-notice">
+          <i class="fa-solid fa-circle-info"></i>
+          Solara is an AI assistant. Final quotations are reviewed by human specialists.
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-row">
+          <textarea id="chat-input" placeholder="Message Solara…" rows="1"></textarea>
+          <button class="btn-send" id="send-btn" onclick="sendMessage()" title="Send">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+        <div class="input-hint"><strong>Enter</strong> to send &nbsp;·&nbsp; <strong>Shift + Enter</strong> for new line</div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</head>
-<body>
-{{ header("Chat with Solara") }}
-
-<div class="page-body">
-<div class="chat-shell">
-
-  <!-- Chat header -->
-  <div class="chat-header">
-    <div class="solara-avatar"><i class="fa-solid fa-solar-panel"></i></div>
-    <div class="solara-info">
-      <div class="solara-name">Solara</div>
-      <div class="solara-status"><span class="status-dot"></span> AI Solar Consultant · EnergyWize</div>
-    </div>
-    <div class="header-actions">
-      <a href="#" class="switch-btn" onclick="confirmSwitchToForm(event)">
-        <i class="fa-solid fa-file-lines"></i> Form Mode
-      </a>
-    </div>
-  </div>
-
-  <!-- Messages -->
-  <div class="chat-box" id="chat-box">
-    <div class="system-notice">
-      <i class="fa-solid fa-circle-info"></i>
-      Solara is an AI assistant. Final quotations are reviewed by human specialists.
-    </div>
-  </div>
-
-  <!-- Input -->
-  <div class="input-area">
-    <div class="input-row">
-      <textarea id="chat-input" placeholder="Message Solara…" rows="1"></textarea>
-      <button class="btn-send" id="send-btn" onclick="sendMessage()" title="Send">
-        <i class="fa-solid fa-paper-plane"></i>
-      </button>
-    </div>
-    <div class="input-hint"><strong>Enter</strong> to send &nbsp;·&nbsp; <strong>Shift + Enter</strong> for new line</div>
-  </div>
-
-</div>
-</div>
-
-<script src="/static/solar-chat.js"></script>
-</body>
-</html>
+<script src="{{ url_for('static', filename='solar-chat.js') }}"></script>
+{% endblock %}

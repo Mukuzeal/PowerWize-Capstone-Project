@@ -3,6 +3,10 @@ var collected = {};
 var qIndex    = -1;
 var isWaiting = false;
 
+function csrfToken() {
+  return document.querySelector('meta[name="csrf-token"]').content;
+}
+
 function now() {
   var d = new Date();
   var h = d.getHours(), m = d.getMinutes();
@@ -67,7 +71,7 @@ async function sendMessage() {
   try {
     var res = await fetch('/solar/chat/msg', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify({ messages: messages.slice(0, -1), user_message: text, collected: collected, q_index: qIndex })
     });
     var data = await res.json();
@@ -75,10 +79,8 @@ async function sendMessage() {
 
     if (data.redirect) {
       addBubble(
-        'Your solar estimate is ready! ' +
-        '<a href="' + data.redirect + '" style="display:inline-flex;align-items:center;gap:6px;' +
-        'margin-top:10px;padding:9px 18px;background:#16583C;color:#fff;border-radius:8px;' +
-        'font-weight:600;font-size:13px;text-decoration:none;">' +
+        'Your solar estimate is ready!<br>' +
+        '<a href="' + data.redirect + '" class="chat-cta">' +
         '<i class="fa-solid fa-solar-panel"></i> View My Estimate</a>',
         'ai'
       );
@@ -142,7 +144,7 @@ _input.addEventListener('keydown', function(e) {
   try {
     var res = await fetch('/solar/chat/msg', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify({ messages: [], user_message: 'Hello', collected: {}, q_index: -1 })
     });
     var data = await res.json();
