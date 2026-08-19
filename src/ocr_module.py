@@ -14,6 +14,13 @@ GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "")
 GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 GROQ_URL        = "https://api.groq.com/openai/v1/chat/completions"
 
+# Reading a bill is vision work like any other document, so it follows
+# VISION_PROVIDER. This used to be pinned to Groq, which meant a locally hosted
+# vision model was never given the one job it was configured for.
+VISION_PROVIDER = os.getenv("VISION_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
+LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+LM_STUDIO_VISION_MODEL = os.getenv("LM_STUDIO_MODEL", "Qwen/Qwen3.5-VL-8B-Instruct")
+
 _BILL_PROMPT = (
     "You are reading a Philippine electric bill photo or scan. "
     "Extract ONLY these two values:\n"
@@ -95,8 +102,19 @@ def _groq_extract(img_bytes: bytes, mime: str) -> dict | None:
         b64 = base64.b64encode(img_bytes).decode("ascii")
         data_url = f"data:{mime};base64,{b64}"
 
+        if VISION_PROVIDER == "lmstudio":
+            url     = f"{LM_STUDIO_URL}/v1/chat/completions"
+            model   = LM_STUDIO_VISION_MODEL
+            headers = {}
+            timeout = 120          # a local model on CPU is not a hosted one
+        else:
+            url     = GROQ_URL
+            model   = GROQ_VISION_MODEL
+            headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+            timeout = 30
+
         payload = {
-            "model": GROQ_VISION_MODEL,
+            "model": model,
             "messages": [{
                 "role": "user",
                 "content": [
@@ -108,12 +126,7 @@ def _groq_extract(img_bytes: bytes, mime: str) -> dict | None:
             "max_tokens": 100,
             "response_format": {"type": "json_object"},
         }
-        r = _http.post(
-            GROQ_URL,
-            json=payload,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-            timeout=30,
-        )
+        r = _http.post(url, json=payload, headers=headers, timeout=timeout)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"]
         data = _parse_json(content)

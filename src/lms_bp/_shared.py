@@ -12,11 +12,15 @@ EXAM_UPLOAD_DIR  = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'upl
 os.makedirs(LMS_UPLOAD_DIR,  exist_ok=True)
 os.makedirs(EXAM_UPLOAD_DIR, exist_ok=True)
 
-AI_PROVIDER     = os.getenv("AI_PROVIDER", "groq")
+# Quiz generation and hints are text work, so they follow TEXT_PROVIDER rather
+# than whichever model is configured for reading documents. See solar_bp.py for
+# the full split; AI_PROVIDER remains the fallback for both.
+AI_PROVIDER     = os.getenv("TEXT_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
 GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL      = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
-LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "local-model")
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_TEXT_MODEL",
+                            os.getenv("LM_STUDIO_MODEL", "local-model"))
 
 ALLOWED_MATERIAL = {'pdf','docx','pptx','xlsx','txt','mp4','mkv','avi','png','jpg','jpeg'}
 ALLOWED_SUBMISSION = {'pdf','docx','zip','txt','png','jpg','jpeg'}

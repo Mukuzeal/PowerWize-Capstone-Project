@@ -17,26 +17,41 @@ UPLOAD_FOLDER = os.path.join("static", "uploads", "solar_bills")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ── AI provider helpers ────────────────────────────────────────────────────────
-# Set AI_PROVIDER=groq or AI_PROVIDER=lmstudio in .env
+# Talking and looking at documents are different jobs and want different models,
+# so they get their own switches instead of one global one. A single AI_PROVIDER
+# sent the chat to whatever vision model was configured for uploads, which is how
+# a VL model ended up holding the conversations.
+#   TEXT_PROVIDER   — chat, explanations, field extraction, quiz generation
+#   VISION_PROVIDER — electric bills, IDs, selfies
+# Both fall back to AI_PROVIDER so an existing .env keeps working unchanged.
 
 AI_PROVIDER      = os.getenv("AI_PROVIDER", "groq")
+TEXT_PROVIDER    = os.getenv("TEXT_PROVIDER", AI_PROVIDER).lower()
 
 GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL       = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 LM_STUDIO_URL    = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
 LM_STUDIO_MODEL  = os.getenv("LM_STUDIO_MODEL", "local-model")
+# The text side needs its own model name: LM_STUDIO_MODEL points at the vision
+# model, which is the wrong thing to hand a conversation.
+LM_STUDIO_TEXT_MODEL = os.getenv("LM_STUDIO_TEXT_MODEL", LM_STUDIO_MODEL)
+# A local model answers in tens of seconds, not the two or three a hosted one
+# takes — and if LM Studio has to swap this model back into VRAM first, the
+# first call after a document upload pays for the reload too. Too short a
+# timeout turns that into a failed turn rather than a slow one.
+LM_STUDIO_TIMEOUT = int(os.getenv("LM_STUDIO_TIMEOUT", "300"))
 
 
 def _ai_chat(messages: list, system: str, model: str = None) -> str:
     msgs = [{"role": "system", "content": system}] + messages
 
-    if AI_PROVIDER == "lmstudio":
+    if TEXT_PROVIDER == "lmstudio":
         resp = _http.post(
             f"{LM_STUDIO_URL}/v1/chat/completions",
-            json={"model": model or LM_STUDIO_MODEL, "messages": msgs,
+            json={"model": model or LM_STUDIO_TEXT_MODEL, "messages": msgs,
                   "max_tokens": 512, "temperature": 0.75},
-            timeout=120,
+            timeout=LM_STUDIO_TIMEOUT,
         )
     else:  # groq
         resp = _http.post(
@@ -49,6 +64,162 @@ def _ai_chat(messages: list, system: str, model: str = None) -> str:
 
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"].strip()
+
+
+# A small model is plenty for "is this a person's name?" and it keeps the extra
+# round trip off the critical path. Override with GROQ_EXTRACT_MODEL if needed.
+EXTRACT_MODEL = os.getenv("GROQ_EXTRACT_MODEL", "llama-3.1-8b-instant")
+
+# Field -> JSON type, used to build the schema LM Studio requires and to keep
+# the prompt and the validator describing the same thing.
+_EXTRACT_SCHEMA = {
+    "name": "string", "address": "string", "notes": "string",
+    "establishment_type": "string", "ownership": "string",
+    "electrical_phase": "string", "target_savings": "string",
+    "monthly_bill_php": "number", "kwh_monthly": "number",
+    "time_of_use_night_pct": "number", "roof_sqm": "number",
+}
+
+_EXTRACT_SYSTEM = """You extract solar-quotation fields from ONE customer message. You reply with JSON only — no prose, no markdown fence.
+
+Return an object containing ONLY the fields the message genuinely supplies. Omit everything else. Never guess, never carry over, never invent a value to be helpful. An empty object {} is the correct answer when the message answers nothing.
+
+FIELDS AND ACCEPTED VALUES:
+- "name": the customer's own personal name. ONLY a plausible human name.
+- "address": a real location — street, subdivision, barangay, city, or province.
+- "establishment_type": exactly "residential", "commercial", or "industrial".
+- "ownership": exactly "owned" or "rented".
+- "electrical_phase": exactly "single" or "three".
+- "monthly_bill_php": number. The peso amount of their monthly electricity bill.
+- "kwh_monthly": number. Monthly consumption in kWh. Never set this and monthly_bill_php together.
+- "time_of_use_night_pct": number 0-100. Share of electricity used at night.
+- "target_savings": exactly "100", "75", or "50".
+- "roof_sqm": number. Available roof area in square metres.
+- "notes": extra concerns worth passing to the specialist (shading, brand preference, budget worries).
+
+REJECT AS "name" — these are NOT names, return no name field:
+- greetings and pleasantries: "hello", "hi", "hey", "good morning", "thanks"
+- placeholders and junk: "test", "testing", "asdf", "n/a", "none", "idk", "abc", a single letter
+- answers to a different question: "it's for my home", "residential", "just one appliance", "I own it"
+- sentences, questions, or commands of any kind
+If you are not confident it is a real person's name, omit the field. Omitting is always safer than guessing.
+
+A message may answer several fields at once — extract all of them. "Residential, I own it, single phase" gives three fields.
+Convert units and words to the accepted values: "eight thousand pesos" -> 8000, "a third at night" -> 33, "three-phase" -> "three".
+
+USE null FOR ANYTHING THE MESSAGE DOES NOT SUPPLY. Not 0, not "", not "null", not "unknown", not a placeholder, and never a word copied from this schema or from these instructions. null is the correct and expected answer for most fields on most messages."""
+
+
+def _ai_extract(user_msg: str, asked_field: str = None):
+    """Ask the model which fields this message actually answers.
+
+    Returns (ok, fields). ok is False when the provider could not be reached or
+    returned something unusable — the caller then falls back to the regex
+    extractor. It matters that the two are not combined: the regex is the more
+    permissive of the two, so running it after a successful model call would
+    reinstate exactly the guesses the model was brought in to refuse.
+    """
+    hint = ""
+    if asked_field:
+        hint = (f"\n\nSolara just asked the customer for: {asked_field}. "
+                f"A bare answer most likely belongs to that field — but only if it is a "
+                f"valid value for it. If it is not, still omit it.")
+
+    try:
+        if TEXT_PROVIDER == "lmstudio":
+            url, headers, model = f"{LM_STUDIO_URL}/v1/chat/completions", {}, LM_STUDIO_TEXT_MODEL
+            # LM Studio rejects json_object and wants a schema, which suits us
+            # better anyway — the grammar makes an unparseable reply impossible.
+            # Every field is nullable because strict mode requires them all to
+            # be present, and "absent" is the answer most of the time.
+            fmt = {"type": "json_schema", "json_schema": {
+                "name": "solar_fields", "strict": True,
+                "schema": {
+                    "type": "object", "additionalProperties": False,
+                    "properties": {k: {"type": [t, "null"]} for k, t in _EXTRACT_SCHEMA.items()},
+                    "required": list(_EXTRACT_SCHEMA),
+                }}}
+            timeout = LM_STUDIO_TIMEOUT
+        else:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+            model = EXTRACT_MODEL
+            fmt = {"type": "json_object"}
+            timeout = 12
+
+        resp = _http.post(
+            url, headers=headers,
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": _EXTRACT_SYSTEM + hint},
+                    {"role": "user", "content": user_msg},
+                ],
+                "response_format": fmt,
+                "temperature": 0,          # extraction is a lookup, not a performance
+                "max_tokens": 300,
+            },
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return False, {}
+    except Exception:
+        return False, {}
+
+    # Coerce to the shapes the rest of the flow already stores, and drop
+    # anything the model invented that is not a real field.
+    _ENUMS = {
+        "establishment_type": {"residential", "commercial", "industrial"},
+        "ownership":          {"owned", "rented"},
+        "electrical_phase":   {"single", "three"},
+        "target_savings":     {"100", "75", "50"},
+    }
+    # A small model asked for a fixed set of keys will pad the ones it has no
+    # answer for. Observed padding: the string "null", and words lifted out of
+    # the schema itself. Ranges match the regex extractor's, so a 0 bill or a
+    # 0 sqm roof is read as "absent" rather than banked as fact.
+    _NULLISH = {"null", "none", "n/a", "na", "unknown", "unspecified", "not provided",
+                "not specified", "-", "--", "string", "number", "solar_field",
+                "solar_fields", "name", "address", "notes"}
+    _RANGES = {"monthly_bill_php": (1, 100_000), "kwh_monthly": (1, 100_000),
+               "roof_sqm": (1, 10_000), "time_of_use_night_pct": (0, 100)}
+
+    out = {}
+    for key, val in data.items():
+        if val is None or val == "":
+            continue
+        if key in _ENUMS:
+            s = str(val).strip().lower()
+            if s in _ENUMS[key]:
+                out[key] = s
+        elif key in _RANGES:
+            try:
+                n = float(val)
+            except (TypeError, ValueError):
+                continue
+            lo, hi = _RANGES[key]
+            if lo <= n <= hi:
+                out[key] = int(n) if key == "time_of_use_night_pct" else n
+        elif key in ("name", "address", "notes"):
+            s = str(val).strip()
+            if not s or s.lower() in _NULLISH:
+                continue
+            # The model decides whether the message contains a name; this
+            # decides whether what came back looks like one. It catches the
+            # schema-echo cases ("solar_field") that the model itself will not.
+            if key == "name" and _extract_answer("name", s, lenient=True) is None:
+                continue
+            out[key] = s[:200]
+
+    # The two consumption fields are alternatives; a model that sets both has
+    # inferred one of them, so keep the reading it was actually given.
+    if "monthly_bill_php" in out and "kwh_monthly" in out:
+        out.pop("kwh_monthly")
+
+    return True, out
 
 
 CHAT_BASE_SYSTEM = """You are Solara, EnergyWize Solutions' expert Solar PV consultant based in the Philippines. You have 10+ years of hands-on experience designing and installing solar systems for residential, commercial, and industrial clients across Luzon, Visayas, and Mindanao. You speak warmly, confidently, and like a knowledgeable friend — never robotic, never scripted.
@@ -440,8 +611,39 @@ def solar_chat_msg():
         else:
             collected[f] = val
 
-    # 1. Lenient extraction for the field Solara last prioritised
-    if 0 <= q_index < len(QUESTION_FLOW):
+    # 0. Ask the model what this message actually answers.
+    #    No pattern can settle "is this a person's name?" — "Test" and "Hello"
+    #    are shaped exactly like real ones. Judgement is the model's job; the
+    #    regex below is only what we fall back on when the provider is down.
+    #    It only runs while a free-text field is still outstanding. Enums and
+    #    figures are what the regex is genuinely good at, so once the name and
+    #    address are banked there is nothing left for a model to adjudicate —
+    #    and on a local model that saved call is most of the turn's latency.
+    asked = QUESTION_FLOW[q_index]["field"] if 0 <= q_index < len(QUESTION_FLOW) else None
+    needs_judgement = any(f not in collected for f in ("name", "address"))
+    ai_ok, ai_fields = _ai_extract(user_msg, asked_field=asked) if needs_judgement else (False, {})
+    for f, v in ai_fields.items():
+        # "notes" is the one open-ended field, which makes it a magnet for any
+        # phrasing the model cannot place. Only bank it when it is what we
+        # actually asked for, otherwise an answer to another question ends up
+        # filed as the customer's concerns.
+        if f == "notes" and asked != "notes":
+            continue
+        if f == "kwh_monthly":
+            if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
+            _store("monthly_bill_php", ("kwh", v))
+        elif f == "monthly_bill_php":
+            if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
+            _store("monthly_bill_php", ("bill", v))
+        elif f not in collected:
+            _store(f, v)
+
+    # 1. Lenient extraction for the field Solara last prioritised.
+    #    Skipped when the model answered, because this is the permissive path —
+    #    it accepts a bare line as whatever was last asked for, which is how the
+    #    greeting became a customer name. Re-running it would overrule the very
+    #    judgement we just paid for.
+    if not ai_ok and 0 <= q_index < len(QUESTION_FLOW):
         cur = QUESTION_FLOW[q_index]["field"]
         if cur == "monthly_bill_php":
             already = "monthly_bill_php" in collected or "kwh_monthly" in collected
@@ -452,7 +654,9 @@ def solar_chat_msg():
             if v is not None:
                 _store(cur, v)
 
-    # 2. Strict greedy scan for all remaining structured fields
+    # 2. Strict greedy scan for all remaining structured fields. Safe to run
+    #    either way: it needs an explicit signal word, so it only ever adds
+    #    enums and figures the model overlooked.
     for q in QUESTION_FLOW:
         f = q["field"]
         if f in FREE_TEXT: continue
@@ -463,13 +667,14 @@ def solar_chat_msg():
         if v is not None:
             _store(f, v)
 
-    # 3. Free-text fields with explicit lead-in (any field, any time)
-    for q in QUESTION_FLOW:
-        f = q["field"]
-        if f not in FREE_TEXT or f in collected: continue
-        v = _extract_answer(f, user_msg, lenient=False)
-        if v is not None:
-            _store(f, v)
+    # 3. Free-text fields with explicit lead-in — fallback only, same reason as 1.
+    if not ai_ok:
+        for q in QUESTION_FLOW:
+            f = q["field"]
+            if f not in FREE_TEXT or f in collected: continue
+            v = _extract_answer(f, user_msg, lenient=False)
+            if v is not None:
+                _store(f, v)
 
     # ── Check completion ────────────────────────────────────────────────────────
     REQUIRED = {"name", "address",

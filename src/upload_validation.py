@@ -21,7 +21,10 @@ import requests as _http
 
 validation_bp = Blueprint("upload_validation", __name__)
 
-AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
+# Reading IDs, licences and selfies is vision work, so it follows
+# VISION_PROVIDER independently of whatever model is answering the chat.
+# See solar_bp.py for the split; AI_PROVIDER remains the fallback.
+AI_PROVIDER = os.getenv("VISION_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
 
 # Groq config
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
