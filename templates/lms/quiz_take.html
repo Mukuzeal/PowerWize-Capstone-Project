@@ -34,6 +34,7 @@
 
         <!-- Questions -->
         <form id="quiz-form" method="post" action="/lms/learn/{{ mod.id }}/quiz/submit">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="attempt_id" value="{{ attempt_id }}">
 
             <div class="quiz-questions">

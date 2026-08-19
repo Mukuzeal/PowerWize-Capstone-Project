@@ -29,3 +29,10 @@ def save_file(field_name, pdf_only=False, prefix=None):
 
 def check_required(**kwargs):
     return [f"{label} is required." for label, val in kwargs.items() if not val]
+
+
+def base_url():
+    fixed = os.getenv("APP_BASE_URL")
+    if fixed:
+        return fixed.rstrip("/") + "/"
+    return request.host_url

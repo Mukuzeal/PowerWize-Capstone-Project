@@ -380,96 +380,54 @@ def validate_file(file_bytes: bytes, filename: str, doc_type: str) -> dict:
     return result
 
 
-FACE_MATCH_PROMPT = (
-    "You are comparing two photographs to decide if they are the SAME PERSON.\n\n"
-    "Image 1 is a Philippine government-issued ID card. Look at the small portrait photo "
-    "embedded on that card.\n"
-    "Image 2 is a freshly-taken selfie of someone trying to register.\n\n"
-    "Compare the FACES (not the clothing, lighting, or pose). Look at face shape, eye spacing, "
-    "nose, lips, jawline, ears, and any distinguishing features. The ID photo may be a few years "
-    "old, so allow for natural aging, weight change, hairstyle change, beard/no-beard, glasses on/off.\n\n"
-    "Return MATCH (valid=true) if the faces are clearly the same person.\n"
-    "Return NO MATCH (valid=false) if the faces clearly belong to different people.\n"
-    "Return UNCERTAIN with valid=false if the ID photo is too small/blurry or the selfie is poor quality "
-    "such that you cannot make a confident determination.\n\n"
-    "Reply ONLY with strict JSON: "
-    "{\"valid\": true|false, \"confidence\": 0-100, \"reason\": \"short user-facing explanation\", "
-    "\"details\": {\"id_photo_clear\": bool, \"selfie_clear\": bool}}"
-)
+def face_match(selfie_bytes: bytes, selfie_filename: str) -> dict:
+    """Save and validate selfie file. Admin will manually verify identity.
 
+    Expects: user holding their government ID next to their face.
+    Returns filename if valid, or error dict if invalid.
+    """
+    from flask import current_app
+    from werkzeug.utils import secure_filename
+    import uuid
 
-def _file_to_data_url(file_bytes: bytes, filename: str) -> tuple[str | None, str | None]:
-    """Returns (data_url, error_message). data_url is None on error."""
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    ext = selfie_filename.rsplit(".", 1)[-1].lower() if "." in selfie_filename else ""
+
     if ext == "pdf":
-        img_bytes = _pdf_first_page_png(file_bytes)
-        if not img_bytes:
-            return None, "Could not read the PDF file."
-        return _image_to_data_url(img_bytes, "png"), None
-    if ext in SUPPORTED_IMG_EXT:
-        return _image_to_data_url(file_bytes, ext), None
-    return None, "Unsupported file format."
+        return {"valid": False, "reason": "Please upload a photo (PNG, JPG, JPEG, WEBP), not a PDF."}
+    if ext not in SUPPORTED_IMG_EXT:
+        return {"valid": False, "reason": "Unsupported file format. Please upload PNG, JPG, JPEG, or WEBP."}
 
+    if len(selfie_bytes) > MAX_FILE_BYTES:
+        return {"valid": False, "reason": "File is too large (max 10 MB)."}
 
-def face_match(id_bytes: bytes, id_filename: str, selfie_bytes: bytes, selfie_filename: str) -> dict:
-    if DEV_SKIP_VALIDATION:
-        return {"valid": True, "confidence": 100, "reason": "[DEV] face match skipped", "details": {}, "_dev_skipped": True}
-    id_url, err = _file_to_data_url(id_bytes, id_filename)
-    if err:
-        return {"valid": False, "reason": f"ID file: {err}"}
-    selfie_url, err = _file_to_data_url(selfie_bytes, selfie_filename)
-    if err:
-        return {"valid": False, "reason": f"Selfie: {err}"}
+    if len(selfie_bytes) == 0:
+        return {"valid": False, "reason": "File is empty."}
 
-    if not GROQ_API_KEY:
-        return {"valid": False, "reason": "Face match service is not configured."}
-
-    payload = {
-        "model": GROQ_VISION_MODEL,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": FACE_MATCH_PROMPT},
-                {"type": "image_url", "image_url": {"url": id_url}},
-                {"type": "image_url", "image_url": {"url": selfie_url}},
-            ],
-        }],
-        "temperature": 0,
-        "max_tokens": 300,
-        "response_format": {"type": "json_object"},
-    }
     try:
-        r = _http.post(GROQ_URL, json=payload,
-                       headers={"Authorization": f"Bearer {GROQ_API_KEY}"}, timeout=40)
-        r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"]
-        result = _extract_json(content)
-    except Exception as e:
-        return {"valid": False, "reason": f"Face match service error. Please try again. ({type(e).__name__})"}
+        saved_filename = f"selfie_{uuid.uuid4().hex}.{ext}"
+        upload_path = os.path.join(current_app.config["UPLOAD_FOLDER"], saved_filename)
+        with open(upload_path, "wb") as f:
+            f.write(selfie_bytes)
 
-    if not isinstance(result, dict) or "valid" not in result:
-        return {"valid": False, "reason": "Face match service returned an unexpected response."}
-    result.setdefault("reason", "")
-    result.setdefault("confidence", 0)
-    result.setdefault("details", {})
-    return result
+        return {
+            "valid": True,
+            "filename": saved_filename,
+            "reason": "Photo accepted. An admin will verify your identity within 24 hours.",
+            "details": {"pending_admin_review": True}
+        }
+    except Exception as e:
+        return {"valid": False, "reason": f"Error saving photo: {str(e)}"}
 
 
 @validation_bp.route("/api/face-match", methods=["POST"])
 def api_face_match():
-    id_f     = request.files.get("id")
     selfie_f = request.files.get("selfie")
-    if not id_f or not id_f.filename:
-        return jsonify(valid=False, reason="No ID image uploaded."), 400
     if not selfie_f or not selfie_f.filename:
         return jsonify(valid=False, reason="No selfie uploaded."), 400
 
-    id_data     = id_f.read(MAX_FILE_BYTES + 1)
     selfie_data = selfie_f.read(MAX_FILE_BYTES + 1)
-    if len(id_data) > MAX_FILE_BYTES or len(selfie_data) > MAX_FILE_BYTES:
-        return jsonify(valid=False, reason="File is too large (max 10 MB)."), 413
-
-    return jsonify(face_match(id_data, id_f.filename, selfie_data, selfie_f.filename))
+    result = face_match(selfie_data, selfie_f.filename)
+    return jsonify(result), (200 if result.get("valid") else 400)
 
 
 @validation_bp.route("/api/validate-upload", methods=["POST"])

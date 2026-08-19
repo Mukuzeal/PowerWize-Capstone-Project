@@ -21,6 +21,7 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <a href="/lms/modules/{{ mod.id }}/edit" class="btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
       <form action="/lms/modules/{{ mod.id }}/publish" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="btn-{{ 'outline' if mod.is_published else 'primary' }}">
           <i class="fa-solid {{ 'fa-eye-slash' if mod.is_published else 'fa-globe' }}"></i>
           {{ 'Unpublish' if mod.is_published else 'Publish' }}
@@ -133,7 +134,7 @@ async function uploadFile(input, moduleId) {
   const prog = document.getElementById('upload-progress');
   prog.style.display = 'block';
   try {
-    const res  = await fetch(`/lms/modules/${moduleId}/files/upload`, {method:'POST', body:fd});
+    const res  = await fetch(`/lms/modules/${moduleId}/files/upload`, {method:'POST', headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content}, body:fd});
     const data = await res.json();
     prog.style.display = 'none';
     if (data.error) { alert(data.error); return; }

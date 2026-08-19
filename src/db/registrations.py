@@ -94,16 +94,16 @@ def insert_registration(entry):
             company_name, designation, company_address,
             contact_number, email, birthdate, age, doe_expiry,
             training_type, batch_id,
-            photo_id, resume, expired_doe, valid_id,
+            photo_id, resume, expired_doe, valid_id, selfie_with_id,
             gemp_designation
-        ) VALUES (%s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s,%s,%s,%s, %s,%s, %s,%s,%s,%s, %s)
+        ) VALUES (%s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s,%s,%s,%s, %s,%s, %s,%s,%s,%s,%s, %s)
     """, (
         entry.get("id"),           entry.get("form_type"),   entry.get("form_label"), entry.get("submitted_at"),
         entry.get("title"),        entry.get("full_name"),   entry.get("middle_name"), entry.get("residence"),
         entry.get("company_name"), entry.get("designation"), entry.get("company_address"),
         entry.get("contact_number"), entry.get("email"), entry.get("birthdate"), entry.get("age"), entry.get("doe_expiry"),
         entry.get("training_type"), entry.get("batch_id") or None,
-        entry.get("photo_id"), entry.get("resume"), entry.get("expired_doe"), entry.get("valid_id"),
+        entry.get("photo_id"), entry.get("resume"), entry.get("expired_doe"), entry.get("valid_id"), entry.get("selfie_with_id"),
         entry.get("gemp_designation"),
     ))
     conn.commit()
@@ -154,3 +154,19 @@ def get_registration_by_email(email):
     row = cur.fetchone()
     cur.close(); conn.close()
     return dict(row) if row else None
+
+
+def get_pending_selfies():
+    """Get registrations with submitted selfies pending admin review."""
+    conn = get_db()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT id, full_name, email, submitted_at, form_label, selfie_with_id
+        FROM registrations
+        WHERE selfie_with_id IS NOT NULL AND selfie_with_id != ''
+        ORDER BY submitted_at DESC
+    """)
+    rows = [dict(r) for r in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return rows

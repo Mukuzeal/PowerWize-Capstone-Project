@@ -37,7 +37,10 @@ function initQuiz(opts) {
       // Record server-side
       fetch(tabSwitchUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        },
         body: JSON.stringify({ attempt_id: attemptId })
       }).catch(function() {});
     }

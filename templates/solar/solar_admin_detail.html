@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Solar Request Detail – EnergyWize</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -158,6 +159,7 @@
     <p style="color:var(--gray);font-size:12px;margin-bottom:1.5rem">Review and adjust the AI estimates if needed, then send the quotation to the client.</p>
 
     <form method="POST" action="/admin/solar/{{ request.id }}/review">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label class="form-label">Final System Size (kWp)</label>
         <input type="number" step="0.1" name="final_system_kw" class="form-input" placeholder="{{ request.system_size_kw or '0' }}" value="{{ request.final_system_kw or '' }}">

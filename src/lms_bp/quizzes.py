@@ -9,7 +9,7 @@ from db import (lms_get_module, lms_get_quiz, lms_get_questions,
 
 from . import lms_bp
 from ._shared import (_uid, _role, _is_instructor, _is_trainee, _module_content_text,
-                       _ai_generate_quiz, _check_completion,
+                       _ai_generate_quiz, _check_completion, _owns_module,
                        AI_PROVIDER, GROQ_API_KEY, GROQ_MODEL, LM_STUDIO_URL, LM_STUDIO_MODEL)
 
 
@@ -20,6 +20,8 @@ def quiz_manage(module_id):
     if not _uid() or not _is_instructor():
         abort(403)
     mod       = lms_get_module(module_id)
+    if not _owns_module(mod):
+        abort(403)
     quiz      = lms_get_quiz(module_id=module_id)
     questions = lms_get_questions(quiz['id']) if quiz else []
 
@@ -79,6 +81,8 @@ def quiz_generate(module_id):
     if not _uid() or not _is_instructor():
         return jsonify(error="Unauthorized"), 403
     mod   = lms_get_module(module_id)
+    if not _owns_module(mod):
+        return jsonify(error="Unauthorized"), 403
     files = lms_get_files(module_id)
 
     if not files:

@@ -23,7 +23,11 @@ async function handleBillUpload(input) {
   var fd = new FormData();
   fd.append('bill', file);
   try {
-    var res = await fetch('/solar/ocr', { method: 'POST', body: fd });
+    var res = await fetch('/solar/ocr', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
+      body: fd
+    });
     var data = await res.json();
     document.getElementById('ocr-spinner').style.display = 'none';
     if (data.error) {

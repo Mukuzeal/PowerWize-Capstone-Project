@@ -39,6 +39,9 @@ def _is_trainee():
 def _allowed(filename, allowed_set):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_set
 
+def _owns_module(mod):
+    return _role() == 'admin' or (mod is not None and mod.get('instructor_id') == _uid())
+
 
 # ── AI helpers ────────────────────────────────────────────────────────────────
 

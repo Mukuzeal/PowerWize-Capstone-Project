@@ -52,6 +52,7 @@
         <a href="/lms/modules/{{ m.id }}" class="btn-sm btn-outline"><i class="fa-solid fa-gear"></i> Manage</a>
         <a href="/lms/modules/{{ m.id }}/edit" class="btn-sm btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
         <form action="/lms/modules/{{ m.id }}/delete" method="post" onsubmit="return confirm('Delete this module?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
         </form>
       </div>

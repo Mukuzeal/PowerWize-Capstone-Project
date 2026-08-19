@@ -1,8 +1,10 @@
 import os
+import secrets
 from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask
+from flask_wtf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from db import init_db
 from auth import auth_bp
@@ -21,9 +23,16 @@ app = Flask(__name__, template_folder=os.path.join(base_dir, "templates"), stati
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['JSON_SORT_KEYS'] = False
 app.jinja_env.add_extension('jinja2.ext.i18n')
-app.secret_key = os.getenv("SECRET_KEY", "energywize-secret-2026")
+secret_key = os.getenv("SECRET_KEY")
+if not secret_key:
+    secret_key = secrets.token_hex(32)
+    print("[WARNING] SECRET_KEY not set in environment — using a random key for this process. "
+          "Set SECRET_KEY to keep sessions valid across restarts.")
+app.secret_key = secret_key
 app.config["UPLOAD_FOLDER"] = os.path.join(base_dir, "static", "uploads")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+
+csrf = CSRFProtect(app)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
@@ -35,6 +44,10 @@ app.register_blueprint(payment_bp)
 app.register_blueprint(solar_bp)
 app.register_blueprint(lms_bp)
 app.register_blueprint(validation_bp)
+
+csrf.exempt(app.view_functions["payment.webhook"])
+csrf.exempt(app.view_functions["upload_validation.api_face_match"])
+csrf.exempt(app.view_functions["upload_validation.validate_upload"])
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 init_db()

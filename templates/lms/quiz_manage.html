@@ -27,6 +27,7 @@
             <div class="lms-card">
                 <h3 class="card-inner-title">Quiz Settings</h3>
                 <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="action" value="save_meta">
                     <div class="form-row">
                         <div class="form-group">
@@ -64,9 +65,11 @@
                 </form>
                 {% if quiz %}
                 <form id="publish-form" action="/lms/modules/{{ mod.id }}/quiz" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="action" value="publish">
                 </form>
                 <form id="unpublish-form" action="/lms/modules/{{ mod.id }}/quiz" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="action" value="unpublish">
                 </form>
                 {% endif %}
@@ -82,6 +85,7 @@
       </button>
                 </div>
                 <form method="post" id="questions-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="action" value="save_questions">
                     <div id="questions-container">
                         {% for q in questions %} {% set qi = loop.index0 %}
@@ -246,7 +250,7 @@ async function generateWithAI() {
   try {
     const res  = await fetch('/lms/modules/{{ mod.id }}/quiz/generate', {
       method:'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
       body: JSON.stringify({num_questions: parseInt(numQuestions)})
     });
     const data = await res.json();

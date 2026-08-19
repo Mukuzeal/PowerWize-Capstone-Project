@@ -7,6 +7,8 @@ from . import admin_bp
 
 @admin_bp.route("/admin/user/archive/<int:user_id>", methods=["POST"])
 def admin_archive_user(user_id):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT fname, lname FROM users WHERE id = %s", (user_id,))
@@ -23,6 +25,8 @@ def admin_archive_user(user_id):
 
 @admin_bp.route("/admin/user/unarchive/<int:user_id>", methods=["POST"])
 def admin_unarchive_user(user_id):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT fname, lname FROM users WHERE id = %s", (user_id,))
@@ -39,6 +43,8 @@ def admin_unarchive_user(user_id):
 
 @admin_bp.route("/admin/user/delete/<int:user_id>", methods=["POST"])
 def admin_delete_user(user_id):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT fname, lname, archived_at FROM users WHERE id = %s", (user_id,))

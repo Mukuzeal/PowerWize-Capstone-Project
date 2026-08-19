@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Admin Dashboard – EnergyWize</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -1156,6 +1157,9 @@
         <button class="nav-item" onclick="showSection('registrations', this)">
     <span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span> Registrations
   </button>
+        <button class="nav-item" onclick="showSection('selfies', this)">
+    <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> Selfies ({{ pending_selfies|length }})
+  </button>
         <button class="nav-item" onclick="showSection('solar', this)">
     <span class="nav-icon"><i class="fa-solid fa-solar-panel"></i></span> Solar Requests
   </button>
@@ -1385,6 +1389,7 @@
                             <td>
                                 {% if u.role != 'admin' %}
                                 <form method="POST" action="/admin/user/archive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Archive {{ u.fname }} {{ u.lname }}?','Archive')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-action btn-archive">
                   <i class="fa-solid fa-box-archive"></i> Archive
                 </button>
@@ -1434,11 +1439,13 @@
                                 <td style="color:var(--gray);font-size:12px">{{ u.archived_at.strftime('%b %d, %Y') }}</td>
                                 <td style="white-space:nowrap;display:flex;gap:6px">
                                     <form method="POST" action="/admin/user/unarchive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Restore {{ u.fname }} {{ u.lname }}?','Restore')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn-action btn-restore">
                                             <i class="fa-solid fa-rotate-left"></i> Restore
                                         </button>
                                     </form>
                                     <form method="POST" action="/admin/user/delete/{{ u.id }}" style="margin:0" onsubmit="return swalDelete(event,'{{ u.fname }} {{ u.lname }}')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn-action btn-delete">
                                             <i class="fa-solid fa-trash"></i> Delete
                                         </button>
@@ -1463,6 +1470,7 @@
             <div class="panel-card">
                 <p class="panel-title"><i class="fa-solid fa-calendar-plus"></i> Add New Schedule</p>
                 <form class="sched-form" method="POST" action="/admin/schedule/add" id="sched-add-form" onsubmit="return swalConfirmSchedule(event)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label>Batch Name</label>
                         <input type="text" name="name" id="sched-name" placeholder="e.g. Batch 7" required>
@@ -1503,6 +1511,7 @@
                                 <span style="font-size:11px;color:#374151"><i class="fa-solid fa-chalkboard-user" style="color:#92400E;width:13px"></i> Self-paced · {{ s.start_date.strftime('%b %d, %Y') }} · 3 days</span>
                             </div>
                             <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
                             </form>
                         </li>
@@ -1526,6 +1535,7 @@
                                 <span style="font-size:11px;color:#374151"><i class="fa-solid fa-rotate" style="color:#9D174D;width:13px"></i> CEA &amp; CEM Renewal · {{ s.start_date.strftime('%b %d, %Y') }} · 2 days (Fri"“Sat)</span>
                             </div>
                             <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
                             </form>
                         </li>
@@ -1684,6 +1694,43 @@
                 </div>
                 {% endif %}
             </div>
+        </div>
+
+        <!-- ═══ SELFIES ═══ -->
+        <div id="section-selfies" class="section">
+            <div class="page-head">
+                <h1>Identity Verification – Selfies</h1>
+                <span class="count-badge">{{ pending_selfies|length }} pending</span>
+            </div>
+
+            {% if pending_selfies %}
+            <div class="selfies-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem">
+                {% for selfie in pending_selfies %}
+                <div class="selfie-card" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+                    <div style="background:var(--green-lt);padding:1rem;border-bottom:1px solid var(--border)">
+                        <div style="font-weight:600;color:var(--green-dk);margin-bottom:0.25rem">{{ selfie.full_name }}</div>
+                        <div style="font-size:12px;color:var(--gray)">{{ selfie.email }}</div>
+                        <div style="font-size:11px;color:var(--gray);margin-top:0.25rem">{{ selfie.form_label }}</div>
+                    </div>
+                    <div style="aspect-ratio:1;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">
+                        <img src="/uploads/{{ selfie.selfie_with_id }}" alt="Selfie" style="width:100%;height:100%;object-fit:cover">
+                    </div>
+                    <div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:0.75rem">
+                        <form method="POST" action="/admin/selfie/{{ selfie.id }}/approve" style="flex:1">
+                            <button type="submit" style="width:100%;padding:0.75rem;background:var(--green-pr);color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px">✓ Approve</button>
+                        </form>
+                        <form method="POST" action="/admin/selfie/{{ selfie.id }}/reject" style="flex:1">
+                            <button type="submit" style="width:100%;padding:0.75rem;background:#EF4444;color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px">✗ Reject</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="table-card">
+                <p class="empty" style="text-align:center;padding:3rem">No pending selfies for verification.</p>
+            </div>
+            {% endif %}
         </div>
 
         <!-- ═══ SOLAR ═══ -->
@@ -2454,7 +2501,7 @@
             var foot = document.getElementById('docs-foot');
             var html = '';
             if (status !== 'accepted') html += '<button type="button" class="btn-accept" onclick="swalAccept(\'' + id + '\',\'' + name.trim().replace(/'/g, "\\'") + '\')"><i class="fa-solid fa-check"></i> Accept</button>';
-            if (status !== 'rejected') html += '<form method="POST" action="/admin/registration/' + id + '/status/rejected" style="display:inline;margin-left:4px"><button type="submit" class="btn-reject"><i class="fa-solid fa-xmark"></i> Reject</button></form>';
+            if (status !== 'rejected') html += '<form method="POST" action="/admin/registration/' + id + '/status/rejected" style="display:inline;margin-left:4px"><input type="hidden" name="csrf_token" value="' + document.querySelector('meta[name="csrf-token"]').content + '"><button type="submit" class="btn-reject"><i class="fa-solid fa-xmark"></i> Reject</button></form>';
             if (status === 'accepted') html += '<span class="badge b-accepted" style="font-size:13px;padding:6px 14px">Accepted</span>';
             if (status === 'rejected') html += '<span class="badge b-rejected" style="font-size:13px;padding:6px 14px">Rejected</span>';
             document.getElementById('docs-foot').innerHTML = html;
@@ -2583,6 +2630,10 @@
                     inp.type = 'hidden'; inp.name = 'qualified';
                     inp.value = result.isConfirmed ? '1' : '0';
                     form.appendChild(inp);
+                    var csrfInp = document.createElement('input');
+                    csrfInp.type = 'hidden'; csrfInp.name = 'csrf_token';
+                    csrfInp.value = document.querySelector('meta[name="csrf-token"]').content;
+                    form.appendChild(csrfInp);
                     document.body.appendChild(form);
                     form.submit();
                 }
@@ -2652,6 +2703,7 @@
                     '</div>' +
                     aiBlock +
                     '<form method="POST" action="/admin/solar/' + id + '/review">' +
+                        '<input type="hidden" name="csrf_token" value="' + document.querySelector('meta[name="csrf-token"]').content + '">' +
                         '<div style="margin-bottom:12px">' +
                             lbl('Specialist Notes') +
                             '<textarea name="reviewer_notes" rows="3" style="' + inputStyle + ';resize:vertical">' + (r.reviewer_notes || '') + '</textarea>' +
@@ -2822,7 +2874,10 @@
             };
 
             try {
-                const response = await fetch(actionMap[action], { method: 'POST' });
+                const response = await fetch(actionMap[action], {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+                });
                 if (response.ok) {
                     closeModuleDetail();
                     // Reload the admin page to refresh module lists

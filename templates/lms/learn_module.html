@@ -150,6 +150,7 @@
       <p style="font-size:13px;color:#6B7280;margin-bottom:0.75rem">Help us improve – how was this module?</p>
       {% endif %}
       <form method="POST" action="/lms/learn/{{ mod.id }}/feedback" style="display:flex;flex-direction:column;gap:10px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div style="display:flex;gap:8px;align-items:center">
           <label style="font-size:12px;font-weight:600;color:#374151">Rating:</label>
           {% for i in [1,2,3,4,5] %}
@@ -278,7 +279,7 @@ async function sendChatMsg() {
   showChatTyping();
   try {
     var res  = await fetch('/lms/chat/' + MODULE_ID + '/msg', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
       body: JSON.stringify({messages: chatMessages.slice(0,-1), user_message: text})
     });
     var data = await res.json();

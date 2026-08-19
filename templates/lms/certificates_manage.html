@@ -139,6 +139,7 @@
             {{ u.completed_count }}/{{ u.total_modules }} modules
           </div>
           <form action="/lms/certificates/issue/{{ u.id }}" method="post" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn-sm btn-primary" type="submit">
               <i class="fa-solid fa-certificate"></i> Issue Certificate
             </button>

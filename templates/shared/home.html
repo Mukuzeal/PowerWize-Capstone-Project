@@ -1,324 +1,395 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EnergyWize – Training Registration Portal</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0
-        }
-        
-         :root {
-            --green-dk: #0D3B27;
-            --green-pr: #16583C;
-            --green-md: #1E7A4B;
-            --gold: #D4A72A;
-            --gold-lt: #FEF3C7;
-            --white: #FAFAF8;
-            --gray: #6B7280
-        }
-        
-        html,
-        body {
-            height: 100%
-        }
-        
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background: var(--green-dk);
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column
-        }
-        /* ── Background layers ── */
-        
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
-            background-size: 24px 24px;
-            pointer-events: none;
-            z-index: 0
-        }
-        
-        body::after {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: radial-gradient(ellipse 80% 55% at 50% -5%, rgba(212, 167, 42, 0.18) 0%, transparent 65%);
-            pointer-events: none;
-            z-index: 0
-        }
-        /* ── Header ── */
-        
-        .site-header {
-            position: relative;
-            z-index: 1;
-            padding: 0 2.5rem;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(212, 167, 42, 0.15)
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none
-        }
-        
-        .logo-img {
-            height: 54px;
-            width: auto;
-            display: block
-        }
-        
-        .header-right {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.3);
-            letter-spacing: 0.06em;
-            text-transform: uppercase
-        }
-        /* ── Hero ── */
-        
-        .hero {
-            flex: 1;
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 4rem 1.5rem 5rem
-        }
-        
-        .hero-eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: var(--gold);
-            border: 1px solid rgba(212, 167, 42, 0.35);
-            padding: 5px 16px;
-            border-radius: 20px;
-            margin-bottom: 1.75rem
-        }
-        
-        .hero-eyebrow::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--gold)
-        }
-        
-        .hero h1 {
-            font-family: 'DM Serif Display', serif;
-            font-size: clamp(2.4rem, 6vw, 4rem);
-            line-height: 1.1;
-            color: #fff;
-            margin-bottom: 1rem
-        }
-        
-        .hero h1 em {
-            font-style: italic;
-            color: var(--gold)
-        }
-        
-        .hero-sub {
-            font-size: 16px;
-            color: rgba(255, 255, 255, 0.55);
-            max-width: 460px;
-            line-height: 1.7;
-            margin-bottom: 2.75rem
-        }
-        /* ── CTA buttons ── */
-        
-        .cta-group {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin-bottom: 3rem
-        }
-        
-        .btn-login {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 34px;
-            background: var(--gold);
-            color: var(--green-dk);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 15px;
-            font-weight: 700;
-            border: none;
-            border-radius: 10px;
-            text-decoration: none;
-            cursor: pointer;
-            transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
-            box-shadow: 0 4px 20px rgba(212, 167, 42, 0.35)
-        }
-        
-        .btn-login:hover {
-            background: #e6b730;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 28px rgba(212, 167, 42, 0.45)
-        }
-        
-        .btn-login:active {
-            transform: translateY(0)
-        }
-        
-        .btn-register {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 34px;
-            background: transparent;
-            color: #fff;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 15px;
-            font-weight: 600;
-            border: 1.5px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-            text-decoration: none;
-            cursor: pointer;
-            transition: border-color 0.18s, background 0.18s, transform 0.15s
-        }
-        
-        .btn-register:hover {
-            border-color: rgba(255, 255, 255, 0.7);
-            background: rgba(255, 255, 255, 0.07);
-            transform: translateY(-2px)
-        }
-        
-        .btn-register:active {
-            transform: translateY(0)
-        }
-        
-        .btn-solar {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 14px 34px;
-            background: rgba(30, 122, 75, 0.25);
-            color: #6EE7A8;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 15px;
-            font-weight: 600;
-            border: 1.5px solid rgba(110, 231, 168, 0.35);
-            border-radius: 10px;
-            text-decoration: none;
-            cursor: pointer;
-            transition: border-color 0.18s, background 0.18s, transform 0.15s
-        }
-        
-        .btn-solar:hover {
-            border-color: rgba(110, 231, 168, 0.7);
-            background: rgba(30, 122, 75, 0.45);
-            transform: translateY(-2px)
-        }
-        
-        .btn-solar:active {
-            transform: translateY(0)
-        }
-        /* ── Feature pills ── */
-        
-        .feature-pills {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center
-        }
-        
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.4);
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 6px 14px;
-            border-radius: 20px
-        }
-        
-        .pill-dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: var(--gold);
-            opacity: 0.7
-        }
-        /* ── Footer ── */
-        
-        .site-footer {
-            position: relative;
-            z-index: 1;
-            padding: 1.5rem;
-            text-align: center;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.2);
-            border-top: 1px solid rgba(255, 255, 255, 0.06)
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="EnergyWize Solutions: energy management consultancy, audits, solar PV solutions, and DOE-recognized CEM, CEA, and GEMP certification training in the Philippines.">
+<link rel="icon" href="/static/logo.png">
+<title>EnergyWize Solutions – Powering a Sustainable Future</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/static/landing.css">
+<link rel="stylesheet" href="/static/motion.css">
 </head>
-
 <body>
 
-    <header class="site-header">
-        <a href="/" class="logo">
-            <img src="/static/logo.png" alt="PowerWize" class="logo-img">
+<div class="pill-nav-wrap">
+  <nav class="pill-nav" id="pillNav">
+    <div class="pill-nav-top">
+      <button type="button" class="pill-nav-hamburger" id="pillNavToggle" aria-expanded="false" aria-controls="pillNavContent" aria-label="Toggle menu">
+        <span></span><span></span>
+      </button>
+      <a href="#top" class="pill-nav-logo">
+        <img src="/static/logo.png" alt="PowerWize">
+      </a>
+      <a href="/auth" class="pill-nav-cta">Sign in <i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+    <div class="pill-nav-content" id="pillNavContent">
+      <div class="pill-nav-cards">
+        <div class="pill-nav-card tone-1 border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <h4>About</h4>
+            <a href="#about">Our story</a>
+            <a href="#contact">Contact us</a>
+          </div>
+        </div>
+        <div class="pill-nav-card tone-2 border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <h4>Services</h4>
+            <a href="#services">What we do</a>
+            <a href="/solar">Solar PV quote</a>
+          </div>
+        </div>
+        <div class="pill-nav-card tone-3 border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <h4>Trainings</h4>
+            <a href="#trainings">All programs</a>
+            <a href="/auth">Sign in</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+</div>
+
+<main id="top">
+  <section class="band-dark hero-band">
+    <div class="shell">
+      <section class="hero hero-split">
+        <div class="hero-copy">
+          <span class="hero-eyebrow">2026 training registration portal</span>
+          <h1>Powering a<br><em>sustainable future</em></h1>
+          <p>Energy management consultancy, audits, and solar solutions, plus DOE-recognized certification training for energy managers and auditors.</p>
+          <div class="cta-group">
+            <a href="/programs" class="btn-cta primary">Register as trainee <i class="fa-solid fa-arrow-right"></i></a>
+            <a href="/auth" class="btn-cta ghost">Sign in</a>
+            <a href="/solar" class="btn-cta solar"><i class="fa-solid fa-solar-panel"></i> Solar PV quote</a>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="stat-card border-glow-card glow-white" data-border-glow>
+            <span class="edge-light"></span>
+            <div class="border-glow-inner">
+              <div class="stat-label">Training programs</div>
+              <div class="stat-big">DOE-recognized certification pathways</div>
+              <p class="stat-sub">Certified Energy Manager, Certified Energy Auditor, and Government Energy Management Program tracks.</p>
+              <div class="stat-modes">
+                <span>Online</span>
+                <span>Hybrid</span>
+                <span>Face-to-face</span>
+              </div>
+              <ul class="stat-verify">
+                <li><i class="fa-solid fa-check"></i> AI-assisted document review</li>
+                <li><i class="fa-solid fa-check"></i> Live selfie identity check</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="trust-strip">
+      <ul class="trust-row" data-reveal="fade">
+        <li><i class="fa-solid fa-shield-halved"></i> DOE-recognized training programs</li>
+        <li><i class="fa-solid fa-lock"></i> Encrypted document handling</li>
+        <li><i class="fa-solid fa-user-check"></i> Confidential review of every upload</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="about" class="section-band on-light">
+    <div class="shell">
+      <div class="about-grid">
+        <div>
+          <div class="section-head" data-reveal>
+            <h2>Energy expertise, grounded in service</h2>
+          </div>
+          <div class="about-copy" data-reveal>
+            <p>EnergyWize Solutions provides energy management services from strategic consulting to renewable energy implementation, helping organizations across the Philippines lower consumption, meet DOE compliance, and plan for a sustainable future.</p>
+            <p>We're based in Makati City, and every training program we run is built around the Department of Energy's certification requirements for Energy Managers, Energy Auditors, and government energy officers.</p>
+          </div>
+        </div>
+        <div class="value-list" data-reveal>
+          <div class="value-row">
+            <div class="value-icon"><i class="fa-solid fa-handshake"></i></div>
+            <div class="value-body">
+              <h3>Integrity</h3>
+              <p>We hold ourselves to the same standards we help our clients meet.</p>
+            </div>
+          </div>
+          <div class="value-row">
+            <div class="value-icon"><i class="fa-solid fa-lightbulb"></i></div>
+            <div class="value-body">
+              <h3>Innovation</h3>
+              <p>AI-assisted document review and identity verification keep registration fast and accurate.</p>
+            </div>
+          </div>
+          <div class="value-row">
+            <div class="value-icon"><i class="fa-solid fa-leaf"></i></div>
+            <div class="value-body">
+              <h3>Sustainability</h3>
+              <p>Every program we teach exists to reduce energy waste and environmental impact.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services" class="section-band tight on-light">
+    <div class="shell">
+      <div class="section-head" data-reveal>
+        <h2>What we do</h2>
+        <p>From strategic consulting to hands-on certification, here's how we support energy professionals and their organizations.</p>
+      </div>
+      <div class="service-grid" data-reveal>
+        <div class="service-row">
+          <div class="service-icon"><i class="fa-solid fa-chart-line"></i></div>
+          <div class="service-body">
+            <h3>Energy management &amp; consultancy</h3>
+            <p>Expert guidance on energy efficiency strategies, tailored to your operations.</p>
+          </div>
+        </div>
+        <div class="service-row">
+          <div class="service-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+          <div class="service-body">
+            <h3>Energy audits</h3>
+            <p>In-depth assessments that identify where energy and cost are being lost.</p>
+          </div>
+        </div>
+        <div class="service-row">
+          <div class="service-icon"><i class="fa-solid fa-solar-panel"></i></div>
+          <div class="service-body">
+            <h3>Solar &amp; renewable energy</h3>
+            <p>Solar PV feasibility and cost estimates, generated in minutes.</p>
+            <a href="/solar">Get a solar quote <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+        <div class="service-row">
+          <div class="service-icon"><i class="fa-solid fa-toolbox"></i></div>
+          <div class="service-body">
+            <h3>MEPF solutions</h3>
+            <p>Mechanical, electrical, plumbing, and fire protection systems engineered for efficiency.</p>
+          </div>
+        </div>
+        <div class="service-row">
+          <div class="service-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+          <div class="service-body">
+            <h3>Technical training &amp; certification</h3>
+            <p>DOE-recognized CEM, CEA, and GEMP programs, from application to certificate.</p>
+            <a href="/programs">View training programs <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="trainings" class="path-section on-light">
+    <div class="shell">
+      <div class="section-head centered" data-reveal>
+        <span class="section-kicker">Training programs</span>
+        <h2>Choose your registration path</h2>
+        <p>DOE-recognized certification programs for energy managers, energy auditors, and government energy officers.</p>
+      </div>
+
+      <div class="cards-grid">
+        <a href="/renewalCEA" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-renewal">DOE renewal</span>
+              <h3>CEA certificate renewal</h3>
+              <p>For existing DOE-Certified Energy Auditors renewing an expiring certificate.</p>
+            </div>
+            <div class="card-footer">
+              <span>Start renewal</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
         </a>
-        <span class="header-right">e-Wize Solutions</span>
-    </header>
 
-    <main class="hero">
-        <div class="hero-eyebrow">
-            <span></span>2026 Training Registration Portal
+        <a href="/renewalCEM" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-renewal">DOE renewal</span>
+              <h3>CEM certificate renewal</h3>
+              <p>For existing DOE-Certified Energy Managers renewing an expiring certificate.</p>
+            </div>
+            <div class="card-footer">
+              <span>Start renewal</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/cea-training" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-new">New applicant</span>
+              <h3>CEA training registration</h3>
+              <p>For new applicants joining the Certified Energy Auditor training program.</p>
+            </div>
+            <div class="card-footer">
+              <span>Start application</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/training" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-new">New applicant</span>
+              <h3>CEM training registration</h3>
+              <p>For new applicants joining the Certified Energy Manager training program.</p>
+            </div>
+            <div class="card-footer">
+              <span>Start application</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/gemp-lgu" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-gov">Government (LGU)</span>
+              <h3>GEMP training, local government</h3>
+              <p>For EEC Officers, Focal Persons, and Energy Auditors of local government units.</p>
+            </div>
+            <div class="card-footer">
+              <span>Start application</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/gemp-oge" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-gov">Government (national)</span>
+              <h3>GEMP training, national agencies</h3>
+              <p>For EEC Officers and Energy Auditors of national government agencies and GOCCs.</p>
+            </div>
+            <div class="card-footer">
+              <span>Start application</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-band tight band-dark">
+    <div class="shell">
+      <div class="section-head" data-reveal>
+        <h2>Why register with EnergyWize</h2>
+      </div>
+      <div class="why-row" data-reveal>
+        <div class="why-item border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="why-icon"><i class="fa-solid fa-award"></i></div>
+            <h3>DOE-recognized programs</h3>
+            <p>Every training track is aligned to Department of Energy certification requirements.</p>
+          </div>
         </div>
-
-        <h1>Powering a<br><em>Sustainable Future</em></h1>
-
-        <p class="hero-sub">
-            Register for DOE-certified energy management and auditing programs, or sign in to access your training dashboard.
-        </p>
-
-        <div class="cta-group">
-            <a href="/auth" class="btn-login">Sign In <i class="fa-solid fa-arrow-right"></i></a>
-            <a href="/programs" class="btn-register">Register as Trainee</a>
-            <a href="/solar" class="btn-solar"><i class="fa-solid fa-solar-panel"></i> Solar PV Quotation</a>
+        <div class="why-item border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="why-icon"><i class="fa-solid fa-file-shield"></i></div>
+            <h3>AI-assisted document review</h3>
+            <p>Uploads are checked automatically, so mistakes get caught before submission.</p>
+          </div>
         </div>
-
-        <div class="feature-pills">
-            <span class="pill"><span class="pill-dot"></span>CEM Certificate Renewal</span>
-            <span class="pill"><span class="pill-dot"></span>CEA Training Program</span>
-            <span class="pill"><span class="pill-dot"></span>GEMP Training Program</span>
-            <span class="pill"><span class="pill-dot"></span>AI Solar PV Estimates</span>
+        <div class="why-item border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="why-icon"><i class="fa-solid fa-camera-retro"></i></div>
+            <h3>Live selfie verification</h3>
+            <p>A blink-liveness check confirms your identity matches your uploaded ID.</p>
+          </div>
         </div>
-    </main>
+        <div class="why-item border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="why-icon"><i class="fa-solid fa-lock"></i></div>
+            <h3>Secure, confidential handling</h3>
+            <p>Every document you submit is encrypted and reviewed in confidence.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <footer class="site-footer">
-        © 2026 EnergyWize · e-Wize Solutions, Makati City · All registrations are secured and confidential.
-    </footer>
+  <section id="contact" class="section-band band-dark">
+    <div class="shell">
+      <div class="contact-band" data-reveal>
+        <div class="contact-copy">
+          <h2>Get in touch</h2>
+          <p>Have a question about a program, a solar quote, or your registration? Reach us directly, or start your application below.</p>
+          <div class="cta-group">
+            <a href="/programs" class="btn-cta primary">Register as trainee <i class="fa-solid fa-arrow-right"></i></a>
+            <a href="/auth" class="btn-cta ghost">Sign in</a>
+          </div>
+        </div>
+        <div class="contact-list">
+          <span><i class="fa-solid fa-location-dot"></i> 10F Tower 1, Paseo de Roces, Makati City</span>
+          <a href="tel:+639171879905"><i class="fa-solid fa-phone"></i> +63 917 187 9905</a>
+          <a href="mailto:energywizesolutions@gmail.com"><i class="fa-solid fa-envelope"></i> energywizesolutions@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
 
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#top" class="footer-logo">
+          <img src="/static/logo.png" alt="PowerWize" style="height:38px;width:auto;display:block">
+        </a>
+        <p>Energy management consultancy, audits, solar solutions, and DOE-recognized certification training.</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Programs</h4>
+          <a href="/programs">All registration forms</a>
+          <a href="/gemp-lgu">GEMP (LGU)</a>
+          <a href="/gemp-oge">GEMP (national)</a>
+        </div>
+        <div class="footer-col">
+          <h4>Company</h4>
+          <a href="#about">About</a>
+          <a href="#services">Services</a>
+          <a href="#contact">Contact</a>
+        </div>
+        <div class="footer-col">
+          <h4>Account</h4>
+          <a href="/auth">Sign in</a>
+          <a href="/solar">Solar PV quote</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-tagline">Powering a sustainable future · e-Wize Solutions, Makati City</span>
+      <span class="footer-copy">© 2026 EnergyWize · All registrations are secured and confidential.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/motion.js" defer></script>
+<script src="/static/interactive.js" defer></script>
 </body>
-
 </html>

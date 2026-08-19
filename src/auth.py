@@ -1,6 +1,7 @@
 from flask import Blueprint, request, render_template, redirect, session, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_db, dict_cur, create_reset_token, get_reset_token, mark_reset_token_used, reset_user_password, get_user_by_email
+from utils import base_url
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -124,7 +125,7 @@ def forgot_password():
             from email_utils import send_password_reset_email
             token = create_reset_token(email)
             send_password_reset_email(user["email"], f"{user['fname']} {user['lname']}",
-                                      token, request.host_url)
+                                      token, base_url())
         except Exception as e:
             import traceback; traceback.print_exc()
 

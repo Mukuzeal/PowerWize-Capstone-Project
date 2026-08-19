@@ -72,14 +72,18 @@
   height:6px;background:#E5E7EB;border-radius:3px;overflow:hidden;
 }
 .wizard-progress-mobile .wpm-fill{
-  height:100%;background:linear-gradient(90deg,var(--green-pr),var(--green-md));
-  transition:width 0.3s ease;border-radius:3px;
+  width:100%;height:100%;background:var(--green-pr);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform 0.3s cubic-bezier(.16,1,.3,1);border-radius:3px;
 }
 
 /* When a form is wizardized, hide all steps except the current */
 .form-card[data-wizard] .wizard-step{display:none}
-.form-card[data-wizard] .wizard-step.is-current{display:block;animation:wizard-fade 0.25s ease-out}
-@keyframes wizard-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.form-card[data-wizard] .wizard-step.is-current{display:block;animation:wizard-fade 0.35s cubic-bezier(.16,1,.3,1)}
+@keyframes wizard-fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){
+  .form-card[data-wizard] .wizard-step.is-current{animation:none}
+}
 
 /* Wizard nav bar (replaces original form footer when active) */
 .wizard-nav{
@@ -98,18 +102,21 @@
 }
 .btn-back{background:#fff;color:#374151;border-color:var(--border)}
 .btn-back:hover{border-color:#9CA3AF;background:var(--gray-lt)}
+.btn-back:active:not(:disabled){transform:scale(0.97)}
 .btn-back:disabled{opacity:0.4;cursor:not-allowed}
+.btn-back:focus-visible,.btn-next:focus-visible{outline:2px solid var(--green-md);outline-offset:2px}
 .btn-next{
-  background:linear-gradient(135deg,var(--green-pr) 0%,var(--green-md) 100%);
+  background:var(--green-pr);
   color:#fff;border:none;
   box-shadow:0 2px 8px rgba(22,88,60,0.25);
 }
-.btn-next:hover{opacity:0.92;transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,88,60,0.30)}
+.btn-next:hover{background:var(--green-md);transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,88,60,0.30)}
+.btn-next:active{transform:scale(0.97)}
 
 /* Inline step validation hint */
 .wizard-step-error{
   margin:0 1.6rem 1rem;padding:10px 14px;
-  background:#FFF5F5;border:1px solid #FED7D7;border-left:3px solid var(--red);
+  background:#FFF5F5;border:1px solid #FED7D7;
   border-radius:9px;font-size:12.5px;color:#C53030;
   display:none;align-items:center;gap:8px;
 }

@@ -1,177 +1,228 @@
-{% from "shared/macros.html" import form_styles, header %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Training Programs – EnergyWize</title>
-    {{ form_styles() }}
-    <style>
-        .programs-wrap {
-            max-width: 680px;
-            margin: 0 auto
-        }
-        
-        .program-card {
-            background: var(--white);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: stretch;
-            text-decoration: none;
-            transition: transform 0.15s, box-shadow 0.15s;
-            border: 1px solid var(--border)
-        }
-        
-        .program-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 24px rgba(13, 59, 39, 0.15)
-        }
-        
-        .program-accent {
-            width: 6px;
-            flex-shrink: 0
-        }
-        
-        .program-accent.training {
-            background: var(--green-pr)
-        }
-        
-        .program-accent.renewal {
-            background: var(--gold)
-        }
-        
-        .program-body {
-            padding: 20px 22px;
-            flex: 1
-        }
-        
-        .program-tag {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-bottom: 6px
-        }
-        
-        .program-tag.training {
-            color: var(--green-pr)
-        }
-        
-        .program-tag.renewal {
-            color: var(--gold-dk)
-        }
-        
-        .program-accent.gemp {
-            background: #16A34A
-        }
-        
-        .program-tag.gemp {
-            color: #15803D
-        }
-        
-        .program-body h3 {
-            font-size: 16px;
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 4px
-        }
-        
-        .program-body p {
-            font-size: 13px;
-            color: var(--gray);
-            line-height: 1.5
-        }
-        
-        .program-arrow {
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            color: var(--gray);
-            font-size: 18px
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Choose the EnergyWize training registration form that matches your certification stage: CEM, CEA, or GEMP.">
+<link rel="icon" href="/static/logo.png">
+<title>EnergyWize – Training Registration Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/static/landing.css">
+<link rel="stylesheet" href="/static/motion.css">
 </head>
-
 <body>
-    {{ header("Training Programs") }}
 
-    <div class="hero">
-        <span class="hero-tag">Step 1 of 3</span>
-        <h1>Choose a <em>Program</em></h1>
-        <p>Select the training or renewal program you want to enroll in. After submitting your application, our team will review it and send you an account setup link.</p>
+<div class="pill-nav-wrap">
+  <nav class="pill-nav" id="pillNav">
+    <div class="pill-nav-top">
+      <button type="button" class="pill-nav-hamburger" id="pillNavToggle" aria-expanded="false" aria-controls="pillNavContent" aria-label="Toggle menu">
+        <span></span><span></span>
+      </button>
+      <a href="/" class="pill-nav-logo">
+        <img src="/static/logo.png" alt="PowerWize">
+      </a>
+      <a href="/auth" class="pill-nav-cta">Sign in <i class="fa-solid fa-arrow-right"></i></a>
     </div>
-
-    <div class="page-body">
-        <div class="programs-wrap">
-
-            <a href="/cea-training" class="program-card">
-                <div class="program-accent training"></div>
-                <div class="program-body">
-                    <div class="program-tag training">Training</div>
-                    <h3>CEA Training Program</h3>
-                    <p>Certified Energy Auditor training for engineers and energy professionals seeking DOE certification.</p>
-                </div>
-                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            </a>
-
-            <a href="/training" class="program-card">
-                <div class="program-accent training"></div>
-                <div class="program-body">
-                    <div class="program-tag training">Training</div>
-                    <h3>CEM Training Program</h3>
-                    <p>Certified Energy Manager training covering energy planning, auditing, and management strategies.</p>
-                </div>
-                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            </a>
-
-            <a href="/renewalCEA" class="program-card">
-                <div class="program-accent renewal"></div>
-                <div class="program-body">
-                    <div class="program-tag renewal">Renewal</div>
-                    <h3>CEA Certificate Renewal</h3>
-                    <p>For existing Certified Energy Auditors renewing their DOE certification before expiry.</p>
-                </div>
-                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            </a>
-
-            <a href="/renewalCEM" class="program-card">
-                <div class="program-accent renewal"></div>
-                <div class="program-body">
-                    <div class="program-tag renewal">Renewal</div>
-                    <h3>CEM Certificate Renewal</h3>
-                    <p>For existing Certified Energy Managers renewing their DOE certification before expiry.</p>
-                </div>
-                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            </a>
-
-            <a href="/gemp-lgu" class="program-card">
-                <div class="program-accent gemp"></div>
-                <div class="program-body">
-                    <div class="program-tag gemp">GEMP Training</div>
-                    <h3>GEMP Training – For Local Government Units</h3>
-                    <p>For EEC Officers, Focal Persons, EEC Coordinators, and Authorized Energy Auditors of LGUs. DOE-RTI-GEMP-25041500008.</p>
-                </div>
-                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            </a>
-
-            <a href="/gemp-oge" class="program-card">
-                <div class="program-accent gemp"></div>
-                <div class="program-body">
-                    <div class="program-tag gemp">GEMP Training</div>
-                    <h3>GEMP Training – For Other Government Entities</h3>
-                    <p>For EEC Professionals of National Government Agencies, GOCCs, and other government entities under RA 11285.</p>
-                </div>
-                <div class="program-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            </a>
-
+    <div class="pill-nav-content" id="pillNavContent">
+      <div class="pill-nav-cards">
+        <div class="pill-nav-card tone-1 border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <h4>About</h4>
+            <a href="/#about">Our story</a>
+            <a href="/#contact">Contact us</a>
+          </div>
         </div>
+        <div class="pill-nav-card tone-2 border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <h4>Services</h4>
+            <a href="/#services">What we do</a>
+            <a href="/solar">Solar PV quote</a>
+          </div>
+        </div>
+        <div class="pill-nav-card tone-3 border-glow-card glow-white" data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <h4>Home</h4>
+            <a href="/">Back to home</a>
+            <a href="/auth">Sign in</a>
+          </div>
+        </div>
+      </div>
     </div>
+  </nav>
+</div>
 
-    <footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
+<main>
+  <section class="band-dark hero-band">
+    <div class="hero hero-compact">
+      <a href="/" class="hero-back"><i class="fa-solid fa-arrow-left"></i> Back to home</a>
+      <h1>EnergyWize<br><em>training programs</em></h1>
+      <p>Select the registration form that matches your program below to get started.</p>
+    </div>
+  </section>
+
+  <section class="path-section on-light" style="padding-top:2.5rem">
+    <div class="shell">
+      <div class="section-head centered" data-reveal>
+        <h2>Choose your program</h2>
+        <p>All registration forms are secured and confidential.</p>
+      </div>
+
+      <div class="cards-grid">
+
+        <a href="/renewalCEA" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-renewal">DOE renewal</span>
+              <h3>CEA certificate renewal</h3>
+              <p>For existing DOE-Certified Energy Auditors renewing their expiring certificate.</p>
+            </div>
+            <div class="card-fields">
+              <ul>
+                <li>DOE certificate expiry date</li>
+                <li>Expired DOE-CEA certificate upload</li>
+                <li>Training type &amp; schedule selection</li>
+              </ul>
+            </div>
+            <div class="card-footer">
+              <span>Start CEA renewal form</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/renewalCEM" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-renewal">DOE renewal</span>
+              <h3>CEM certificate renewal</h3>
+              <p>For existing DOE-Certified Energy Managers renewing their expiring certificate.</p>
+            </div>
+            <div class="card-fields">
+              <ul>
+                <li>DOE certificate expiry date</li>
+                <li>Expired DOE-CEM certificate upload</li>
+                <li>Training type &amp; schedule selection</li>
+              </ul>
+            </div>
+            <div class="card-footer">
+              <span>Start CEM renewal form</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/cea-training" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-new">New applicant</span>
+              <h3>CEA training registration</h3>
+              <p>For new applicants applying for the Certified Energy Auditor training program.</p>
+            </div>
+            <div class="card-fields">
+              <ul>
+                <li>Residence / home address</li>
+                <li>Resume or CV upload</li>
+                <li>PRC ID or government-issued ID</li>
+              </ul>
+            </div>
+            <div class="card-footer">
+              <span>Start CEA form</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/training" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-new">New applicant</span>
+              <h3>CEM training registration</h3>
+              <p>For new applicants applying for the Certified Energy Manager training program.</p>
+            </div>
+            <div class="card-fields">
+              <ul>
+                <li>Residence address</li>
+                <li>Resume or CV (PDF only)</li>
+                <li>PRC license or valid ID</li>
+              </ul>
+            </div>
+            <div class="card-footer">
+              <span>Start CEM form</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/gemp-lgu" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-gov">Government (LGU)</span>
+              <h3>GEMP training, local government</h3>
+              <p>For EEC Officers, Focal Persons, EEC Coordinators, and Authorized Energy Auditors of LGUs.</p>
+            </div>
+            <div class="card-fields">
+              <ul>
+                <li>DOE-RTI Registration No. GEMP-25041500008</li>
+                <li>Resume or CV (PDF only)</li>
+                <li>PRC ID or government-issued ID</li>
+              </ul>
+            </div>
+            <div class="card-footer">
+              <span>Start GEMP (LGU) form</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+        <a href="/gemp-oge" class="reg-card border-glow-card glow-gold" data-reveal data-tilt data-border-glow>
+          <span class="edge-light"></span>
+          <div class="border-glow-inner">
+            <div class="card-top">
+              <span class="card-badge badge-gov">Government (national)</span>
+              <h3>GEMP training, national agencies</h3>
+              <p>For EEC Officers and Authorized Energy Auditors of national government agencies and GOCCs.</p>
+            </div>
+            <div class="card-fields">
+              <ul>
+                <li>DOE-RTI Registration No. GEMP-25041500008</li>
+                <li>Resume or CV (PDF only)</li>
+                <li>PRC ID or government-issued ID</li>
+              </ul>
+            </div>
+            <div class="card-footer">
+              <span>Start GEMP (national) form</span>
+              <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+            </div>
+          </div>
+        </a>
+
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-bottom" style="border-top:none;padding-top:0;justify-content:center;flex-direction:column;align-items:center;gap:0.5rem">
+      <a href="/" style="opacity:0.8">
+        <img src="/static/logo.png" alt="PowerWize" style="height:38px;width:auto;display:block">
+      </a>
+      <span class="footer-tagline">Powering a sustainable future · e-Wize Solutions, Makati City</span>
+      <span class="footer-copy">© 2026 EnergyWize · All registration forms are secured and confidential.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/motion.js" defer></script>
+<script src="/static/interactive.js" defer></script>
 </body>
-
 </html>

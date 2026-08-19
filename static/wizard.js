@@ -27,7 +27,7 @@
     steps[0].el.classList.add('is-current');
 
     // Build the layout shell around the form.
-    var pageBody = form.closest('.page-body');
+    var pageBody = form.closest('.shell') || form.closest('.page-body');
     var layout = document.createElement('div');
     layout.className = 'wizard-layout';
 
@@ -49,7 +49,7 @@
     mobileBar.className = 'wizard-progress-mobile';
     mobileBar.innerHTML =
       '<div class="wpm-meta"><strong class="wpm-title">'+escapeHtml(steps[0].title)+'</strong><span class="wpm-count">Step 1 of '+steps.length+'</span></div>' +
-      '<div class="wpm-bar"><div class="wpm-fill" style="width:'+(100/steps.length)+'%"></div></div>';
+      '<div class="wpm-bar"><div class="wpm-fill" style="transform:scaleX('+(1/steps.length)+')"></div></div>';
 
     var content = document.createElement('div');
     content.className = 'wizard-content';
@@ -104,7 +104,7 @@
       // mobile bar
       mobileBar.querySelector('.wpm-title').textContent = steps[current].title;
       mobileBar.querySelector('.wpm-count').textContent = 'Step '+(current+1)+' of '+steps.length;
-      mobileBar.querySelector('.wpm-fill').style.width = ((current+1)/steps.length*100) + '%';
+      mobileBar.querySelector('.wpm-fill').style.transform = 'scaleX(' + ((current+1)/steps.length) + ')';
 
       // nav
       btnBack.disabled = current === 0;

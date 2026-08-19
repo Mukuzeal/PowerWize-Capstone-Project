@@ -1,39 +1,32 @@
 {# Shared training-registration form for new applicants (CEM, CEA, future programs).
-   Parent templates must `{% set %}` the variables below then `{% include %}` this file:
+   Body-only partial: the parent template `{% extends "site/base.html" %}`, sets the
+   variables below, then includes this inside `{% block main %}`.
      page_title              – browser tab title
-     header_badge            – header badge text
-     hero_tag                – small uppercase tag above the hero title
-     hero_title_main         – main hero title (HTML allowed, e.g. "Certified Energy Manager")
+     header_badge            – breadcrumb tag (e.g. "CEM")
+     hero_tag                – small uppercase tag above the hero title (unused, kept for callers)
+     hero_title_main         – main hero title (plain text or HTML, e.g. "Certified Energy Manager")
      hero_subtitle           – paragraph under the hero title
-     form_action             – POST endpoint, e.g. "/training/submit"
+     form_action              – POST endpoint, e.g. "/training/submit"
      designation_placeholder – placeholder for the Designation field
-     footer_program_label    – label after "EnergyWize ·" in the footer
+     footer_program_label    – label after "EnergyWize ·" (unused, kept for callers)
 #}
-{% from "shared/macros.html" import form_styles, header, upload_field, errors_block, file_js, wizard_init, selfie_capture %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ page_title }}</title>
-  {{ form_styles() }}
-  <link rel="stylesheet" href="/static/training-form.css">
-  {{ wizard_init() }}
-</head>
-<body>
-  {{ header(header_badge) }}
+{% from "shared/macros.html" import upload_field, errors_block, file_js, selfie_capture %}
+{% from "site/_ui.html" import fhead %}
 
-  <div class="hero">
-    <a href="/" class="hero-back"><i class="fa-solid fa-arrow-left"></i> All Registration Forms</a>
-    <span class="hero-tag">{{ hero_tag }}</span>
-    <h1>{{ hero_title_main | safe }}<br><em>Training Registration</em></h1>
-    <p>{{ hero_subtitle }}</p>
-  </div>
+<section class="formpage">
+  <div class="shell">
 
-  <div class="page-body">
+    {{ fhead(
+      [('Home', url_for('registration.index')), ('Programs', url_for('registration.programs'))],
+      header_badge,
+      hero_title_main ~ '<br><em>Training Registration</em>',
+      hero_subtitle
+    ) }}
+
     {{ errors_block(errors) }}
 
     <form class="form-card" method="POST" action="{{ form_action }}" enctype="multipart/form-data" novalidate data-wizard>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <!-- Section 1: Participant Information -->
       <div class="section-header">
@@ -200,28 +193,27 @@
       </div>
 
       <div class="form-footer">
-        <p>All fields marked <strong style="color:var(--gold-dk)">*</strong> are required.</p>
+        <p>All fields marked <strong class="req-key">*</strong> are required.</p>
         <button type="submit" class="btn-submit">Submit Registration <i class="fa-solid fa-arrow-right"></i></button>
       </div>
 
     </form>
   </div>
+</section>
 
-  <footer class="site-footer">&copy; 2026 EnergyWize &middot; {{ footer_program_label }}</footer>
-  {{ file_js() }}
-  <script src="/static/training-form.js"></script>
-  <script>
-    var SCHEDULES = {{ schedules | tojson }};
-    {% if form_data and form_data.get('training_type') %}
-    (function(){
-      var type = "{{ form_data.get('training_type','') }}";
-      var key = 'online';
-      if (type.indexOf('Online Live') !== -1)          key = 'selfpaced_online';
-      else if (type.indexOf('Self-paced Face') !== -1) key = 'selfpaced_f2f';
-      else if (type.indexOf('Hybrid') !== -1)          key = 'face_to_face';
-      loadSchedules(key);
-    })();
-    {% endif %}
-  </script>
-</body>
-</html>
+{{ file_js() }}
+<script src="{{ url_for('static', filename='wizard.js') }}"></script>
+<script src="{{ url_for('static', filename='training-form.js') }}"></script>
+<script>
+  var SCHEDULES = {{ schedules | tojson }};
+  {% if form_data and form_data.get('training_type') %}
+  (function(){
+    var type = "{{ form_data.get('training_type','') }}";
+    var key = 'online';
+    if (type.indexOf('Online Live') !== -1)          key = 'selfpaced_online';
+    else if (type.indexOf('Self-paced Face') !== -1) key = 'selfpaced_f2f';
+    else if (type.indexOf('Hybrid') !== -1)          key = 'face_to_face';
+    loadSchedules(key);
+  })();
+  {% endif %}
+</script>

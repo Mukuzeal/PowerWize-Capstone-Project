@@ -11,7 +11,7 @@ from db import (lms_get_module, lms_get_exam, lms_get_exam_questions,
                 lms_submit_exam, lms_submit_exam_answers)
 
 from . import lms_bp
-from ._shared import _uid, _role, _is_instructor, _allowed, EXAM_UPLOAD_DIR, ALLOWED_SUBMISSION, _check_completion
+from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, EXAM_UPLOAD_DIR, ALLOWED_SUBMISSION, _check_completion
 
 
 # Practical exam management
@@ -21,6 +21,8 @@ def exam_manage(module_id):
     if not _uid() or not _is_instructor():
         abort(403)
     mod  = lms_get_module(module_id)
+    if not _owns_module(mod):
+        abort(403)
     exam = lms_get_exam(module_id=module_id)
     exam_questions = lms_get_exam_questions(exam['id']) if exam else []
     if request.method == 'POST':
@@ -71,6 +73,9 @@ def submissions():
 def get_submission_answers(sub_id):
     if not _uid() or not _is_instructor():
         abort(403)
+    row = lms_get_submission_user_module(sub_id)
+    if not row or not _owns_module(lms_get_module(row['module_id'])):
+        abort(403)
     submission = lms_get_exam_submission_detail(sub_id)
     if not submission:
         abort(404)
@@ -81,11 +86,13 @@ def get_submission_answers(sub_id):
 def grade_submission(sub_id):
     if not _uid() or not _is_instructor():
         abort(403)
+    row = lms_get_submission_user_module(sub_id)
+    if not row or not _owns_module(lms_get_module(row['module_id'])):
+        abort(403)
     grade    = int(request.form.get('grade', 0))
     feedback = request.form.get('feedback', '').strip()
     lms_grade_submission(sub_id, grade, feedback, _uid())
 
-    row = lms_get_submission_user_module(sub_id)
     if row:
         lms_update_progress(row['user_id'], row['module_id'], exam_graded=True, exam_grade=grade)
         _check_completion(row['user_id'], row['module_id'])

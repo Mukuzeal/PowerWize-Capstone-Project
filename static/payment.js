@@ -1,5 +1,9 @@
 /* Payment page JS — CONFIG object injected inline by template */
 
+function csrfToken() {
+  return document.querySelector('meta[name="csrf-token"]').content;
+}
+
 var _pollInterval = null;
 var _timerInterval = null;
 var _qrPiId = null;
@@ -53,19 +57,22 @@ async function payCard() {
   btn.innerHTML = '<div class="spinner"></div> Processing…';
 
   try {
-    var init = await fetch('/payment/card/initiate', { method: 'POST' }).then(function(r) { return r.json(); });
+    var init = await fetch('/payment/card/initiate', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken() }
+    }).then(function(r) { return r.json(); });
     if (init.error) { showError(init.error); resetCardBtn(); return; }
 
     var pmRes = await fetch('/payment/card/method', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify({ number: numRaw, exp_month: expMonth, exp_year: expYear, cvc: cvc, name: name })
     }).then(function(r) { return r.json(); });
     if (pmRes.error) { showError('Card error: ' + pmRes.error); resetCardBtn(); return; }
 
     var attach = await fetch('/payment/card/attach', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify({ payment_method_id: pmRes.pm_id, client_key: init.client_key })
     }).then(function(r) { return r.json(); });
 
@@ -96,7 +103,10 @@ async function generateQR() {
   btn.innerHTML = '<div class="spinner"></div> Generating…';
 
   try {
-    var data = await fetch('/payment/qrph/initiate', { method: 'POST' }).then(function(r) { return r.json(); });
+    var data = await fetch('/payment/qrph/initiate', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken() }
+    }).then(function(r) { return r.json(); });
     if (data.error) { showError(data.error); resetQRBtn(); return; }
 
     _qrPiId = data.pi_id;

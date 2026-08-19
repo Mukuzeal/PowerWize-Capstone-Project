@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from flask import render_template, redirect, session
 
-from db import get_users, get_batches_full, get_registrations, get_solar_requests, lms_get_modules_with_counts
+from db import get_users, get_batches_full, get_registrations, get_solar_requests, lms_get_modules_with_counts, get_pending_selfies
 
 from . import admin_bp
 
@@ -36,6 +36,7 @@ def admin():
 
     return render_template("admin/admin.html",
                            registrations=get_registrations(),
+                           pending_selfies=get_pending_selfies(),
                            schedules=upcoming,
                            past_schedules=past,
                            users=users,

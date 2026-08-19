@@ -78,6 +78,7 @@
                 <h3><i class="fa-solid fa-keyboard" style="color:var(--green-pr)"></i> Manual Entry</h3>
                 <p>No camera? Paste your Receipt ID (e.g. <code>RCP-20260501-A1B2C3D4</code>) or the full QR data.</p>
                 <form method="POST" action="/verify" id="verify-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <textarea name="qr_data" id="qr-data-input" placeholder="Paste Receipt ID or QR data here..."></textarea>
                     <button type="submit" class="btn-verify">
           <i class="fa-solid fa-shield-check"></i> Verify on Blockchain

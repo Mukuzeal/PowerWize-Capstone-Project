@@ -3,14 +3,17 @@ from datetime import date
 from flask import request, redirect, flash, session
 
 from db import (get_db, dict_cur, set_registration_status, build_batch_label,
-                TYPE_OFFSETS, create_account_token, audit_log)
+                TYPE_OFFSETS, create_account_token, audit_log, get_pending_selfies)
 from email_utils import send_acceptance_email
+from utils import base_url
 
 from . import admin_bp
 
 
 @admin_bp.route("/admin/registration/<reg_id>/status/<status>", methods=["POST"])
 def admin_registration_status(reg_id, status):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
     if status not in ("accepted", "rejected", "pending"):
         return redirect("/admin#registrations")
 
@@ -28,8 +31,7 @@ def admin_registration_status(reg_id, status):
         if reg and reg.get("email"):
             try:
                 token    = create_account_token(reg_id, reg["email"], is_qualified)
-                base_url = request.host_url
-                send_acceptance_email(reg["email"], reg["full_name"], token, is_qualified, base_url)
+                send_acceptance_email(reg["email"], reg["full_name"], token, is_qualified, base_url())
                 flash(f"Registration #{reg_id} accepted. Account setup email sent to {reg['email']}.", "success")
             except Exception as e:
                 flash(f"Registration #{reg_id} accepted, but email failed: {e}", "warning")
@@ -47,6 +49,8 @@ def admin_registration_status(reg_id, status):
 
 @admin_bp.route("/admin/schedule/delete/<int:schedule_id>", methods=["POST"])
 def admin_delete_schedule(schedule_id):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT name FROM batches WHERE id = %s", (schedule_id,))
@@ -62,6 +66,8 @@ def admin_delete_schedule(schedule_id):
 
 @admin_bp.route("/admin/schedule/add", methods=["POST"])
 def admin_add_schedule():
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
     name      = request.form.get("name",       "").strip()
     start_str = request.form.get("start_date", "").strip()
     btype = request.form.get("btype", "").strip()
@@ -77,3 +83,49 @@ def admin_add_schedule():
         conn.close()
         flash(f'"{label}" has been added.', "success")
     return redirect("/admin#schedules")
+
+
+@admin_bp.route("/admin/selfie/<reg_id>/approve", methods=["POST"])
+def admin_approve_selfie(reg_id):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
+    conn = get_db()
+    cur  = dict_cur(conn)
+    cur.execute("SELECT email, full_name FROM registrations WHERE id = %s", (reg_id,))
+    reg = cur.fetchone()
+    cur.close()
+
+    if reg and reg.get("email"):
+        try:
+            token = create_account_token(reg_id, reg["email"], is_qualified=True)
+            send_acceptance_email(reg["email"], reg["full_name"], token, True, base_url())
+            flash(f"Registration #{reg_id} verified. Account setup email sent.", "success")
+            audit_log(session.get("user_id"), "selfie_verified", "registration", reg_id,
+                      f"Approved selfie verification for registration #{reg_id}")
+        except Exception as e:
+            flash(f"Verified but email failed: {e}", "warning")
+    else:
+        flash(f"Registration #{reg_id} verified. (No email on file.)", "warning")
+
+    conn.close()
+    return redirect("/admin#selfies")
+
+
+@admin_bp.route("/admin/selfie/<reg_id>/reject", methods=["POST"])
+def admin_reject_selfie(reg_id):
+    if session.get("user_role") != "admin":
+        return redirect("/auth")
+    reason = request.form.get("reason", "").strip()
+    conn = get_db()
+    cur  = conn.cursor()
+    cur.execute(
+        "UPDATE registrations SET selfie_with_id = NULL WHERE id = %s",
+        (reg_id,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    flash(f"Registration #{reg_id} selfie rejected.", "warning")
+    audit_log(session.get("user_id"), "selfie_rejected", "registration", reg_id,
+              f"Rejected selfie: {reason}")
+    return redirect("/admin#selfies")

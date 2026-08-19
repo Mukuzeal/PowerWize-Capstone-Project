@@ -1,5 +1,6 @@
+{% extends "site/base.html" %}
 {% set page_title              = "CEM Training Registration – EnergyWize" %}
-{% set header_badge            = "CEM Training Registration" %}
+{% set header_badge            = "CEM" %}
 {% set hero_tag                = "New Applicant" %}
 {% set hero_title_main         = "Certified Energy Manager" %}
 {% set hero_subtitle           = "For new applicants joining the DOE Certified Energy Manager training program. Fill in all required fields completely." %}
@@ -10,4 +11,20 @@
 {% set hybrid_price            = "₱19,500" %}
 {% set selfpaced_online_price  = "₱19,500" %}
 {% set selfpaced_f2f_price     = "₱19,500" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block description %}Register for the DOE Certified Energy Manager (CEM) training program with EnergyWize Solutions.{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
 {% include "training/_program_form.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}

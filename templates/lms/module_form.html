@@ -91,6 +91,7 @@
     <!-- Form card -->
     <div class="lms-card">
       <form method="post" id="module-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
           <label class="form-label">
             Module Title <span class="req">*</span>

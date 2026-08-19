@@ -9,6 +9,7 @@ from db import (get_db, dict_cur, log_payment, mark_payment_paid, mark_payment_f
 import paymongo
 from blockchain import generate_receipt_id, create_receipt_hash, store_hash_on_chain, verify_hash_on_chain
 from qr_gen import generate_receipt_qr
+from utils import base_url
 
 load_dotenv()
 
@@ -148,7 +149,7 @@ def card_attach():
     client_key = data.get("client_key")
     if not pm_id or not pi_id or not client_key:
         return jsonify({"error": "Missing parameters"}), 400
-    return_url = request.host_url.rstrip("/") + "/payment/card/return"
+    return_url = base_url().rstrip("/") + "/payment/card/return"
     try:
         result = paymongo.attach_payment_method(pi_id, pm_id, client_key, return_url)
         if result["status"] == "succeeded":
@@ -218,7 +219,7 @@ def qrph_initiate():
         return jsonify({"error": "Unauthorized"}), 403
     amount     = session.get("payment_fee", float(os.getenv("TRAINING_FEE", "5000")))
     desc       = session.get("payment_desc", "EnergyWize Training Fee")
-    return_url = request.host_url.rstrip("/") + "/payment/card/return"
+    return_url = base_url().rstrip("/") + "/payment/card/return"
     try:
         result = paymongo.create_qrph_intent(amount, desc, return_url)
         log_payment(uid, amount, "qrph", result["pi_id"])
@@ -269,7 +270,7 @@ def webhook():
     sig    = request.headers.get("Paymongo-Signature", "")
     body   = request.get_data()
 
-    if secret and not paymongo.verify_webhook_signature(body, sig, secret):
+    if not secret or not paymongo.verify_webhook_signature(body, sig, secret):
         return jsonify({"error": "Invalid signature"}), 400
 
     event = request.get_json(force=True)

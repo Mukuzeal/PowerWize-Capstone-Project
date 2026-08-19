@@ -23,6 +23,7 @@
 
   <div class="lms-card">
     <form method="post" id="exam-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="save_meta">
       <div class="form-group">
         <label class="form-label">Exam Title <span class="req">*</span></label>
@@ -59,6 +60,7 @@
   <div class="lms-card" style="margin-top:16px">
     <h3 class="card-inner-title"><i class="fa-solid fa-list"></i> Exam Questions</h3>
     <form method="post" id="questions-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="save_questions">
       <div id="exam-questions-container">
         {% for q in exam_questions %}

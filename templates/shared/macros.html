@@ -1,4 +1,5 @@
 {% macro form_styles() %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="/static/forms.css">
@@ -42,14 +43,14 @@
 {% endmacro %}
 
 {% macro selfie_capture(id_input_name='valid_id') %}
-{# Camera-based selfie widget with blink-liveness + face-match against uploaded ID. #}
+{# Camera-based selfie widget with blink-liveness. User holds their physical ID next to their face. #}
 <div class="field selfie-capture" data-id-input="{{ id_input_name }}">
-  <label>Identity Verification — Selfie <span class="req">*</span> <span class="hint">(Live photo with liveness check)</span></label>
+  <label>Identity Verification — Selfie with ID <span class="req">*</span> <span class="hint">(Live photo with liveness check)</span></label>
   <div class="selfie-stage" data-state="idle">
     <div class="selfie-empty">
-      <i class="fa-solid fa-camera"></i>
-      <strong>Take a live selfie to verify your identity</strong>
-      <span class="hint-txt">Blink once to prove you're a real person. We'll automatically capture your photo and compare it with your uploaded ID. Nothing is stored.</span>
+      <i class="fa-solid fa-id-card"></i>
+      <strong>Take a selfie holding your government ID</strong>
+      <span class="hint-txt">Blink once to prove you're a real person. Hold your physical government ID visible next to your face so both are clearly visible in the photo. An admin will verify your identity.</span>
       <button type="button" class="btn-selfie-start"><i class="fa-solid fa-video"></i> Open Camera</button>
     </div>
     <div class="selfie-live">
@@ -70,12 +71,13 @@
       </div>
     </div>
     <div class="selfie-validation" data-status="idle">
-      <div class="uv-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Comparing with your ID…</div>
+      <div class="uv-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Uploading your photo…</div>
       <div class="uv-ok"><i class="fa-solid fa-circle-check"></i> <span class="uv-msg"></span></div>
       <div class="uv-bad"><i class="fa-solid fa-triangle-exclamation"></i> <span class="uv-msg"></span></div>
     </div>
   </div>
   <input type="hidden" name="selfie_verified" class="selfie-verified-flag" value="" required>
+  <input type="hidden" name="selfie_with_id" class="selfie-filename" value="">
 </div>
 <script>
 (function(){
@@ -223,40 +225,36 @@
     });
 
     function runFaceMatch(){
-      var idInput = document.querySelector('input[type=file][name="'+idInputName+'"]');
-      if(!idInput || !idInput.files || !idInput.files[0]){
-        valBox.dataset.status = 'invalid';
-        valBox.querySelector('.uv-bad .uv-msg').textContent = 'Please upload your valid government ID first.';
-        if(typeof Swal !== 'undefined') Swal.fire({icon:'warning', title:'ID required first', text:'Please upload your valid ID before taking a selfie.', confirmButtonColor:'#16583C'});
-        return;
-      }
       if(!capturedBlob) return;
       valBox.dataset.status = 'validating';
       var fd = new FormData();
-      fd.append('id', idInput.files[0]);
       fd.append('selfie', capturedBlob, 'selfie.jpg');
-      fetch('/api/face-match', {method:'POST', body: fd})
+      var filenameInput = field.querySelector('.selfie-filename');
+      fetch('/api/face-match', {method:'POST', headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content}, body: fd})
         .then(function(r){ return r.json(); })
         .then(function(j){
           if(j && j.valid){
             valBox.dataset.status = 'valid';
-            valBox.querySelector('.uv-ok .uv-msg').textContent = (j.reason || 'Your selfie matches the ID.') + ' (confidence ' + (j.confidence || 0) + '%)';
+            valBox.querySelector('.uv-ok .uv-msg').textContent = j.reason || 'Photo accepted. An admin will verify your identity.';
+            if(j.filename && filenameInput) filenameInput.value = j.filename;
             flag.value = '1';
             if(typeof Swal !== 'undefined' && window._swalToast){
-              window._swalToast.fire({icon:'success', title:'Identity verified', text:'Your selfie matches the ID.'});
+              window._swalToast.fire({icon:'success', title:'Photo uploaded', text:'Your photo has been submitted for verification.'});
             }
           } else {
             valBox.dataset.status = 'invalid';
-            var reason = (j && j.reason) ? j.reason : 'The selfie does not match the photo on your ID.';
+            var reason = (j && j.reason) ? j.reason : 'There was an error uploading your photo. Please try again.';
             valBox.querySelector('.uv-bad .uv-msg').textContent = reason;
             flag.value = '';
-            if(typeof Swal !== 'undefined') Swal.fire({icon:'error', title:'Identity check failed', text: reason, confirmButtonColor:'#16583C'});
+            if(filenameInput) filenameInput.value = '';
+            if(typeof Swal !== 'undefined') Swal.fire({icon:'error', title:'Upload failed', text: reason, confirmButtonColor:'#16583C'});
           }
         })
         .catch(function(){
           valBox.dataset.status = 'invalid';
-          valBox.querySelector('.uv-bad .uv-msg').textContent = 'Could not reach face-match service. Please try again.';
+          valBox.querySelector('.uv-bad .uv-msg').textContent = 'Could not upload your photo. Please try again.';
           flag.value = '';
+          if(filenameInput) filenameInput.value = '';
         });
     }
   }
@@ -327,7 +325,7 @@ function fileChosen(input,zoneId,nameId){
   const fd = new FormData();
   fd.append('file', input.files[0]);
   fd.append('type', docType);
-  fetch('/api/validate-upload', { method:'POST', body: fd })
+  fetch('/api/validate-upload', { method:'POST', headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content}, body: fd })
     .then(r => r.json())
     .then(j => {
       if(j && j.valid){

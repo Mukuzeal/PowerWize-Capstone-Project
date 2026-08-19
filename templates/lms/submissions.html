@@ -235,6 +235,7 @@
     </div>
 
     <form id="grade-form" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label class="form-label">Grade (0 – 100) <span class="req">*</span></label>
         <input type="number" name="grade" id="modal-grade" class="form-input"

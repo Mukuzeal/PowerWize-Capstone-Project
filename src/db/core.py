@@ -86,6 +86,7 @@ def init_db():
             resume           VARCHAR(255),
             expired_doe      VARCHAR(255),
             valid_id         VARCHAR(255),
+            selfie_with_id   VARCHAR(255),
             status           VARCHAR(20)  NOT NULL DEFAULT 'pending',
             is_qualified     SMALLINT     NOT NULL DEFAULT 1,
             gemp_designation VARCHAR(200) NULL,

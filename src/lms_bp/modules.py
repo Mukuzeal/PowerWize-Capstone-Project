@@ -10,7 +10,7 @@ from db import (lms_create_module, lms_get_modules, lms_get_module,
                 lms_get_quiz, lms_get_exam, lms_get_questions)
 
 from . import lms_bp
-from ._shared import _uid, _role, _is_instructor, _allowed, LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL
+from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL
 
 
 # ── INSTRUCTOR ROUTES ─────────────────────────────────────────────────────────
@@ -48,6 +48,8 @@ def module_edit(module_id):
     mod = lms_get_module(module_id)
     if not mod:
         abort(404)
+    if not _owns_module(mod):
+        abort(403)
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         desc  = request.form.get('description', '').strip()
@@ -65,6 +67,8 @@ def module_manage(module_id):
     mod = lms_get_module(module_id)
     if not mod:
         abort(404)
+    if not _owns_module(mod):
+        abort(403)
     files     = lms_get_files(module_id)
     quiz      = lms_get_quiz(module_id=module_id)
     exam      = lms_get_exam(module_id=module_id)
@@ -78,6 +82,8 @@ def module_publish(module_id):
     if not _uid() or not _is_instructor():
         abort(403)
     mod = lms_get_module(module_id)
+    if not _owns_module(mod):
+        abort(403)
     if mod:
         lms_toggle_publish(module_id, not mod['is_published'])
     return redirect(url_for('lms.module_manage', module_id=module_id))
@@ -86,6 +92,8 @@ def module_publish(module_id):
 @lms_bp.route('/lms/modules/<int:module_id>/delete', methods=['POST'])
 def module_delete(module_id):
     if not _uid() or not _is_instructor():
+        abort(403)
+    if not _owns_module(lms_get_module(module_id)):
         abort(403)
     for f in lms_get_files(module_id):
         fp = os.path.join(LMS_UPLOAD_DIR, f['filename'])
@@ -103,6 +111,8 @@ def module_delete(module_id):
 def module_archive(module_id):
     if not _uid() or not _is_instructor():
         abort(403)
+    if not _owns_module(lms_get_module(module_id)):
+        abort(403)
     lms_archive_module(module_id)
     if _role() == 'admin':
         return redirect('/admin')
@@ -115,6 +125,8 @@ def module_archive(module_id):
 def module_restore(module_id):
     if not _uid() or not _is_instructor():
         abort(403)
+    if not _owns_module(lms_get_module(module_id)):
+        abort(403)
     lms_restore_module(module_id)
     if _role() == 'admin':
         return redirect('/admin')
@@ -126,6 +138,8 @@ def module_restore(module_id):
 @lms_bp.route('/lms/modules/<int:module_id>/delete-archived', methods=['POST'])
 def module_delete_archived(module_id):
     if not _uid() or not _is_instructor():
+        abort(403)
+    if not _owns_module(lms_get_module(module_id)):
         abort(403)
     lms_delete_module(module_id)
     if _role() == 'admin':
@@ -140,6 +154,8 @@ def module_delete_archived(module_id):
 @lms_bp.route('/lms/modules/<int:module_id>/files/upload', methods=['POST'])
 def file_upload(module_id):
     if not _uid() or not _is_instructor():
+        return jsonify(error="Unauthorized"), 403
+    if not _owns_module(lms_get_module(module_id)):
         return jsonify(error="Unauthorized"), 403
     f = request.files.get('file')
     if not f or not f.filename:
@@ -157,6 +173,8 @@ def file_upload(module_id):
 @lms_bp.route('/lms/modules/<int:module_id>/files/<int:file_id>/delete', methods=['POST'])
 def file_delete(module_id, file_id):
     if not _uid() or not _is_instructor():
+        abort(403)
+    if not _owns_module(lms_get_module(module_id)):
         abort(403)
     f = lms_get_file(file_id)
     if f:

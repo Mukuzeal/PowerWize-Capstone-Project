@@ -170,6 +170,25 @@
 </section>
 {%- endmacro %}
 
+{# Quiet header for transactional pages (registration forms, solar request,
+   Solara). Unlike masthead() this does not use the reveal system — a visitor
+   filling in a form is in a task, not reading a brochure. #}
+{% macro fhead(crumbs, tag, title_html, lede, meta=[]) -%}
+<header class="fhead">
+  <div class="fhead__crumbs">
+    {%- for t, h in crumbs %}<a class="mono" href="{{ h }}">{{ t }}</a><span class="mono">/</span>{% endfor %}
+    <span class="mono mono--signal">{{ tag }}</span>
+  </div>
+  <h1>{{ title_html | safe }}</h1>
+  <p class="fhead__lede">{{ lede }}</p>
+  {%- if meta %}
+  <div class="fhead__meta">
+    {%- for k, v in meta %}<span>{{ k }} <b>{{ v }}</b></span>{% endfor %}
+  </div>
+  {%- endif %}
+</header>
+{%- endmacro %}
+
 {% macro marquee() -%}
 <div class="marquee" aria-hidden="true">
   <div class="marquee__track">

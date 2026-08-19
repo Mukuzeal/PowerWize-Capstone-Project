@@ -51,6 +51,7 @@
     {% endif %}
 
     <form method="post" enctype="multipart/form-data" id="exam-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% if exam_questions %}
       <div style="margin-top:24px;padding:16px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;margin-bottom:20px">
         <h4 style="margin:0 0 12px;color:#166534"><i class="fa-solid fa-circle-info"></i> Answer All Questions Below</h4>

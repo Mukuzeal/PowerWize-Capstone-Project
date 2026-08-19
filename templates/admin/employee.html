@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Employee Dashboard – EnergyWize</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -209,6 +210,7 @@
                       <i class="fa-solid fa-pen"></i> Manage
                     </a>
                     <form action="/lms/modules/{{ mod.id }}/archive" method="post" style="display:inline;flex:1">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="mod-btn archive" onclick="return confirm('Archive this module?')" title="Archive module">
                         <i class="fa-solid fa-box"></i> Archive
                       </button>
@@ -252,11 +254,13 @@
                   {% endif %}
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
                     <form action="/lms/modules/{{ mod.id }}/restore" method="post" style="flex:1">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="mod-btn" style="width:100%;background:#16A34A" onclick="return confirm('Restore this module?')">
                         <i class="fa-solid fa-rotate-left"></i> Restore
                       </button>
                     </form>
                     <form action="/lms/modules/{{ mod.id }}/delete-archived" method="post" style="flex:0">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="mod-btn delete" onclick="return confirm('Permanently delete this module? This cannot be undone.')">
                         <i class="fa-solid fa-trash"></i>
                       </button>
@@ -511,6 +515,11 @@
                 var form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/lms/modules/' + moduleId + '/delete';
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = document.querySelector('meta[name="csrf-token"]').content;
+                form.appendChild(csrfInput);
                 document.body.appendChild(form);
                 form.submit();
             }
