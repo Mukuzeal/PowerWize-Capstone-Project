@@ -1,100 +1,108 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Successful – EnergyWize</title>
-    {{ form_styles() }}
-    <link rel="stylesheet" href="/static/payment-success.css">
-</head>
+{% block title %}Payment Successful – EnergyWize{% endblock %}
+{% block description %}Your EnergyWize training payment is confirmed and recorded on-chain.{% endblock %}
 
-<body>
-    {{ header("Payment Successful") }}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
 
-    <div class="hero">
-        <span class="hero-tag">Transaction Complete</span>
-        <h1>Payment <em>Confirmed</em></h1>
-        <p>Your payment has been verified and recorded on the Polygon blockchain.</p>
-    </div>
+{% block main %}
+<section class="formpage">
+  <div class="shell">
+    <div class="result-wrap">
 
-    <div class="page-body">
-        <div class="success-wrap">
+      {{ fhead(
+        [('Home', url_for('registration.index'))],
+        'Transaction Complete',
+        'Payment<br><em>Confirmed</em>',
+        'Your dashboard is unlocked. The receipt below is written to the Polygon blockchain, so it can be verified by anyone without going through us.'
+      ) }}
 
-            <div class="success-card">
-                <div class="success-header">
-                    <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
-                    <h2>Payment Successful</h2>
-                    <p>Your receipt has been secured on the blockchain.</p>
-                </div>
-
-                {% if receipt %}
-                <div class="success-body">
-                    {% if receipt.receipt_id %}
-                    <div class="info-row">
-                        <span class="label">Receipt ID</span>
-                        <span class="value">{{ receipt.receipt_id }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="info-row">
-                        <span class="label">Reference</span>
-                        <span class="value" style="font-size:11px">{{ receipt.paymongo_id }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Amount Paid</span>
-                        <span class="value">₱{{ "%.2f"|format(receipt.amount_php) }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Payment Method</span>
-                        <span class="value">{{ receipt.method | upper }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Date</span>
-                        <span class="value">{{ receipt.paid_at.strftime("%B %d, %Y %I:%M %p") if receipt.paid_at else "–" }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Blockchain Status</span>
-                        <span class="value" style="color:{% if receipt.tx_hash %}#166534{% else %}#854D0E{% endif %}">
-            <i class="fa-solid fa-{% if receipt.tx_hash %}link{% else %}clock{% endif %}"></i>
-            {% if receipt.tx_hash %}Verified on Polygon{% else %}Pending – check back shortly{% endif %}
-          </span>
-                    </div>
-                </div>
-
-                {% if receipt.qr_code_path %}
-                <div class="qr-section">
-                    <h3>Your Verification QR Code</h3>
-                    <p>Save this QR code to verify your payment anytime.</p>
-                    <img class="qr-img" src="/{{ receipt.qr_code_path }}" alt="Receipt QR Code"> {% if receipt.tx_hash %}
-                    <br>
-                    <a class="chain-badge" href="https://amoy.polygonscan.com/tx/{{ receipt.tx_hash }}" target="_blank">
-                        <i class="fa-solid fa-cube"></i> View on PolygonScan
-                    </a>
-                    {% endif %}
-                </div>
-                {% else %}
-                <div style="text-align:center;padding:20px;font-size:13px;color:#854D0E">
-                    <i class="fa-solid fa-clock"></i> Blockchain QR is being generated. Refresh in a moment.
-                </div>
-                {% endif %} {% else %}
-                <div style="text-align:center;padding:24px;font-size:13px;color:var(--gray)">
-                    Payment recorded. Receipt details are loading...
-                </div>
-                {% endif %}
-            </div>
-
-            <a href="/portal" class="action-btn">
-                <i class="fa-solid fa-house"></i> Go to My Portal
-            </a>
-            <a href="/verify" class="action-btn secondary">
-                <i class="fa-solid fa-qrcode"></i> Verify Receipt
-            </a>
-
+      <div class="result-card">
+        <div class="result-header">
+          <div class="result-icon"><i class="fa-solid fa-circle-check"></i></div>
+          <div class="result-header-text">
+            <h2>Payment received</h2>
+            <p>Keep this receipt — it is your proof of enrolment</p>
+          </div>
         </div>
+
+        {% if receipt %}
+        <div class="result-body">
+          {% if receipt.receipt_id %}
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-hashtag"></i> Receipt ID</span>
+            <span class="value">{{ receipt.receipt_id }}</span>
+          </div>
+          {% endif %}
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-peso-sign"></i> Amount paid</span>
+            <span class="value is-signal">₱{{ "{:,.2f}".format(receipt.amount_php) }}</span>
+          </div>
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-wallet"></i> Method</span>
+            <span class="value">{{ receipt.method|upper }}</span>
+          </div>
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-calendar-check"></i> Date</span>
+            <span class="value">{{ receipt.paid_at.strftime("%B %d, %Y · %I:%M %p") if receipt.paid_at else "—" }}</span>
+          </div>
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-cube"></i> Blockchain</span>
+            <span class="value">
+              {% if receipt.tx_hash %}
+              <span class="status-pill st-completed"><i class="fa-solid fa-link"></i> On Polygon</span>
+              {% else %}
+              <span class="status-pill st-pending_review"><i class="fa-solid fa-clock"></i> Writing</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-receipt"></i> Reference</span>
+            <span class="value" style="font-family:var(--mono);font-size:0.72rem;overflow-wrap:anywhere">{{ receipt.paymongo_id }}</span>
+          </div>
+        </div>
+
+        {% if receipt.qr_code_path %}
+        <div class="qr-section">
+          <h3>Verification QR Code</h3>
+          <p>Save this. Scanning it re-checks the payment against the chain at any time.</p>
+          <img class="qr-img" src="/{{ receipt.qr_code_path }}" alt="QR code encoding this receipt's verification data">
+          {% if receipt.tx_hash %}
+          <a class="chain-link" href="https://amoy.polygonscan.com/tx/{{ receipt.tx_hash }}" target="_blank" rel="noopener">
+            <i class="fa-solid fa-cube"></i> View transaction on PolygonScan
+          </a>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="qr-section">
+          <p style="margin:0">
+            <i class="fa-solid fa-clock"></i>
+            The blockchain QR is still being generated. Refresh in a moment — your payment is already recorded.
+          </p>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="qr-section">
+          <p style="margin:0">Payment recorded. Receipt details are still loading — refresh in a moment.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <a class="btn-submit is-block" href="/portal" style="margin-top:1.25rem">
+        <i class="fa-solid fa-arrow-right"></i> Go to my portal
+      </a>
+
+      <div class="result-foot">
+        <a href="/verify"><i class="fa-solid fa-qrcode"></i> Verify this receipt</a>
+      </div>
+
     </div>
-
-    <footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
-</body>
-
-</html>
+  </div>
+</section>
+{% endblock %}

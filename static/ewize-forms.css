@@ -80,6 +80,9 @@
   color: var(--signal);
   font-size: 0.8rem;
 }
+/* A section can also report a dead end (an expired link, a failed check). The
+   glyph is the same size and place; only the colour says it went wrong. */
+.section-icon.is-bad { border-color: var(--ember); color: #F09A91; }
 .section-header h2 {
   font-size: 1.0625rem;
   font-variation-settings: "wdth" 100, "wght" 500;
@@ -460,7 +463,7 @@ input[type=file] { display: none; }
 /* --------------------------------------------------------------------------
    9. BANNERS
    -------------------------------------------------------------------------- */
-.error-banner, .flash-success, .flash-error, .notice-box, .panel-info {
+.error-banner, .flash-success, .flash-error, .notice-box, .panel-info, .err-box {
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
   border: var(--rule) solid var(--line-mid);
@@ -469,7 +472,7 @@ input[type=file] { display: none; }
   line-height: 1.65;
   color: var(--fg-dim);
 }
-.error-banner, .flash-error { border-color: var(--ember); background: color-mix(in oklab, var(--ember) 9%, var(--ink-100)); }
+.error-banner, .flash-error, .err-box { border-color: var(--ember); background: color-mix(in oklab, var(--ember) 9%, var(--ink-100)); }
 .error-banner strong, .flash-error strong { display: flex; align-items: center; gap: 0.5rem; color: #F09A91; font-variation-settings: "wght" 600; margin-bottom: 0.4rem; }
 .error-banner ul { padding-left: 1.2rem; list-style: disc; }
 .error-banner li { color: #F09A91; margin-block: 0.2rem; }
@@ -653,8 +656,12 @@ input[type=file] { display: none; }
   color: var(--fg-dim);
 }
 .status-pill.st-ai_processed, .status-pill.st-submitted { border-color: var(--line-strong); color: var(--fg-dim); }
-.status-pill.st-pending_review { border-color: var(--amber-deep); color: var(--amber); }
-.status-pill.st-reviewed, .status-pill.st-quotation_sent, .status-pill.st-completed { border-color: var(--signal-dim); color: var(--signal); }
+.status-pill.st-pending_review, .status-pill.st-pending { border-color: var(--amber-deep); color: var(--amber); }
+.status-pill.st-reviewed, .status-pill.st-quotation_sent, .status-pill.st-completed,
+.status-pill.st-accepted { border-color: var(--signal-dim); color: var(--signal); }
+/* Registration statuses (pending/accepted/rejected) share the pill with solar
+   request statuses — one vocabulary for "where does this stand". */
+.status-pill.st-rejected { border-color: var(--ember); color: #F09A91; }
 
 .prelim-badge {
   display: inline-flex; align-items: center; gap: 0.5rem;
@@ -1072,7 +1079,151 @@ input[type=file] { display: none; }
 }
 
 /* --------------------------------------------------------------------------
-   15. MOTION
+   15. PAYMENT
+   A checkout is the one screen where hesitation is expensive, so almost
+   nothing here is new: the card form is .form-card / .field / .row-2, the
+   method switch is .mode-tabs, and the amount is a .specs-grid readout. What
+   is left below is only what a payment genuinely adds — a QR that does not
+   exist until it is generated, and status that has to report itself while the
+   page waits on someone else's server.
+   -------------------------------------------------------------------------- */
+/* A control that is the only thing to do next takes the whole measure. */
+.is-block { width: 100%; justify-content: center; }
+
+.pay-panel { display: none; }
+.pay-panel.active { display: block; }
+
+.card-icons { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+.card-icon {
+  display: grid; place-items: center;
+  height: 2rem; padding-inline: 0.75rem;
+  border: var(--rule) solid var(--line-mid);
+  background: var(--ink-050);
+}
+/* The brand glyphs are solid shapes. Left at full contrast they read as white
+   stickers on a page drawn entirely in hairlines, so they are muted to the
+   weight of the label they sit beside. */
+.card-icon > i { font-size: 1.15rem; color: var(--fg-mute); }
+
+.pay-note {
+  display: flex; align-items: flex-start; justify-content: center; gap: 0.5rem;
+  margin-top: 1.1rem;
+  font-size: 0.78rem; line-height: 1.6; color: var(--fg-mute);
+}
+.pay-note > i { color: var(--signal); margin-top: 0.2rem; flex-shrink: 0; }
+
+.qrph-intro { margin-bottom: 1.5rem; text-align: center; }
+.qrph-intro p { font-size: 0.875rem; color: var(--fg-dim); line-height: 1.7; }
+.qrph-wallets { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
+
+/* Nothing stands in for the code before it is generated — an empty frame
+   promising a QR reads as a QR that failed to load. */
+.qr-box { display: none; text-align: center; }
+.qr-box.shown { display: block; }
+.qr-img-wrap {
+  display: inline-block; padding: 0.75rem;
+  border: var(--rule) solid var(--signal);
+  /* The one paper surface in the system: a QR has to be scannable, and phone
+     cameras want dark-on-light. */
+  background: #fff;
+}
+.qr-img-wrap img { display: block; width: 13.5rem; height: 13.5rem; }
+.qr-timer { margin-top: 1rem; font-family: var(--mono); font-size: var(--fs-mono-lg); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-mute); }
+.qr-timer span { color: var(--signal); }
+.qr-test-link { display: none; margin-top: 0.85rem; font-family: var(--mono); font-size: var(--fs-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber); }
+.qr-test-link:hover { border-bottom: var(--rule) solid currentColor; }
+
+/* While the page waits on the wallet, this line is the only thing that can
+   tell the payer anything, so it states which of the three states it is in
+   rather than spinning indefinitely. */
+.qr-status {
+  display: none;
+  align-items: center; justify-content: center; gap: 0.5rem;
+  margin-bottom: 1.25rem; padding: 0.55rem 1rem;
+  border: var(--rule) solid var(--line-mid);
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-mute);
+}
+.qr-status.waiting, .qr-status.paid, .qr-status.failed { display: flex; }
+.qr-status.waiting { border-color: var(--amber-deep); color: var(--amber); }
+.qr-status.paid { border-color: var(--signal-dim); background: color-mix(in oklab, var(--signal) 8%, transparent); color: var(--signal); }
+.qr-status.failed { border-color: var(--ember); color: #F09A91; }
+
+/* Shares the banner styling in §9; payment.js only toggles `.shown`. */
+.err-box { display: none; color: #F09A91; }
+.err-box.shown { display: flex; align-items: center; gap: 0.6rem; }
+
+/* Written into a button's own label while a request is in flight, so the
+   wait is reported where the press happened. */
+.spinner {
+  width: 1rem; height: 1rem; flex-shrink: 0;
+  border-radius: 999px;
+  border: 2px solid color-mix(in oklab, var(--ink-000) 30%, transparent);
+  border-top-color: var(--ink-000);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.secure-badge {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  margin-top: 1.25rem;
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-ghost);
+}
+
+/* --------------------------------------------------------------------------
+   16. RECEIPT VERIFICATION
+   The verdict reuses the solar result vocabulary (§12) — same card, same rows
+   — because both pages answer one question with a set of facts underneath it.
+   -------------------------------------------------------------------------- */
+/* html5-qrcode injects its own controls in here, so this owns the frame only.
+   Before Start is pressed the element has no children, and an empty bordered
+   box reads as a viewfinder that failed to open — so it does not exist yet. */
+#qr-reader { width: 100%; background: var(--ink-000); border: var(--rule) solid var(--line-mid); }
+#qr-reader:empty { display: none; }
+#qr-reader video { display: block; width: 100% !important; }
+
+.scan-actions { display: flex; gap: 0.6rem; margin-top: 0.9rem; }
+.scan-status {
+  display: none;
+  align-items: center; justify-content: center; gap: 0.5rem;
+  margin-top: 0.75rem; padding: 0.55rem 1rem;
+  border: var(--rule) solid var(--signal-dim);
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--signal);
+}
+.scan-status.is-bad { border-color: var(--ember); color: #F09A91; }
+
+/* A failed verification is still a result, not an error banner — same card,
+   same weight, only the seal changes colour. */
+.result-icon.is-bad { border-color: var(--ember); color: #F09A91; }
+
+.chain-link {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  border: var(--rule) solid var(--line-strong);
+  font-size: 0.82rem; color: var(--fg-dim);
+  transition: border-color 180ms var(--e-out), color 180ms var(--e-out);
+}
+.chain-link:hover { border-color: var(--signal); color: var(--signal); }
+/* Straight inside the card it has no padded parent to sit in, so it brings
+   its own inset. */
+.result-card > .chain-link { margin: 1rem 1.5rem 1.35rem; }
+
+.qr-section { padding: 1.5rem; text-align: center; border-top: var(--rule) solid var(--line-mid); }
+.qr-section h3 { font-size: 0.95rem; font-variation-settings: "wght" 500; color: var(--fg); }
+.qr-section p { margin-top: 0.25rem; margin-bottom: 1.1rem; font-size: 0.82rem; color: var(--fg-mute); }
+.qr-section .qr-img {
+  display: block; margin-inline: auto;
+  width: 11rem; height: 11rem; padding: 0.6rem;
+  border: var(--rule) solid var(--line-strong);
+  background: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   17. MOTION
    Transitions here report state — which step you are on, that a message
    landed, that a control took the press. Nothing is decorative, because a
    form is a task and choreography in the middle of a task is friction.
@@ -1140,10 +1291,12 @@ input[type=file] { display: none; }
 }
 
 /* --------------------------------------------------------------------------
-   16. REDUCED MOTION
+   18. REDUCED MOTION
    -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .status-dot, .typing-dot { animation: none; }
+  /* The spinner is exempt: it is the only signal that a payment request is
+     still in flight, and a frozen ring reads as a hung page. */
   .typing-dot { opacity: 0.6; }
 
   /* Keep the state report, drop the travel. */

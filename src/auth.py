@@ -8,9 +8,7 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/auth")
 def auth():
-    return render_template("shared/landing.html", active_tab="login",
-                           login_errors=[], login_data=None,
-                           reg_errors=[], reg_data=None, reg_success=False)
+    return render_template("shared/landing.html", login_errors=[], login_data=None)
 
 
 @auth_bp.route("/auth/login", methods=["POST"])
@@ -47,59 +45,16 @@ def auth_login():
                 return redirect("/payment")
             return redirect("/portal")
 
-    return render_template("shared/landing.html", active_tab="login",
-                           login_errors=errors, login_data=request.form,
-                           reg_errors=[], reg_data=None, reg_success=False)
+    return render_template("shared/landing.html",
+                           login_errors=errors, login_data=request.form)
 
 
-@auth_bp.route("/auth/register", methods=["POST"])
-def auth_register():
-    f        = request.form
-    fname    = f.get("fname", "").strip()
-    lname    = f.get("lname", "").strip()
-    email    = f.get("email", "").strip()
-    password = f.get("password", "").strip()
-    confirm  = f.get("confirm_password", "").strip()
-    contact  = f.get("contact_number", "").strip()
-    company  = f.get("company_name", "").strip()
-
-    errors = []
-    if not fname:    errors.append("First name is required.")
-    if not lname:    errors.append("Last name is required.")
-    if not email:    errors.append("Email is required.")
-    if not password: errors.append("Password is required.")
-    elif len(password) < 8:
-        errors.append("Password must be at least 8 characters.")
-    if password and confirm != password:
-        errors.append("Passwords do not match.")
-    if not contact:  errors.append("Contact number is required.")
-
-    if not errors:
-        conn = get_db()
-        cur  = conn.cursor()
-        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-        if cur.fetchone():
-            errors.append("An account with that email already exists.")
-        cur.close(); conn.close()
-
-    if errors:
-        return render_template("shared/landing.html", active_tab="register",
-                               login_errors=[], login_data=None,
-                               reg_errors=errors, reg_data=f, reg_success=False)
-
-    conn = get_db()
-    cur  = conn.cursor()
-    cur.execute(
-        "INSERT INTO users (role, fname, lname, email, password_hash, contact_number, company_name) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        ("trainee", fname, lname, email,
-         generate_password_hash(password), contact, company)
-    )
-    conn.commit(); cur.close(); conn.close()
-
-    return render_template("shared/landing.html", active_tab="register",
-                           login_errors=[], login_data=None,
-                           reg_errors=[], reg_data=None, reg_success=True)
+# There is deliberately no public self-registration route. An account is only
+# created from a vetted invitation: registration form -> admin review -> emailed
+# token -> /create-account/<token> (src/onboarding.py), which carries the
+# training_type and payment_status the trainee was approved for. A plain
+# email+password signup would mint trainees that skipped ID upload, selfie
+# liveness and admin verification entirely.
 
 
 @auth_bp.route("/auth/logout")

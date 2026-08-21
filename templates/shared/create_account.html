@@ -50,24 +50,31 @@
         <div class="section-icon"><i class="fa-solid fa-lock"></i></div>
         <div>
           <h2>Set Your Password</h2>
-          <p>Minimum 8 characters</p>
+          <p>Last step</p>
         </div>
       </div>
       <div class="form-body">
 
         <div class="field">
-          <label>Password <span class="req">*</span></label>
+          <label for="pw">Password <span class="req">*</span></label>
           <div class="pw-wrap">
-            <input type="password" name="password" id="pw" placeholder="At least 8 characters" required>
-            <button type="button" class="pw-toggle" onclick="togglePw('pw',this)"><i class="fa-solid fa-eye"></i></button>
+            <input type="password" name="password" id="pw" placeholder="At least 8 characters"
+                   required autocomplete="new-password">
+            <button type="button" class="pw-toggle" onclick="togglePw('pw',this)" aria-label="Show password">
+              <i class="fa-solid fa-eye"></i>
+            </button>
           </div>
+          <p class="form-hint" style="margin-top:0.5rem">Minimum 8 characters.</p>
         </div>
 
         <div class="field">
-          <label>Confirm Password <span class="req">*</span></label>
+          <label for="pw2">Confirm Password <span class="req">*</span></label>
           <div class="pw-wrap">
-            <input type="password" name="confirm_password" id="pw2" placeholder="Re-enter password" required>
-            <button type="button" class="pw-toggle" onclick="togglePw('pw2',this)"><i class="fa-solid fa-eye"></i></button>
+            <input type="password" name="confirm_password" id="pw2" placeholder="Re-enter password"
+                   required autocomplete="new-password">
+            <button type="button" class="pw-toggle" onclick="togglePw('pw2',this)" aria-label="Show password">
+              <i class="fa-solid fa-eye"></i>
+            </button>
           </div>
         </div>
 
@@ -84,5 +91,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='create-account.js') }}"></script>
+<script src="{{ url_for('static', filename='pw-toggle.js') }}"></script>
 {% endblock %}

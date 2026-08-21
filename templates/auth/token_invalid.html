@@ -1,22 +1,55 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Invalid Link – EnergyWize</title>
-{{ form_styles() }}
-</head>
-<body>
-{{ header("Account Setup") }}
-<div class="hero">
-  <span class="hero-tag">Link Error</span>
-  <h1>This Link Is<br><em>No Longer Valid</em></h1>
-  <p>{{ reason }}</p>
-</div>
-<div class="page-body" style="text-align:center;padding-top:2rem">
-  <p style="color:rgba(255,255,255,0.6);font-size:14px">If you believe this is an error, please contact EnergyWize support.</p>
-</div>
-<footer class="site-footer">© 2026 EnergyWize · DOE Training Program</footer>
-</body>
-</html>
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+
+{% block title %}Invalid Link – EnergyWize{% endblock %}
+{% block description %}This account setup link is no longer valid.{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+{% endblock %}
+
+{% block main %}
+<section class="formpage">
+  <div class="shell">
+    <div class="result-wrap">
+
+      {{ fhead(
+        [('Home', url_for('registration.index'))],
+        'Account Setup',
+        'This Setup Link<br><em>No Longer Works</em>',
+        reason
+      ) }}
+
+      <div class="form-card">
+        <div class="section-header">
+          <div class="section-icon is-bad"><i class="fa-solid fa-link-slash"></i></div>
+          <div>
+            <h2>Nothing has been created</h2>
+            <p>No account was set up</p>
+          </div>
+        </div>
+        <div class="form-body">
+          <p class="prose">
+            Setup links are single-use and expire. If yours ran out before you got to it, we can
+            issue another — the replacement goes to the same address your registration was filed
+            under.
+          </p>
+          <div class="form-disclaimer" style="margin-top:1.25rem">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>
+              Already set your password on an earlier visit? Then the account exists and this link
+              has simply been spent — sign in instead.
+            </span>
+          </div>
+        </div>
+        <div class="form-footer">
+          <p>Email <a class="terms-link" href="mailto:{{ SITE.emails[0][1] }}">{{ SITE.emails[0][1] }}</a> and we will re-issue it.</p>
+          <a class="btn-submit" href="/auth">Go to Sign In <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

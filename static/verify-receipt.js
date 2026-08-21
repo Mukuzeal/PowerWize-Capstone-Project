@@ -3,7 +3,8 @@ var scanner = null;
 function startScanner() {
   document.getElementById('btn-start').style.display = 'none';
   document.getElementById('btn-stop').style.display  = 'flex';
-  document.getElementById('scan-status').style.display = 'block';
+  // flex, not block — .scan-status centres its icon and label on a row.
+  document.getElementById('scan-status').style.display = 'flex';
 
   scanner = new Html5Qrcode('qr-reader');
   scanner.start(
@@ -16,8 +17,10 @@ function startScanner() {
     },
     function(error) {}
   ).catch(function() {
-    document.getElementById('scan-status').innerHTML =
-      '<i class="fa-solid fa-triangle-exclamation"></i> Camera not available. Use manual entry below.';
+    var status = document.getElementById('scan-status');
+    status.classList.add('is-bad');
+    status.innerHTML =
+      '<i class="fa-solid fa-triangle-exclamation"></i> Camera unavailable — use manual entry';
   });
 }
 
@@ -25,4 +28,6 @@ function stopScanner() {
   if (scanner) { scanner.stop().catch(function() {}); scanner = null; }
   document.getElementById('btn-start').style.display = 'flex';
   document.getElementById('btn-stop').style.display  = 'none';
+  // The status line reported an in-progress scan; nothing is in progress now.
+  document.getElementById('scan-status').style.display = 'none';
 }
