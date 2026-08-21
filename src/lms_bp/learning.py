@@ -3,10 +3,11 @@ from flask import render_template, request, redirect, url_for, jsonify, abort
 from db import (lms_get_modules_for_trainee, lms_get_progress, lms_get_module,
                 lms_get_files, lms_get_quiz, lms_get_exam, lms_get_user_attempt,
                 lms_get_user_exam_submission, get_user_feedback, lms_update_progress,
-                lms_get_modules, save_feedback)
+                lms_get_module_requirements, save_feedback)
 
 from . import lms_bp
-from ._shared import _uid, _is_trainee, _module_content_text, _ai_module_chat
+from ._shared import (_uid, _is_trainee, _module_content_text, _ai_module_chat,
+                      _progress_steps)
 
 
 # ── TRAINEE ROUTES ────────────────────────────────────────────────────────────
@@ -18,10 +19,14 @@ def learn():
     mods         = lms_get_modules_for_trainee(_uid(), published_only=True)
     progress_list = lms_get_progress(_uid())
     prog_map     = {p['module_id']: p for p in progress_list}
+    reqs         = lms_get_module_requirements([m['id'] for m in mods])
+    steps_map    = {m['id']: _progress_steps(prog_map.get(m['id']), reqs.get(m['id']))
+                    for m in mods}
     total        = len(mods)
     completed    = sum(1 for m in mods if prog_map.get(m['id'], {}).get('completed'))
     pct          = round(completed / total * 100) if total else 0
     return render_template('lms/learn.html', modules=mods, prog_map=prog_map,
+                           steps_map=steps_map,
                            completed=completed, total=total, pct=pct)
 
 
@@ -51,13 +56,17 @@ def progress():
     if not _uid():
         return redirect(url_for('auth.auth'))
     uid          = _uid()
-    mods         = lms_get_modules(published_only=True)
+    mods         = lms_get_modules_for_trainee(uid, published_only=True)
     progress_list = lms_get_progress(uid)
     prog_map     = {p['module_id']: p for p in progress_list}
+    reqs         = lms_get_module_requirements([m['id'] for m in mods])
+    steps_map    = {m['id']: _progress_steps(prog_map.get(m['id']), reqs.get(m['id']))
+                    for m in mods}
     total        = len(mods)
     completed    = sum(1 for m in mods if prog_map.get(m['id'], {}).get('completed'))
     pct          = round(completed / total * 100) if total else 0
     return render_template('lms/progress.html', modules=mods, prog_map=prog_map,
+                           steps_map=steps_map, reqs=reqs,
                            completed=completed, total=total, pct=pct)
 
 

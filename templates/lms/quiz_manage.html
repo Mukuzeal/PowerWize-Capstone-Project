@@ -1,51 +1,50 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
+{%- extends "site/base.html" -%}
+{% from "shared/macros.html" import header %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz – {{ mod.title }}</title>
-    {{ form_styles() }}
-    <link rel="stylesheet" href="/static/lms.css">
-</head>
+{% block title %}Quiz – {{ mod.title}}{% endblock %}
 
-<body>
-    {{ header("Training Modules") }}
-    <div class="page-body">
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{{ header("Training Modules")}}
+<div class="page-body">
         <div class="lms-wrap">
 
             <div class="lms-page-header">
                 <div>
                     <h2 class="lms-page-title"><i class="fa-solid fa-circle-question"></i> Quiz Manager</h2>
-                    <p class="lms-page-sub">{{ mod.title }}</p>
+                    <p class="lms-page-sub">{{ mod.title}}</p>
                 </div>
-                <a href="/lms/modules/{{ mod.id }}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+                <a href="/lms/modules/{{ mod.id}}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
             </div>
 
             <!-- Quiz settings -->
             <div class="lms-card">
                 <h3 class="card-inner-title">Quiz Settings</h3>
                 <form method="post">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
                     <input type="hidden" name="action" value="save_meta">
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Quiz Title</label>
-                            <input type="text" name="title" class="form-input" value="{{ quiz.title if quiz else mod.title + ' Quiz' }}">
+                            <input type="text" name="title" class="form-input" value="{{ quiz.title if quiz else mod.title + ' Quiz'}}">
                         </div>
                         <div class="form-group form-group-sm">
                             <label class="form-label">Time Limit (min)</label>
-                            <input type="number" name="time_limit" class="form-input" value="{{ quiz.time_limit_mins if quiz else 30 }}" min="5" max="180">
+                            <input type="number" name="time_limit" class="form-input" value="{{ quiz.time_limit_mins if quiz else 30}}" min="5" max="180">
                         </div>
                         <div class="form-group form-group-sm">
                             <label class="form-label">Passing Score (%)</label>
-                            <input type="number" name="passing_score" class="form-input" value="{{ quiz.passing_score if quiz else 70 }}" min="1" max="100">
+                            <input type="number" name="passing_score" class="form-input" value="{{ quiz.passing_score if quiz else 70}}" min="1" max="100">
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
-                        <textarea name="description" class="form-input" rows="2">{{ quiz.description if quiz else '' }}</textarea>
+                        <textarea name="description" class="form-input" rows="2">{{ quiz.description if quiz else ''}}</textarea>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button> {% if quiz %}
@@ -64,12 +63,12 @@
                     </div>
                 </form>
                 {% if quiz %}
-                <form id="publish-form" action="/lms/modules/{{ mod.id }}/quiz" method="post">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <form id="publish-form" action="/lms/modules/{{ mod.id}}/quiz" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
                     <input type="hidden" name="action" value="publish">
                 </form>
-                <form id="unpublish-form" action="/lms/modules/{{ mod.id }}/quiz" method="post">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <form id="unpublish-form" action="/lms/modules/{{ mod.id}}/quiz" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
                     <input type="hidden" name="action" value="unpublish">
                 </form>
                 {% endif %}
@@ -79,29 +78,29 @@
             <!-- Questions -->
             <div class="lms-card">
                 <div class="card-section-header">
-                    <h3 class="card-inner-title">Questions <span class="badge badge-gray">{{ questions|length }}</span></h3>
+                    <h3 class="card-inner-title">Questions <span class="badge badge-gray">{{ questions|length}}</span></h3>
                     <button type="button" class="btn-sm btn-outline" onclick="addQuestion()">
         <i class="fa-solid fa-plus"></i> Add Question
       </button>
                 </div>
                 <form method="post" id="questions-form">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
                     <input type="hidden" name="action" value="save_questions">
                     <div id="questions-container">
                         {% for q in questions %} {% set qi = loop.index0 %}
-                        <div class="question-block" data-qi="{{ qi }}">
+                        <div class="question-block" data-qi="{{ qi}}">
                             <div class="question-header">
-                                <span class="question-num">Q{{ loop.index }}</span>
+                                <span class="question-num">Q{{ loop.index}}</span>
                                 <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)">
               <i class="fa-solid fa-trash"></i>
             </button>
                             </div>
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
                                 <div class="form-group" style="margin:0">
-                                    <input type="text" name="q_text[]" class="form-input" value="{{ q.question_text }}" placeholder="Question text" required>
+                                    <input type="text" name="q_text[]" class="form-input" value="{{ q.question_text}}" placeholder="Question text" required>
                                 </div>
                                 <div class="form-group" style="margin:0">
-                                    <select name="q_type[]" class="form-input" onchange="toggleQuestionType(this, {{ qi }})">
+                                    <select name="q_type[]" class="form-input" onchange="toggleQuestionType(this, {{ qi}})">
                 <option value="multiple_choice" {% if q.question_type == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
                 <option value="identification" {% if q.question_type == 'identification' %}selected{% endif %}>Identification</option>
                 <option value="enumeration" {% if q.question_type == 'enumeration' %}selected{% endif %}>Enumeration</option>
@@ -112,18 +111,18 @@
                             <div class="choices-list" {% if q.question_type !='multiple_choice' %}style="display:none" {% endif %}>
                                 {% for c in q.choices %}
                                 <div class="choice-row">
-                                    <input type="radio" name="c_correct_{{ qi }}" value="{{ loop.index0 }}" {% if c.is_correct %}checked{% endif %} class="choice-radio">
-                                    <input type="text" name="c_text_{{ qi }}[]" class="form-input choice-input" value="{{ c.choice_text }}" placeholder="Choice {{ loop.index }}">
+                                    <input type="radio" name="c_correct_{{ qi}}" value="{{ loop.index0}}" {% if c.is_correct %}checked{% endif %} class="choice-radio">
+                                    <input type="text" name="c_text_{{ qi}}[]" class="form-input choice-input" value="{{ c.choice_text}}" placeholder="Choice {{ loop.index}}">
                                     <button type="button" class="btn-xs btn-ghost" onclick="removeChoice(this)"><i class="fa-solid fa-times"></i></button>
                                 </div>
                                 {% endfor %}
                             </div>
-                            <button type="button" class="btn-xs btn-ghost" onclick="addChoice(this, {{ qi }})" {% if q.question_type !='multiple_choice' %}style="display:none" {% endif %}>
+                            <button type="button" class="btn-xs btn-ghost" onclick="addChoice(this, {{ qi}})" {% if q.question_type !='multiple_choice' %}style="display:none" {% endif %}>
             <i class="fa-solid fa-plus"></i> Add Choice
           </button>
                             <div class="correct-answer-field" {% if q.question_type=='multiple_choice' or q.question_type=='essay' %}style="display:none" {% endif %}>
                                 <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
-                                <input type="text" name="q_correct_{{ qi }}" class="form-input" value="{{ q.correct_answer or '' }}" placeholder="{% if q.question_type == 'enumeration' %}Separate items with commas{% else %}Type the expected answer{% endif %}">
+                                <input type="text" name="q_correct_{{ qi}}" class="form-input" value="{{ q.correct_answer or ''}}" placeholder="{% if q.question_type == 'enumeration' %}Separate items with commas{% else %}Type the expected answer{% endif %}">
                             </div>
                         </div>
                         {% endfor %}
@@ -146,9 +145,11 @@
 
         </div>
     </div>
+{% endblock %}
 
-    <script>
-        let qCount = {{ questions | length }};
+{% block scripts %}
+<script>
+        let qCount = {{ questions | length}};
 
         function toggleQuestionType(select, qi) {
             const block = select.closest('.question-block');
@@ -248,7 +249,7 @@ async function generateWithAI() {
   btn.disabled = true;
   loading.style.display = 'flex';
   try {
-    const res  = await fetch('/lms/modules/{{ mod.id }}/quiz/generate', {
+    const res  = await fetch('/lms/modules/{{ mod.id}}/quiz/generate', {
       method:'POST',
       headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
       body: JSON.stringify({num_questions: parseInt(numQuestions)})
@@ -308,6 +309,4 @@ async function generateWithAI() {
   btn.disabled = false;
 }
     </script>
-</body>
-
-</html>
+{% endblock %}

@@ -631,3 +631,25 @@ def lms_delete_module(module_id):
     conn = get_db(); cur = conn.cursor()
     cur.execute("DELETE FROM lms_modules WHERE id = %s AND archived_at IS NOT NULL", (module_id,))
     conn.commit(); cur.close(); conn.close()
+
+
+def lms_get_module_requirements(module_ids):
+    """Which of these modules actually have a quiz / practical exam, in one query.
+
+    The trainee progress bars use this so they only count work that exists — a
+    module with no exam should not sit at 50% forever waiting for one. Any quiz
+    or exam row counts as required, matching _check_completion().
+    """
+    if not module_ids:
+        return {}
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT m.id AS module_id,
+               EXISTS(SELECT 1 FROM lms_quizzes q         WHERE q.module_id = m.id) AS has_quiz,
+               EXISTS(SELECT 1 FROM lms_practical_exams e WHERE e.module_id = m.id) AS has_exam
+        FROM lms_modules m
+        WHERE m.id = ANY(%s)
+    """, (list(module_ids),))
+    rows = cur.fetchall(); cur.close(); conn.close()
+    return {r["module_id"]: {"has_quiz": bool(r["has_quiz"]),
+                             "has_exam": bool(r["has_exam"])} for r in rows}

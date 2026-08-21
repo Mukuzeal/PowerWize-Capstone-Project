@@ -1,44 +1,45 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Practical Exam – {{ mod.title }}</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
-</head>
-<body>
-{{ header("Training Modules") }}
+{%- extends "site/base.html" -%}
+{% from "shared/macros.html" import header %}
+
+{% block title %}Practical Exam – {{ mod.title}}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{{ header("Training Modules")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
   <div class="lms-page-header">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h2>
-      <p class="lms-page-sub">{{ mod.title }}</p>
+      <p class="lms-page-sub">{{ mod.title}}</p>
     </div>
-    <a href="/lms/modules/{{ mod.id }}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <a href="/lms/modules/{{ mod.id}}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
   </div>
 
   <div class="lms-card">
     <form method="post" id="exam-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
       <input type="hidden" name="action" value="save_meta">
       <div class="form-group">
         <label class="form-label">Exam Title <span class="req">*</span></label>
-        <input type="text" name="title" class="form-input" value="{{ exam.title if exam else '' }}"
+        <input type="text" name="title" class="form-input" value="{{ exam.title if exam else ''}}"
                placeholder="e.g. Solar Panel Installation Practical" required>
       </div>
       <div class="form-group">
         <label class="form-label">Task Instructions <span class="req">*</span></label>
         <textarea name="instructions" class="form-input form-textarea" rows="8" required
-          placeholder="Describe what the trainee must do, step by step…">{{ exam.instructions if exam else '' }}</textarea>
+          placeholder="Describe what the trainee must do, step by step…">{{ exam.instructions if exam else ''}}</textarea>
       </div>
       <div class="form-group">
         <label class="form-label">Evaluation Criteria</label>
         <textarea name="criteria" class="form-input form-textarea" rows="5"
-          placeholder="How will submissions be graded? (rubric, checklist, etc.)">{{ exam.evaluation_criteria if exam else '' }}</textarea>
+          placeholder="How will submissions be graded? (rubric, checklist, etc.)">{{ exam.evaluation_criteria if exam else ''}}</textarea>
       </div>
       <div class="form-group">
         <label class="lms-checkbox-label">
@@ -48,9 +49,9 @@
         <p class="form-hint">If enabled, trainees must grant camera access before viewing the exam.</p>
       </div>
       <div class="form-actions">
-        <a href="/lms/modules/{{ mod.id }}" class="btn-ghost">Cancel</a>
+        <a href="/lms/modules/{{ mod.id}}" class="btn-ghost">Cancel</a>
         <button type="submit" class="btn-primary">
-          <i class="fa-solid fa-floppy-disk"></i> {{ 'Update Exam' if exam else 'Create Exam' }}
+          <i class="fa-solid fa-floppy-disk"></i> {{ 'Update Exam' if exam else 'Create Exam'}}
         </button>
       </div>
     </form>
@@ -60,24 +61,24 @@
   <div class="lms-card" style="margin-top:16px">
     <h3 class="card-inner-title"><i class="fa-solid fa-list"></i> Exam Questions</h3>
     <form method="post" id="questions-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
       <input type="hidden" name="action" value="save_questions">
       <div id="exam-questions-container">
         {% for q in exam_questions %}
-        <div class="question-block" data-qi="{{ loop.index0 }}">
+        <div class="question-block" data-qi="{{ loop.index0}}">
           <div class="question-header">
-            <span class="question-num">Q{{ loop.index }}</span>
+            <span class="question-num">Q{{ loop.index}}</span>
             <button type="button" class="btn-xs btn-danger" onclick="removeQuestion(this)">
               <i class="fa-solid fa-trash"></i>
             </button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
             <div class="form-group" style="margin:0">
-              <input type="text" name="eq_text[]" class="form-input" value="{{ q.question_text }}"
+              <input type="text" name="eq_text[]" class="form-input" value="{{ q.question_text}}"
                      placeholder="Question text" required>
             </div>
             <div class="form-group" style="margin:0">
-              <select name="eq_type[]" class="form-input" onchange="toggleExamQuestionType(this, {{ loop.index0 }})">
+              <select name="eq_type[]" class="form-input" onchange="toggleExamQuestionType(this, {{ loop.index0}})">
                 <option value="identification" {% if q.question_type == 'identification' %}selected{% endif %}>Identification</option>
                 <option value="enumeration" {% if q.question_type == 'enumeration' %}selected{% endif %}>Enumeration</option>
                 <option value="essay" {% if q.question_type == 'essay' %}selected{% endif %}>Essay</option>
@@ -86,8 +87,8 @@
           </div>
           <div class="correct-answer-field" {% if q.question_type == 'essay' %}style="display:none"{% endif %}>
             <label class="form-label">Correct Answer(s) <span class="req">*</span></label>
-            <input type="text" name="eq_correct_{{ loop.index0 }}" class="form-input"
-                   value="{{ q.correct_answer or '' }}"
+            <input type="text" name="eq_correct_{{ loop.index0}}" class="form-input"
+                   value="{{ q.correct_answer or ''}}"
                    placeholder="{% if q.question_type == 'enumeration' %}Separate items with commas{% else %}Type the expected answer{% endif %}">
           </div>
         </div>
@@ -116,9 +117,11 @@
 
 </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-let eqCount = {{ exam_questions|length if exam_questions else 0 }};
+let eqCount = {{ exam_questions|length if exam_questions else 0}};
 
 function toggleExamQuestionType(select, qi) {
   const block = select.closest('.question-block');
@@ -169,5 +172,4 @@ function renumberExamQuestions() {
   });
 }
 </script>
-</body>
-</html>
+{% endblock %}

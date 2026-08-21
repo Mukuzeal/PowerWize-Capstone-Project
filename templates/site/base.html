@@ -56,8 +56,10 @@
   </div>
 
   <div class="nav__actions">
-    <a class="nav__signin" href="{{ url_for('auth.auth') if has_auth else '/auth' }}">
-      <span>Sign in</span>{{ icon('arrow') }}
+    {# Transactional pages (portal, payment, receipts) extend this shell too, so
+       the nav has to stop offering "Sign in" to someone already signed in. #}
+    <a class="nav__signin" href="{{ '/portal' if session.get('user_id') else (url_for('auth.auth') if has_auth else '/auth') }}">
+      <span>{{ 'My account' if session.get('user_id') else 'Sign in' }}</span>{{ icon('arrow') }}
     </a>
     <button class="nav__burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
       <i></i><i></i><i></i>
@@ -73,7 +75,7 @@
         {%- for label, endpoint in NAV %}
         <li style="--i:{{ loop.index0 }}"><a href="{{ url_for(endpoint) }}">{{ label }}</a></li>
         {%- endfor %}
-        <li style="--i:{{ NAV|length }}"><a href="{{ url_for('auth.auth') if has_auth else '/auth' }}">Sign in</a></li>
+        <li style="--i:{{ NAV|length }}"><a href="{{ '/portal' if session.get('user_id') else (url_for('auth.auth') if has_auth else '/auth') }}">{{ 'My account' if session.get('user_id') else 'Sign in' }}</a></li>
       </ul>
     </div>
     <div class="menu__group">
@@ -93,6 +95,14 @@
 </div>
 
 <main id="main">
+{%- with messages = get_flashed_messages(with_categories=true) %}
+  {%- for category, message in messages %}
+  <div class="flash-banner {{ 'flash-success' if category == 'success' else 'flash-error' }}" role="alert">
+    <i class="fa-solid fa-{{ 'circle-check' if category == 'success' else 'circle-exclamation' }}"></i>
+    {{ message }}
+  </div>
+  {%- endfor %}
+{%- endwith %}
 {% block main %}{% endblock %}
 </main>
 
@@ -154,6 +164,7 @@
 
 <div class="grain" aria-hidden="true"></div>
 <script src="{{ url_for('static', filename='ewize.js') }}" defer></script>
+<script src="{{ url_for('static', filename='form-busy.js') }}" defer></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

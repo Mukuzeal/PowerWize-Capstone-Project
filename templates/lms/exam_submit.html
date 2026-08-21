@@ -1,24 +1,25 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Practical Exam – {{ mod.title }}</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
-</head>
-<body>
-{{ header("My Learning") }}
+{%- extends "site/base.html" -%}
+{% from "shared/macros.html" import header %}
+
+{% block title %}Practical Exam – {{ mod.title}}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{{ header("My Learning")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
   <div class="lms-page-header">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h2>
-      <p class="lms-page-sub">{{ mod.title }}</p>
+      <p class="lms-page-sub">{{ mod.title}}</p>
     </div>
-    <a href="/lms/learn/{{ mod.id }}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <a href="/lms/learn/{{ mod.id}}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
   </div>
 
   {% if exam.requires_camera %}
@@ -36,37 +37,37 @@
   {% endif %}
 
   <div class="lms-card">
-    <h3 class="card-inner-title">{{ exam.title }}</h3>
+    <h3 class="card-inner-title">{{ exam.title}}</h3>
 
     <div class="exam-instructions">
       <h4><i class="fa-solid fa-list-check"></i> Instructions</h4>
-      <div class="exam-instructions-body">{{ exam.instructions | replace('\n', '<br>') | safe }}</div>
+      <div class="exam-instructions-body">{{ exam.instructions | replace('\n', '<br>') | safe}}</div>
     </div>
 
     {% if exam.evaluation_criteria %}
     <div class="exam-criteria">
       <h4><i class="fa-solid fa-star"></i> Evaluation Criteria</h4>
-      <div class="exam-criteria-body">{{ exam.evaluation_criteria | replace('\n', '<br>') | safe }}</div>
+      <div class="exam-criteria-body">{{ exam.evaluation_criteria | replace('\n', '<br>') | safe}}</div>
     </div>
     {% endif %}
 
     <form method="post" enctype="multipart/form-data" id="exam-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
       {% if exam_questions %}
       <div style="margin-top:24px;padding:16px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;margin-bottom:20px">
         <h4 style="margin:0 0 12px;color:#166534"><i class="fa-solid fa-circle-info"></i> Answer All Questions Below</h4>
         <div id="exam-qa-container">
           {% for q in exam_questions %}
           <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #DCFCE7">
-            <label class="form-label" style="font-weight:600">{{ loop.index }}. {{ q.question_text }}</label>
+            <label class="form-label" style="font-weight:600">{{ loop.index}}. {{ q.question_text}}</label>
             {% if q.question_type == 'essay' %}
-            <textarea name="eq_{{ q.id }}" class="form-input form-textarea" rows="5"
+            <textarea name="eq_{{ q.id}}" class="form-input form-textarea" rows="5"
                       placeholder="Write your answer here…" required></textarea>
             {% elif q.question_type == 'identification' %}
-            <input type="text" name="eq_{{ q.id }}" class="form-input"
+            <input type="text" name="eq_{{ q.id}}" class="form-input"
                    placeholder="Type your answer" required>
             {% elif q.question_type == 'enumeration' %}
-            <textarea name="eq_{{ q.id }}" class="form-input form-textarea" rows="3"
+            <textarea name="eq_{{ q.id}}" class="form-input form-textarea" rows="3"
                       placeholder="List each item separated by commas" required></textarea>
             {% endif %}
           </div>
@@ -90,7 +91,7 @@
                onchange="fileChosen(this)">
       </div>
       <div class="form-actions">
-        <a href="/lms/learn/{{ mod.id }}" class="btn-ghost">Cancel</a>
+        <a href="/lms/learn/{{ mod.id}}" class="btn-ghost">Cancel</a>
         <button type="submit" class="btn-primary" id="submit-btn" {% if exam.requires_camera %}disabled{% endif %}>
           <i class="fa-solid fa-paper-plane"></i> Submit Exam
         </button>
@@ -100,7 +101,9 @@
 
 </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 function fileChosen(input) {
   var zone = document.getElementById('sub-zone');
@@ -131,5 +134,4 @@ async function requestCamera() {
 }
 {% endif %}
 </script>
-</body>
-</html>
+{% endblock %}

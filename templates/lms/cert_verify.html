@@ -1,15 +1,16 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Verify Certificate – PowerWize</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
-</head>
-<body>
-{{ header("Certificate Verification") }}
+{%- extends "site/base.html" -%}
+{% from "shared/macros.html" import header %}
+
+{% block title %}Verify Certificate – PowerWize{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{{ header("Certificate Verification")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
@@ -23,25 +24,25 @@
     <div class="verify-details">
       <div class="verify-row">
         <span class="verify-label">Recipient</span>
-        <span class="verify-value"><strong>{{ cert.fname }} {{ cert.lname }}</strong></span>
+        <span class="verify-value"><strong>{{ cert.fname}} {{ cert.lname}}</strong></span>
       </div>
       <div class="verify-row">
         <span class="verify-label">Email</span>
-        <span class="verify-value">{{ cert.email }}</span>
+        <span class="verify-value">{{ cert.email}}</span>
       </div>
       <div class="verify-row">
         <span class="verify-label">Issued On</span>
-        <span class="verify-value">{{ cert.issued_at.strftime('%B %d, %Y') if cert.issued_at else 'N/A' }}</span>
+        <span class="verify-value">{{ cert.issued_at.strftime('%B %d, %Y') if cert.issued_at else 'N/A'}}</span>
       </div>
       <div class="verify-row">
         <span class="verify-label">Certificate ID</span>
-        <span class="verify-value"><code>{{ cert.cert_id }}</code></span>
+        <span class="verify-value"><code>{{ cert.cert_id}}</code></span>
       </div>
       {% if cert.expires_at %}
       <div class="verify-row">
         <span class="verify-label">Valid Until</span>
         <span class="verify-value">
-          {{ cert.expires_at.strftime('%B %d, %Y') }}
+          {{ cert.expires_at.strftime('%B %d, %Y')}}
           {% set today_ts = namespace(v=0) %}
           <span id="expiry-status-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;margin-left:8px;background:#D1FAE5;color:#065F46">
             <i class="fa-solid fa-calendar-check"></i> Valid
@@ -52,7 +53,7 @@
       {% if cert.tx_hash %}
       <div class="verify-row">
         <span class="verify-label">Blockchain Hash</span>
-        <span class="verify-value"><code style="font-size:11px">{{ cert.tx_hash }}</code></span>
+        <span class="verify-value"><code style="font-size:11px">{{ cert.tx_hash}}</code></span>
       </div>
       <div class="verify-row">
         <span class="verify-label">Blockchain Status</span>
@@ -67,7 +68,7 @@
       {% if cert.approver_fname %}
       <div class="verify-row">
         <span class="verify-label">Issued By</span>
-        <span class="verify-value">{{ cert.approver_fname }} {{ cert.approver_lname }}</span>
+        <span class="verify-value">{{ cert.approver_fname}} {{ cert.approver_lname}}</span>
       </div>
       {% endif %}
     </div>
@@ -75,7 +76,7 @@
     {% if cert.qr_code %}
     <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #E5E7EB">
       <p style="font-size:12px;color:#6B7280;margin-bottom:12px"><strong>Verification QR Code</strong></p>
-      <img src="/{{ cert.qr_code }}" alt="Certificate QR Code" style="width:200px;height:200px;border:2px solid #0D5E3B;border-radius:8px">
+      <img src="/{{ cert.qr_code}}" alt="Certificate QR Code" style="width:200px;height:200px;border:2px solid #0D5E3B;border-radius:8px">
       <p style="font-size:11px;color:#6B7280;margin-top:12px">Scan to verify this certificate</p>
     </div>
     {% endif %}
@@ -84,7 +85,7 @@
   {% if cert.expires_at %}
   <script>
   (function() {
-    var exp   = new Date('{{ cert.expires_at.strftime("%Y-%m-%d") }}');
+    var exp   = new Date('{{ cert.expires_at.strftime("%Y-%m-%d")}}');
     var today = new Date(); today.setHours(0,0,0,0);
     var days  = Math.floor((exp - today) / 86400000);
     var badge = document.getElementById('expiry-status-badge');
@@ -113,5 +114,4 @@
 
 </div>
 </div>
-</body>
-</html>
+{% endblock %}

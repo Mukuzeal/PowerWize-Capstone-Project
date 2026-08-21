@@ -1,15 +1,16 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Modules – LMS</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
-</head>
-<body>
-{{ header("Training Modules") }}
+{%- extends "site/base.html" -%}
+{% from "shared/macros.html" import header %}
+
+{% block title %}Modules – LMS{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{{ header("Training Modules")}}
 <div class="page-body">
 <div class="lms-wrap">
 
@@ -27,9 +28,9 @@
     <div class="module-card">
       <div class="module-card-header">
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
-          <span class="module-status-badge {{ 'published' if m.is_published else 'draft' }}">
-            <i class="fa-solid {{ 'fa-globe' if m.is_published else 'fa-pen-to-square' }}"></i>
-            {{ 'Published' if m.is_published else 'Draft' }}
+          <span class="module-status-badge {{ 'published' if m.is_published else 'draft'}}">
+            <i class="fa-solid {{ 'fa-globe' if m.is_published else 'fa-pen-to-square'}}"></i>
+            {{ 'Published' if m.is_published else 'Draft'}}
           </span>
           <span class="module-status-badge" style="background: #DBEAFE; color: #1E40AF">
             <i class="fa-solid fa-tag"></i>
@@ -40,19 +41,19 @@
             {% elif m.training_type == 'cem_renewal' %}CEM Renewal
             {% elif m.training_type == 'gemp_lgu' %}GEMP – LGU
             {% elif m.training_type == 'gemp_oge' %}GEMP – Gov't Entity
-            {% else %}{{ m.training_type }}{% endif %}
+            {% else %}{{ m.training_type}}{% endif %}
           </span>
         </div>
-        <span class="module-date">{{ m.created_at.strftime('%b %d, %Y') if m.created_at else '' }}</span>
+        <span class="module-date">{{ m.created_at.strftime('%b %d, %Y') if m.created_at else ''}}</span>
       </div>
-      <h3 class="module-card-title">{{ m.title }}</h3>
-      <p class="module-card-desc">{{ (m.description or 'No description.')[:120] }}{% if m.description and m.description|length > 120 %}…{% endif %}</p>
-      <div class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname }} {{ m.lname }}</div>
+      <h3 class="module-card-title">{{ m.title}}</h3>
+      <p class="module-card-desc">{{ (m.description or 'No description.')[:120]}}{% if m.description and m.description|length > 120 %}…{% endif %}</p>
+      <div class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname}} {{ m.lname}}</div>
       <div class="module-card-actions">
-        <a href="/lms/modules/{{ m.id }}" class="btn-sm btn-outline"><i class="fa-solid fa-gear"></i> Manage</a>
-        <a href="/lms/modules/{{ m.id }}/edit" class="btn-sm btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
-        <form action="/lms/modules/{{ m.id }}/delete" method="post" onsubmit="return confirm('Delete this module?')">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <a href="/lms/modules/{{ m.id}}" class="btn-sm btn-outline"><i class="fa-solid fa-gear"></i> Manage</a>
+        <a href="/lms/modules/{{ m.id}}/edit" class="btn-sm btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
+        <form action="/lms/modules/{{ m.id}}/delete" method="post" onsubmit="return confirm('Delete this module?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
           <button class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
         </form>
       </div>
@@ -69,5 +70,4 @@
 
 </div>
 </div>
-</body>
-</html>
+{% endblock %}

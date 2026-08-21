@@ -162,3 +162,32 @@ def _check_completion(user_id, module_id):
     exam_ok = (not exam) or bool(p.get('exam_graded'))
     if quiz_ok and exam_ok and not p.get('completed'):
         lms_update_progress(user_id, module_id, completed=True, completed_at=datetime.now())
+
+
+def _progress_steps(prog, req):
+    """What a trainee still has to do in one module, and how far along they are.
+
+    Deliberately the same rule as _check_completion() above, so a module's bar can
+    never disagree with its "Completed" badge. Opening the module is the first
+    step; the quiz and practical exam are only counted when the module has one.
+    """
+    prog  = prog or {}
+    req   = req or {}
+    steps = [{'key': 'study', 'label': 'Open the material', 'done': bool(prog)}]
+    if req.get('has_quiz'):
+        steps.append({'key': 'quiz', 'label': 'Pass the quiz',
+                      'done': bool(prog.get('quiz_passed'))})
+    if req.get('has_exam'):
+        steps.append({'key': 'exam', 'label': 'Practical exam graded',
+                      'done': bool(prog.get('exam_graded'))})
+    # A stored `completed` flag wins over the individual signals. Older rows can
+    # carry completed=1 while a step still reads 0 (e.g. an exam was attached to
+    # the module after the trainee finished it); without this the bar would say
+    # 100% while still naming a next step.
+    if prog.get('completed'):
+        for s in steps:
+            s['done'] = True
+    total = len(steps)
+    done  = sum(1 for s in steps if s['done'])
+    return {'steps': steps, 'done': done, 'total': total,
+            'pct': round(done / total * 100) if total else 0}

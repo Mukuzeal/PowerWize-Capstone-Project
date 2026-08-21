@@ -1,30 +1,31 @@
-{% from "shared/macros.html" import form_styles, header %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ mod.title }} – Manage</title>
-{{ form_styles() }}
-<link rel="stylesheet" href="/static/lms.css">
-</head>
-<body>
-{{ header("Training Modules") }}
+{%- extends "site/base.html" -%}
+{% from "shared/macros.html" import header %}
+
+{% block title %}{{ mod.title}} – Manage{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{{ header("Training Modules")}}
 <div class="page-body">
 <div class="lms-wrap">
 
   <div class="lms-page-header">
     <div>
-      <h2 class="lms-page-title">{{ mod.title }}</h2>
-      <p class="lms-page-sub">{{ mod.description or '' }}</p>
+      <h2 class="lms-page-title">{{ mod.title}}</h2>
+      <p class="lms-page-sub">{{ mod.description or ''}}</p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a href="/lms/modules/{{ mod.id }}/edit" class="btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
-      <form action="/lms/modules/{{ mod.id }}/publish" method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="btn-{{ 'outline' if mod.is_published else 'primary' }}">
-          <i class="fa-solid {{ 'fa-eye-slash' if mod.is_published else 'fa-globe' }}"></i>
-          {{ 'Unpublish' if mod.is_published else 'Publish' }}
+      <a href="/lms/modules/{{ mod.id}}/edit" class="btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
+      <form action="/lms/modules/{{ mod.id}}/publish" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+        <button class="btn-{{ 'outline' if mod.is_published else 'primary'}}">
+          <i class="fa-solid {{ 'fa-eye-slash' if mod.is_published else 'fa-globe'}}"></i>
+          {{ 'Unpublish' if mod.is_published else 'Publish'}}
         </button>
       </form>
       {% if session.get('user_role') == 'admin' %}
@@ -49,17 +50,17 @@
       </div>
       <input type="file" id="mat-upload" style="display:none"
              accept=".pdf,.docx,.pptx,.xlsx,.txt,.mp4,.mkv,.avi,.png,.jpg,.jpeg"
-             onchange="uploadFile(this, {{ mod.id }})">
+             onchange="uploadFile(this, {{ mod.id}})">
       <div id="file-list">
         {% if files %}
         {% for f in files %}
-        <div class="file-row" id="file-{{ f.id }}">
+        <div class="file-row" id="file-{{ f.id}}">
           <i class="fa-solid {{ {'pdf':'fa-file-pdf','docx':'fa-file-word','pptx':'fa-file-powerpoint',
-            'mp4':'fa-file-video','mkv':'fa-file-video','txt':'fa-file-lines'}.get(f.file_type,'fa-file') }}"></i>
-          <span class="file-name">{{ f.original_name }}</span>
-          <span class="file-size">{{ (f.file_size / 1024)|round(1) }} KB</span>
-          <a href="/lms/files/{{ f.filename }}" target="_blank" class="btn-xs btn-ghost"><i class="fa-solid fa-eye"></i></a>
-          <form action="/lms/modules/{{ mod.id }}/files/{{ f.id }}/delete" method="post"
+            'mp4':'fa-file-video','mkv':'fa-file-video','txt':'fa-file-lines'}.get(f.file_type,'fa-file')}}"></i>
+          <span class="file-name">{{ f.original_name}}</span>
+          <span class="file-size">{{ (f.file_size / 1024)|round(1)}} KB</span>
+          <a href="/lms/files/{{ f.filename}}" target="_blank" class="btn-xs btn-ghost"><i class="fa-solid fa-eye"></i></a>
+          <form action="/lms/modules/{{ mod.id}}/files/{{ f.id}}/delete" method="post"
                 onsubmit="return confirm('Delete this file?')" style="display:inline">
             <button class="btn-xs btn-danger"><i class="fa-solid fa-trash"></i></button>
           </form>
@@ -78,19 +79,19 @@
     <div class="lms-card">
       <div class="card-section-header">
         <h3><i class="fa-solid fa-circle-question"></i> Quiz</h3>
-        <a href="/lms/modules/{{ mod.id }}/quiz" class="btn-sm btn-primary">
-          <i class="fa-solid {{ 'fa-pen' if quiz else 'fa-plus' }}"></i>
-          {{ 'Edit Quiz' if quiz else 'Create Quiz' }}
+        <a href="/lms/modules/{{ mod.id}}/quiz" class="btn-sm btn-primary">
+          <i class="fa-solid {{ 'fa-pen' if quiz else 'fa-plus'}}"></i>
+          {{ 'Edit Quiz' if quiz else 'Create Quiz'}}
         </a>
       </div>
       {% if quiz %}
       <div class="assessment-summary">
         <div class="assessment-meta">
-          <span><i class="fa-solid fa-clock"></i> {{ quiz.time_limit_mins }} min</span>
-          <span><i class="fa-solid fa-trophy"></i> Pass at {{ quiz.passing_score }}%</span>
-          <span><i class="fa-solid fa-list-check"></i> {{ questions|length }} question{{ 's' if questions|length != 1 }}</span>
-          <span class="badge {{ 'badge-green' if quiz.is_published else 'badge-gray' }}">
-            {{ 'Published' if quiz.is_published else 'Draft' }}
+          <span><i class="fa-solid fa-clock"></i> {{ quiz.time_limit_mins}} min</span>
+          <span><i class="fa-solid fa-trophy"></i> Pass at {{ quiz.passing_score}}%</span>
+          <span><i class="fa-solid fa-list-check"></i> {{ questions|length}} question{{ 's' if questions|length != 1}}</span>
+          <span class="badge {{ 'badge-green' if quiz.is_published else 'badge-gray'}}">
+            {{ 'Published' if quiz.is_published else 'Draft'}}
           </span>
           {% if quiz.is_ai_generated %}<span class="badge badge-blue"><i class="fa-solid fa-robot"></i> AI Generated</span>{% endif %}
         </div>
@@ -104,14 +105,14 @@
     <div class="lms-card">
       <div class="card-section-header">
         <h3><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h3>
-        <a href="/lms/modules/{{ mod.id }}/exam" class="btn-sm btn-primary">
-          <i class="fa-solid {{ 'fa-pen' if exam else 'fa-plus' }}"></i>
-          {{ 'Edit Exam' if exam else 'Create Exam' }}
+        <a href="/lms/modules/{{ mod.id}}/exam" class="btn-sm btn-primary">
+          <i class="fa-solid {{ 'fa-pen' if exam else 'fa-plus'}}"></i>
+          {{ 'Edit Exam' if exam else 'Create Exam'}}
         </a>
       </div>
       {% if exam %}
       <div class="assessment-summary">
-        <p class="exam-title">{{ exam.title }}</p>
+        <p class="exam-title">{{ exam.title}}</p>
         <div class="assessment-meta">
           {% if exam.requires_camera %}<span class="badge badge-red"><i class="fa-solid fa-camera"></i> Camera Required</span>{% endif %}
         </div>
@@ -124,7 +125,9 @@
   </div>
 </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 async function uploadFile(input, moduleId) {
   if (!input.files.length) return;
@@ -156,5 +159,4 @@ async function uploadFile(input, moduleId) {
   input.value = '';
 }
 </script>
-</body>
-</html>
+{% endblock %}

@@ -37,7 +37,8 @@
     </div>
     {% endif %}
 
-    <form class="form-card" id="solar-form" method="POST" action="/solar/submit" enctype="multipart/form-data" novalidate data-wizard>
+    {# data-no-busy: solar-request.js already swaps this button to "Computing estimate…". #}
+    <form class="form-card" id="solar-form" method="POST" action="/solar/submit" enctype="multipart/form-data" novalidate data-wizard data-no-busy>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <!-- Section 1: Personal Information -->

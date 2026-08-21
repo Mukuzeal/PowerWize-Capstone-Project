@@ -165,6 +165,9 @@ input[type="file"]{display:none}
 .mini-progress-bar{flex:1;background:#E5E7EB;border-radius:99px;height:5px;overflow:hidden}
 .mini-progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dk),var(--green-md));transition:width .4s}
 .learn-progress-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.mini-progress-label{flex:none;font-size:11px;font-weight:600;color:#6B7280;font-variant-numeric:tabular-nums}
+.module-next-step{margin:6px 0 0;font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px}
+.module-next-step i{color:var(--green-pr)}
 .progress-module-card{}
 .progress-module-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
 .progress-module-title{font-size:15px;font-weight:700;color:#111827;margin:0 0 4px}
