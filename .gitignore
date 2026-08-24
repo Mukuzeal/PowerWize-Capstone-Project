@@ -8,7 +8,13 @@ __pycache__/
 uploads/
 Handoff.md
 handoffs/
+pgdata/
+powerwize_dump.sql
 scripts/*.sql
+
+# Local dev environment (machine-specific, not part of the app)
+docker-compose.yml
+LINUX_SETUP.md
 
 # Local-only maintenance/seed scripts (not for the repo)
 create_demo_accounts.py
