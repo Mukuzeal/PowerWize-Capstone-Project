@@ -321,7 +321,7 @@
    * ------------------------------------------------------------------ */
   function initField() {
     var host = document.querySelector("[data-field]");
-    if (!host || reduced) return;
+    if (!host || reduced || window.innerWidth <= 720) return;
 
     var canvas = document.createElement("canvas");
     host.appendChild(canvas);
