@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Admin Dashboard – EnergyWize</title>
+    <script>
+        (function() {
+            var saved = localStorage.getItem('powerwize-theme');
+            if (saved === 'light' || saved === 'dark') {
+                document.documentElement.setAttribute('data-theme', saved);
+            }
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
@@ -21,24 +29,181 @@
         
         :root {
             --green-dk: #0D3B27;
-            --green-pr: #16583C;
+            --green-pr: #0D6E47;
             --green-md: #1E7A4B;
             --green-lt: #E2F5EC;
             --gold: #D4A72A;
             --gold-lt: #FEF3C7;
             --white: #FAFAF8;
-            --gray: #6B7280;
-            --border: #E5E7EB;
-            --sidebar-w: 230px
+            --gray: #4B5563;
+            --border: #E8EEF2;
+            --sidebar-w: 230px;
+
+            --bg-primary: #F8F9FA;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F0F2F5;
+            --text-primary: #0F1419;
+            --text-secondary: #4B5563;
+            --text-tertiary: #8B95A5;
+            --border-color: #E8EEF2;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --topbar-border: rgba(212, 167, 42, 0.2);
         }
-        
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --green-dk: #34D399;
+                --green-pr: #20C997;
+                --green-md: #2BD9A8;
+                --green-lt: rgba(32, 201, 151, 0.16);
+                --gray: #B0B8C4;
+                --border: #2D3E52;
+
+                --bg-primary: #0F1419;
+                --bg-secondary: #1A2332;
+                --bg-tertiary: #23313E;
+                --text-primary: #E8EEF2;
+                --text-secondary: #B0B8C4;
+                --text-tertiary: #7A8290;
+                --border-color: #2D3E52;
+                --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+                --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+                --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+                --topbar-border: rgba(212, 167, 42, 0.28);
+            }
+        }
+
+        :root[data-theme="light"] {
+            --green-dk: #0D3B27;
+            --green-pr: #0D6E47;
+            --green-md: #1E7A4B;
+            --green-lt: #E2F5EC;
+            --gray: #4B5563;
+            --border: #E8EEF2;
+            --bg-primary: #F8F9FA;
+            --bg-secondary: #FFFFFF;
+            --bg-tertiary: #F0F2F5;
+            --text-primary: #0F1419;
+            --text-secondary: #4B5563;
+            --text-tertiary: #8B95A5;
+            --border-color: #E8EEF2;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --topbar-border: rgba(212, 167, 42, 0.2);
+        }
+
+        :root[data-theme="dark"] {
+            --green-dk: #0D3B27;
+            --green-pr: #20C997;
+            --green-md: #2BD9A8;
+            --green-lt: rgba(32, 201, 151, 0.16);
+            --gray: #B0B8C4;
+            --border: #2D3E52;
+            --bg-primary: #0F1419;
+            --bg-secondary: #1A2332;
+            --bg-tertiary: #23313E;
+            --text-primary: #E8EEF2;
+            --text-secondary: #B0B8C4;
+            --text-tertiary: #7A8290;
+            --border-color: #2D3E52;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --topbar-border: rgba(212, 167, 42, 0.28);
+        }
+
+        /* Scale-in: critically damped (damping 1.0) — graceful, non-distracting entrance. Stat cards. */
+        @keyframes spring-scale-in {
+            0% { transform: scale(0.95); opacity: 0 }
+            60% { transform: scale(1.01) }
+            100% { transform: scale(1); opacity: 1 }
+        }
+
+        /* Pop-in: underdamped (damping ~0.8) — bounce reserved for momentum-carrying surfaces. Modals, badges. */
+        @keyframes spring-pop-in {
+            0% { transform: scale(0.85); opacity: 0 }
+            65% { transform: scale(1.08) }
+            100% { transform: scale(1); opacity: 1 }
+        }
+
+        /* Materialize: blur + scale settle together, so a translucent surface reads as arriving, not just fading. */
+        @keyframes materialize-in {
+            0% { transform: scale(0.94); opacity: 0; backdrop-filter: blur(0px) saturate(1) }
+            100% { transform: scale(1); opacity: 1; backdrop-filter: blur(20px) saturate(1.3) }
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0 }
+            to { opacity: 1 }
+        }
+
+        @keyframes theme-icon-spin {
+            from { transform: rotate(0deg) }
+            to { transform: rotate(180deg) }
+        }
+
         body {
             font-family: 'DM Sans', sans-serif;
-            background: #F3F4F6;
-            color: #1F2937;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             display: flex;
             flex-direction: column;
-            min-height: 100vh
+            min-height: 100vh;
+            transition: background 0.25s ease, color 0.25s ease
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 150ms !important;
+                animation-timing-function: ease !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 150ms !important;
+                scroll-behavior: auto !important;
+            }
+
+            /* Springs and pop-ins carry transform (scale/rotate) — swap them for a plain
+               opacity cross-fade so entrances still register without the motion. */
+            .stat-card,
+            .docs-box,
+            .count-badge,
+            .theme-toggle .fa-sun,
+            .theme-toggle .fa-moon {
+                animation: fade-in 150ms ease forwards !important;
+            }
+
+            .nav-item:active,
+            .reg-filter:active,
+            .chart-filter-btn:active,
+            .theme-toggle:active {
+                transform: none !important;
+            }
+        }
+
+        @media (prefers-reduced-transparency: reduce) {
+
+            .topbar,
+            .sidebar {
+                backdrop-filter: none !important;
+            }
+
+            .docs-box {
+                background: var(--bg-secondary) !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+        }
+
+        @media (prefers-contrast: more) {
+            :root {
+                --border-color: var(--text-secondary);
+                --border: var(--text-secondary);
+            }
         }
         /* ── Top bar ── */
 
@@ -48,14 +213,16 @@
             left: 0;
             right: 0;
             z-index: 100;
-            background: var(--green-dk);
+            background: var(--bg-secondary);
+            backdrop-filter: blur(10px) saturate(1.2);
             height: 56px;
             display: flex;
             align-items: center;
-            border-bottom: 1px solid rgba(212, 167, 42, 0.2);
-            padding: 0 1.5rem 0 0
+            border-bottom: 1px solid var(--topbar-border);
+            padding: 0 1.5rem 0 0;
+            transition: background 0.25s ease, border-color 0.25s ease
         }
-        
+
         .topbar-logo {
             width: var(--sidebar-w);
             flex-shrink: 0;
@@ -63,66 +230,97 @@
             align-items: center;
             gap: 9px;
             padding: 0 1.25rem;
-            border-right: 1px solid rgba(255, 255, 255, 0.08)
+            border-right: 1px solid var(--border-color)
         }
-        
+
         .topbar-logo-img {
             height: 44px;
             width: auto;
             display: block
         }
-        
+
         .topbar-right {
             margin-left: auto;
             display: flex;
             align-items: center;
             gap: 16px
         }
-        
+
         .topbar-badge {
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.35);
+            color: var(--text-tertiary);
             letter-spacing: 0.06em;
             text-transform: uppercase
         }
-        
+
+        .theme-toggle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            transform-origin: center center;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease
+        }
+
+        .theme-toggle:hover {
+            color: var(--gold);
+            border-color: var(--gold)
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.9)
+        }
+
+        .theme-toggle .fa-sun,
+        .theme-toggle .fa-moon {
+            animation: theme-icon-spin 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)
+        }
+
         .topbar-link {
             font-size: 12px;
             color: var(--gold);
             text-decoration: none;
             font-weight: 500
         }
-        
+
         .topbar-link:hover {
             color: #e6c840
         }
         /* ── Sidebar ── */
-        
+
         .sidebar {
             position: fixed;
             top: 56px;
             left: 0;
             bottom: 0;
             width: var(--sidebar-w);
-            background: var(--green-dk);
-            border-right: 1px solid rgba(255, 255, 255, 0.07);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             padding: 1.25rem 0;
             overflow-y: auto;
-            z-index: 90
+            z-index: 90;
+            transition: background 0.25s ease, border-color 0.25s ease
         }
-        
+
         .nav-section {
             font-size: 10px;
             font-weight: 600;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.28);
+            color: var(--text-tertiary);
             padding: 0 1.25rem;
             margin: 1rem 0 0.4rem
         }
-        
+
         .nav-item {
             display: flex;
             align-items: center;
@@ -130,7 +328,7 @@
             padding: 9px 1.25rem;
             font-size: 13px;
             font-weight: 500;
-            color: rgba(255, 255, 255, 0.55);
+            color: var(--text-secondary);
             text-decoration: none;
             cursor: pointer;
             border: none;
@@ -138,17 +336,21 @@
             width: 100%;
             text-align: left;
             border-left: 3px solid transparent;
-            transition: all 0.15s
+            transition: color 0.3s ease-out, background 0.3s ease-out, border-color 0.3s ease-out, transform 0.15s ease-out
         }
         
         .nav-item:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.05)
+            color: var(--text-primary);
+            background: var(--bg-tertiary)
         }
-        
+
+        .nav-item:active {
+            transform: scale(0.98)
+        }
+
         .nav-item.active {
-            color: #fff;
-            background: rgba(212, 167, 42, 0.12);
+            color: var(--green-pr);
+            background: var(--green-lt);
             border-left-color: var(--gold)
         }
         
@@ -188,7 +390,8 @@
         .page-head h1 {
             font-size: 20px;
             font-weight: 600;
-            color: #111827
+            letter-spacing: -0.01em;
+            color: var(--text-primary)
         }
         
         .count-badge {
@@ -197,7 +400,8 @@
             color: var(--green-pr);
             padding: 4px 12px;
             border-radius: 20px;
-            font-weight: 600
+            font-weight: 600;
+            animation: spring-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) backwards
         }
         /* ── Stat cards ── */
         
@@ -209,12 +413,20 @@
         }
         
         .stat-card {
-            background: #fff;
+            background: var(--bg-secondary);
             border-radius: 12px;
             padding: 1.1rem 1.25rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-            border-left: 4px solid var(--border)
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--border);
+            animation: spring-scale-in 0.4s ease-out backwards
         }
+
+        .stats-grid .stat-card:nth-child(1) { animation-delay: 0ms }
+        .stats-grid .stat-card:nth-child(2) { animation-delay: 80ms }
+        .stats-grid .stat-card:nth-child(3) { animation-delay: 160ms }
+        .stats-grid .stat-card:nth-child(4) { animation-delay: 240ms }
+        .stats-grid .stat-card:nth-child(5) { animation-delay: 320ms }
+        .stats-grid .stat-card:nth-child(6) { animation-delay: 400ms }
         
         .stat-card.c-gold {
             border-left-color: var(--gold)
@@ -241,8 +453,10 @@
         .stat-card .s-value {
             font-size: 28px;
             font-weight: 700;
+            letter-spacing: -0.02em;
             color: var(--green-dk);
-            line-height: 1
+            line-height: 1;
+            font-variant-numeric: tabular-nums
         }
         
         .stat-card .s-sub {
@@ -253,19 +467,20 @@
         /* ── Table card ── */
         
         .table-card {
-            background: #fff;
+            background: var(--bg-secondary);
             border-radius: 12px;
             overflow: auto;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07)
+            box-shadow: var(--shadow-sm)
         }
-        
+
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            min-width: 640px
+            min-width: 640px;
+            color: var(--text-primary)
         }
-        
+
         th {
             text-align: left;
             padding: 10px 14px;
@@ -274,22 +489,23 @@
             letter-spacing: 0.06em;
             color: var(--gray);
             border-bottom: 1px solid var(--border);
-            background: #F9FAFB;
+            background: var(--bg-tertiary);
             white-space: nowrap
         }
-        
+
         td {
             padding: 10px 14px;
-            border-bottom: 1px solid #F3F4F6;
+            border-bottom: 1px solid var(--border-color);
             vertical-align: middle
         }
-        
+
         tr:last-child td {
             border-bottom: none
         }
-        
+
         tr:hover td {
-            background: #F9FEFB
+            background: var(--bg-tertiary);
+            transition: background 0.15s ease-out
         }
         
         .ref {
@@ -421,14 +637,18 @@
             font-size: 12.5px;
             font-weight: 500;
             cursor: pointer;
-            background: #fff;
+            background: var(--bg-secondary);
             color: var(--gray);
             transition: all 0.15s;
             display: inline-flex;
             align-items: center;
             gap: 6px
         }
-        
+
+        .reg-filter:active {
+            transform: scale(0.96)
+        }
+
         .reg-filter:hover,
         .reg-filter.active {
             border-color: var(--green-md);
@@ -463,30 +683,30 @@
             font-size: 11px;
             min-width: 18px;
             height: 17px;
-            background: rgba(0, 0, 0, 0.09);
+            background: var(--bg-tertiary);
             font-weight: 600
         }
         
-        .contact-toggle{font-size:11px;font-weight:500;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--green-pr);cursor:pointer;white-space:nowrap;transition:all 0.15s}
+        .contact-toggle{font-size:11px;font-weight:500;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--green-pr);cursor:pointer;white-space:nowrap;transition:all 0.15s}
         .contact-toggle:hover{border-color:var(--green-md);background:var(--green-lt)}
-        .contact-detail{display:none;margin-top:5px;font-size:11.5px;line-height:1.9;color:#374151}
+        .contact-detail{display:none;margin-top:5px;font-size:11.5px;line-height:1.9;color:var(--text-secondary)}
         .contact-detail.shown{display:block}
         .contact-detail i{width:13px;color:var(--gray);font-size:10px}
         .btn-docs{font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;border:1.5px solid #3B82F6;color:#3B82F6;background:none;cursor:pointer;white-space:nowrap;transition:all 0.15s}
         .btn-docs:hover{background:#3B82F6;color:#fff}
-        .docs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:500;align-items:center;justify-content:center;padding:16px}
+        .docs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:500;align-items:center;justify-content:center;padding:16px;animation:fade-in 0.2s ease-out}
         .docs-overlay.open{display:flex}
-        .docs-box{background:#fff;border-radius:16px;width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.25)}
+        .docs-box{background:color-mix(in srgb, var(--bg-secondary) 88%, transparent);backdrop-filter:blur(20px) saturate(1.3);-webkit-backdrop-filter:blur(20px) saturate(1.3);border:1px solid var(--border-color);border-radius:16px;width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-lg);animation:materialize-in 0.35s cubic-bezier(0.34,1.56,0.64,1);transform-origin:center center}
         .docs-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border);gap:12px}
-        .docs-head-title{font-size:16px;font-weight:700;color:#111827}
+        .docs-head-title{font-size:16px;font-weight:700;letter-spacing:-0.01em;color:var(--text-primary)}
         .docs-head-sub{font-size:12px;color:var(--gray);margin-top:2px}
         .docs-close{background:none;border:none;font-size:18px;color:var(--gray);cursor:pointer;padding:4px;line-height:1;flex-shrink:0}
-        .docs-close:hover{color:#111827}
+        .docs-close:hover{color:var(--text-primary)}
         .docs-body{padding:20px 24px;overflow-y:auto;flex:1}
         .docs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
-        .doc-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#F9FAFB}
-        .doc-card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);padding:9px 12px;border-bottom:1px solid var(--border);background:#fff}
-        .doc-card-body{padding:10px;display:flex;align-items:center;justify-content:center;min-height:160px;background:#F3F4F6}
+        .doc-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg-tertiary)}
+        .doc-card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);padding:9px 12px;border-bottom:1px solid var(--border);background:var(--bg-secondary)}
+        .doc-card-body{padding:10px;display:flex;align-items:center;justify-content:center;min-height:160px;background:var(--bg-tertiary)}
         .doc-img{max-width:100%;max-height:180px;object-fit:contain;border-radius:6px;display:block;cursor:zoom-in;transition:opacity 0.15s}
         .doc-img:hover{opacity:0.85}
         .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:600;align-items:center;justify-content:center;overflow:hidden}
@@ -503,7 +723,7 @@
         .doc-pdf-link{display:flex;flex-direction:column;align-items:center;gap:8px;color:#DC2626;font-size:13px;font-weight:600;text-decoration:none;padding:16px}
         .doc-pdf-link i{font-size:36px}
         .doc-pdf-link:hover{color:#991B1B}
-        .doc-none{color:#9CA3AF;font-size:12px;font-style:italic;text-align:center;padding:16px}
+        .doc-none{color:var(--text-tertiary);font-size:12px;font-style:italic;text-align:center;padding:16px}
         .docs-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
         .b-archived {
             background: #F3F4F6;
@@ -514,24 +734,24 @@
         .empty {
             text-align: center;
             padding: 3rem;
-            color: #9CA3AF;
+            color: var(--text-tertiary);
             font-size: 13px
         }
         /* ── Schedule panel ── */
-        
+
         .panel-card {
-            background: #fff;
+            background: var(--bg-secondary);
             border-radius: 16px;
             padding: 1.75rem;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+            box-shadow: var(--shadow-sm);
             margin-bottom: 1.5rem;
             border: 1px solid var(--border)
         }
-        
+
         .panel-title {
             font-size: 16px;
             font-weight: 700;
-            color: #111827;
+            color: var(--text-primary);
             margin-bottom: 1.4rem;
             display: flex;
             align-items: center;
@@ -565,11 +785,11 @@
         .sched-form label {
             font-size: 11px;
             font-weight: 700;
-            color: #6B7280;
+            color: var(--gray);
             text-transform: uppercase;
             letter-spacing: 0.06em
         }
-        
+
         .sched-form select,
         .sched-form .flatpickr-input,
         .sched-form input[type=text] {
@@ -579,8 +799,8 @@
             border-radius: 10px;
             font-family: 'DM Sans', sans-serif;
             font-size: 13px;
-            color: #1F2937;
-            background: #fff;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
             outline: none;
             transition: border-color 0.15s, box-shadow 0.15s
         }
@@ -662,7 +882,7 @@
         }
         
         .sched-col-card {
-            background: #fff;
+            background: var(--bg-secondary);
             border-radius: 14px;
             border: 1px solid var(--border);
             overflow: hidden;
@@ -790,34 +1010,34 @@
         }
         
         .sched-list li:hover {
-            background: #F9FAFB
+            background: var(--bg-tertiary)
         }
-        
+
         .sched-num {
             font-size: 11px;
             font-weight: 700;
-            color: #9CA3AF;
+            color: var(--text-tertiary);
             min-width: 20px;
             text-align: right
         }
-        
+
         .sched-label {
             flex: 1;
             font-size: 13px;
             font-weight: 500;
-            color: #1F2937
+            color: var(--text-primary)
         }
-        
+
         .sched-added {
             font-size: 10px;
-            color: #9CA3AF;
+            color: var(--text-tertiary);
             white-space: nowrap
         }
-        
+
         .btn-del-sched {
             background: none;
             border: none;
-            color: #D1D5DB;
+            color: var(--text-tertiary);
             font-size: 13px;
             cursor: pointer;
             padding: 4px 6px;
@@ -826,20 +1046,20 @@
             transition: all 0.15s;
             flex-shrink: 0
         }
-        
+
         .sched-list li:hover .btn-del-sched {
             color: #EF4444
         }
-        
+
         .btn-del-sched:hover {
             background: #FEE2E2!important;
             color: #DC2626!important
         }
-        
+
         .sched-empty {
             padding: 2rem;
             text-align: center;
-            color: #9CA3AF;
+            color: var(--text-tertiary);
             font-size: 13px;
             font-style: italic
         }
@@ -911,7 +1131,7 @@
         
         .sched-form input.flatpickr-input {
             cursor: pointer;
-            background: #fff
+            background: var(--bg-secondary)
         }
         /* ── User action buttons ── */
         
@@ -964,20 +1184,20 @@
             justify-content: space-between;
             padding: 10px 14px;
             border-bottom: 1px solid var(--border);
-            background: #F9FAFB
+            background: var(--bg-tertiary)
         }
-        
+
         .table-toolbar span {
             font-size: 13px;
             font-weight: 600;
-            color: #374151
+            color: var(--text-secondary)
         }
         /* ── Archived panel ── */
-        
+
         .archived-panel {
             margin-top: 1rem
         }
-        
+
         .archived-panel>summary {
             list-style: none;
             cursor: pointer;
@@ -985,12 +1205,12 @@
             align-items: center;
             gap: 8px;
             padding: 10px 14px;
-            background: #fff;
+            background: var(--bg-secondary);
             border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+            box-shadow: var(--shadow-sm);
             font-size: 13px;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-secondary);
             user-select: none
         }
         
@@ -1030,17 +1250,17 @@
         }
         
         .chart-card {
-            background: #fff;
+            background: var(--bg-secondary);
             border-radius: 14px;
             padding: 1.5rem;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+            box-shadow: var(--shadow-sm);
             border: 1px solid var(--border)
         }
-        
+
         .chart-title {
             font-size: 14px;
             font-weight: 700;
-            color: #111827;
+            color: var(--text-primary);
             margin-bottom: 1.1rem;
             display: flex;
             align-items: center;
@@ -1080,7 +1300,7 @@
             padding: 4px 13px;
             border-radius: 20px;
             border: 1.5px solid var(--border);
-            background: #fff;
+            background: var(--bg-secondary);
             font-family: 'DM Sans', sans-serif;
             font-size: 11px;
             font-weight: 600;
@@ -1089,7 +1309,11 @@
             transition: all 0.15s;
             white-space: nowrap
         }
-        
+
+        .chart-filter-btn:active {
+            transform: scale(0.96)
+        }
+
         .chart-filter-btn:hover {
             border-color: var(--green-md);
             color: var(--green-pr)
@@ -1136,6 +1360,9 @@
         </div>
         <div class="topbar-right">
             <span class="topbar-badge">Admin Dashboard</span>
+            <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" onclick="toggleTheme()">
+                <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
+            </button>
             <a href="/auth/logout" class="topbar-link"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log out</a>
         </div>
     </div>
@@ -1276,7 +1503,7 @@
                             <td>{{ r.company_name }}</td>
                             <td>
                                 {% if r.training_type is defined and r.training_type %} {% if 'Online' in r.training_type %}<span class="badge b-online">Online</span> {% else %}<span class="badge b-f2f">Face to Face</span>{% endif %}
-                                <br><small style="color:#6B7280;font-size:11px">{{ r.batch_name or '"”' }}</small> {% else %}<span style="color:#9CA3AF">"”</span>{% endif %}
+                                <br><small style="color:var(--text-secondary);font-size:11px">{{ r.batch_name or '"”' }}</small> {% else %}<span style="color:var(--text-tertiary)">"”</span>{% endif %}
                             </td>
                             <td>{{ r.submitted_at }}</td>
                             </tr>
@@ -1365,7 +1592,7 @@
                         <tr>
                             <td><span class="ref">#{{ u.id }}</span></td>
                             <td>{{ u.fname }} {{ u.lname }}</td>
-                            <td style="color:#374151">{{ u.email }}</td>
+                            <td style="color:var(--text-secondary)">{{ u.email }}</td>
                             <td>
                                 {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'employee' %}<span class="badge b-employee">Employee</span> {% else %}<span class="badge b-trainee">Trainee</span>{% endif %}
                             </td>
@@ -1381,9 +1608,9 @@
                                     {% elif tt == 'cem_renewal' %}<span class="badge" style="background:#FEF3C7;color:#92400E">CEM Renewal</span>
                                     {% elif tt == 'gemp_lgu' %}<span class="badge" style="background:#D1FAE5;color:#064E3B">GEMP (LGU)</span>
                                     {% elif tt == 'gemp_oge' %}<span class="badge" style="background:#A7F3D0;color:#064E3B">GEMP (Gov't)</span>
-                                    {% else %}<span style="color:#6B7280">{{ tt }}</span>
+                                    {% else %}<span style="color:var(--text-secondary)">{{ tt }}</span>
                                     {% endif %}
-                                {% else %}<span style="color:#D1D5DB">"”</span>{% endif %}
+                                {% else %}<span style="color:var(--text-tertiary)">"”</span>{% endif %}
                             </td>
                             <td style="color:var(--gray);font-size:12px">{{ u.created_at.strftime('%b %d, %Y') }}</td>
                             <td>
@@ -1430,12 +1657,12 @@
                             {% for u in archived_users %}
                             <tr>
                                 <td><span class="ref">#{{ u.id }}</span></td>
-                                <td style="color:#9CA3AF">{{ u.fname }} {{ u.lname }}</td>
-                                <td style="color:#9CA3AF">{{ u.email }}</td>
+                                <td style="color:var(--text-tertiary)">{{ u.fname }} {{ u.lname }}</td>
+                                <td style="color:var(--text-tertiary)">{{ u.email }}</td>
                                 <td>
                                     {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'employee' %}<span class="badge b-employee">Employee</span> {% else %}<span class="badge b-trainee">Trainee</span>{% endif %}
                                 </td>
-                                <td style="color:#9CA3AF">{{ u.company_name or '"”' }}</td>
+                                <td style="color:var(--text-tertiary)">{{ u.company_name or '"”' }}</td>
                                 <td style="color:var(--gray);font-size:12px">{{ u.archived_at.strftime('%b %d, %Y') }}</td>
                                 <td style="white-space:nowrap;display:flex;gap:6px">
                                     <form method="POST" action="/admin/user/unarchive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Restore {{ u.fname }} {{ u.lname }}?','Restore')">
@@ -1507,8 +1734,8 @@
                             <span class="sched-num">{{ loop.index }}</span>
                             <div style="flex:1;display:flex;flex-direction:column;gap:3px">
                                 <span style="font-weight:700;font-size:13px;color:var(--green-pr)">{{ s.name }}</span>
-                                <span style="font-size:11px;color:#374151"><i class="fa-solid fa-laptop" style="color:#5B21B6;width:13px"></i> Online &amp; Hybrid · {{ s.start_date.strftime('%b %d, %Y') }} · 7 days</span>
-                                <span style="font-size:11px;color:#374151"><i class="fa-solid fa-chalkboard-user" style="color:#92400E;width:13px"></i> Self-paced · {{ s.start_date.strftime('%b %d, %Y') }} · 3 days</span>
+                                <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-laptop" style="color:#5B21B6;width:13px"></i> Online &amp; Hybrid · {{ s.start_date.strftime('%b %d, %Y') }} · 7 days</span>
+                                <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-chalkboard-user" style="color:#92400E;width:13px"></i> Self-paced · {{ s.start_date.strftime('%b %d, %Y') }} · 3 days</span>
                             </div>
                             <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -1532,7 +1759,7 @@
                             <span class="sched-num">{{ loop.index }}</span>
                             <div style="flex:1;display:flex;flex-direction:column;gap:3px">
                                 <span style="font-weight:700;font-size:13px;color:var(--green-pr)">{{ s.name }}</span>
-                                <span style="font-size:11px;color:#374151"><i class="fa-solid fa-rotate" style="color:#9D174D;width:13px"></i> CEA &amp; CEM Renewal · {{ s.start_date.strftime('%b %d, %Y') }} · 2 days (Fri"“Sat)</span>
+                                <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-rotate" style="color:#9D174D;width:13px"></i> CEA &amp; CEM Renewal · {{ s.start_date.strftime('%b %d, %Y') }} · 2 days (Fri"“Sat)</span>
                             </div>
                             <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -1570,7 +1797,7 @@
                             {% for s in past_schedules %}
                             <tr>
                                 <td><span class="ref">{{ loop.index }}</span></td>
-                                <td style="font-weight:600;color:#374151">{{ s.name }}</td>
+                                <td style="font-weight:600;color:var(--text-secondary)">{{ s.name }}</td>
                                 <td>
                                     {% if s.type == 'training' %}
                                     <span class="badge b-online">Training</span>
@@ -1582,7 +1809,7 @@
                                 <td style="font-size:12px;color:var(--gray)">{{ s.end_date.strftime('%b %d, %Y') }}</td>
                                 <td>
                                     <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
-                                        <button type="submit" class="btn-del-sched" style="color:#D1D5DB"><i class="fa-solid fa-trash-can"></i></button>
+                                        <button type="submit" class="btn-del-sched" style="color:var(--text-tertiary)"><i class="fa-solid fa-trash-can"></i></button>
                                     </form>
                                 </td>
                             </tr>
@@ -1674,7 +1901,7 @@
                             </td>
                             <td>
                                 {% if r.training_type is defined and r.training_type %} {% if 'Online' in r.training_type %}<span class="badge b-online">Online</span> {% else %}<span class="badge b-f2f">Face to Face</span>{% endif %}
-                                <br><small style="color:#6B7280;font-size:11px">{{ r.batch_name or '"”' }}</small> {% else %}<span style="color:#9CA3AF">"”</span>{% endif %}
+                                <br><small style="color:var(--text-secondary);font-size:11px">{{ r.batch_name or '"”' }}</small> {% else %}<span style="color:var(--text-tertiary)">"”</span>{% endif %}
                             </td>
                             <td style="font-size:12px;color:var(--gray)">{{ r.submitted_at }}</td>
                             <td>
@@ -1793,7 +2020,7 @@
                             <td><span class="badge b-training">{{ r.establishment_type|capitalize }}</span></td>
                             <td>{{ r.electrical_phase|capitalize }}-phase</td>
                             <td>
-                                {% if r.system_size_kw %}{{ r.final_system_kw or r.system_size_kw }} kWp{% else %}<span style="color:#9CA3AF">"”</span>{% endif %}
+                                {% if r.system_size_kw %}{{ r.final_system_kw or r.system_size_kw }} kWp{% else %}<span style="color:var(--text-tertiary)">"”</span>{% endif %}
                             </td>
                             <td>
                                 {% if r.status == 'submitted' %}<span class="badge b-pending">Submitted</span>
@@ -1806,7 +2033,7 @@
                             </td>
                             <td style="font-size:12px;color:var(--gray)">{{ r.created_at }}</td>
                             <td>
-                                <button type="button" class="btn-docs" onclick="openSolarReview({{ r.id }})"><i class="fa-solid fa-solar-panel"></i> Review</button>
+                                <button type="button" class="btn-docs" onclick="openSolarReview({{ r.id }}, this)"><i class="fa-solid fa-solar-panel"></i> Review</button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -1830,22 +2057,22 @@
                 <a href="/lms/modules/create" target="_blank" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#16583C,#1E7A4B);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0"><i class="fa-solid fa-plus"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Create Module</div>
-                        <div style="font-size:11px;color:#6B7280">New training module</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Create Module</div>
+                        <div style="font-size:11px;color:var(--text-secondary)">New training module</div>
                     </div>
                 </a>
                 <a href="/lms/submissions" target="_blank" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#1D4ED8,#2563EB);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0"><i class="fa-solid fa-inbox"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Submissions</div>
-                        <div style="font-size:11px;color:#6B7280">Grade practical exams</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Submissions</div>
+                        <div style="font-size:11px;color:var(--text-secondary)">Grade practical exams</div>
                     </div>
                 </a>
                 <a href="/lms/certificates/manage" target="_blank" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#854D0E,#A16207);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0"><i class="fa-solid fa-certificate"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Certificates</div>
-                        <div style="font-size:11px;color:#6B7280">Issue &amp; manage certs</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Certificates</div>
+                        <div style="font-size:11px;color:var(--text-secondary)">Issue &amp; manage certs</div>
                     </div>
                 </a>
             </div>
@@ -1853,29 +2080,29 @@
             <!-- All Modules List -->
             {% if modules or archived_modules %}
             <div class="panel-card" style="padding:20px 24px">
-                <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">
                     <i class="fa-solid fa-layer-group" style="color:#1E7A4B"></i> All Modules ({{ modules|length + archived_modules|length }})
                 </div>
                 <table id="all-modules-table" style="width:100%;border-collapse:collapse;font-size:13px">
                     <thead>
                         <tr style="border-bottom:1px solid #E5E7EB">
-                            <th style="text-align:left;padding:8px 0;font-weight:600;color:#374151">Module</th>
-                            <th style="text-align:left;padding:8px 0;font-weight:600;color:#374151">Instructor</th>
-                            <th style="text-align:center;padding:8px 0;font-weight:600;color:#374151;cursor:pointer;user-select:none" onclick="sortModules('type')" title="Click to sort">
-                                Type <span class="sort-icon" style="font-size:10px;color:#9CA3AF;margin-left:4px"></span>
+                            <th style="text-align:left;padding:8px 0;font-weight:600;color:var(--text-secondary)">Module</th>
+                            <th style="text-align:left;padding:8px 0;font-weight:600;color:var(--text-secondary)">Instructor</th>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary);cursor:pointer;user-select:none" onclick="sortModules('type')" title="Click to sort">
+                                Type <span class="sort-icon" style="font-size:10px;color:var(--text-tertiary);margin-left:4px"></span>
                             </th>
-                            <th style="text-align:center;padding:8px 0;font-weight:600;color:#374151;cursor:pointer;user-select:none" onclick="sortModules('status')" title="Click to sort">
-                                Status <span class="sort-icon" style="font-size:10px;color:#9CA3AF;margin-left:4px"></span>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary);cursor:pointer;user-select:none" onclick="sortModules('status')" title="Click to sort">
+                                Status <span class="sort-icon" style="font-size:10px;color:var(--text-tertiary);margin-left:4px"></span>
                             </th>
-                            <th style="text-align:center;padding:8px 0;font-weight:600;color:#374151">Quiz</th>
-                            <th style="text-align:center;padding:8px 0;font-weight:600;color:#374151">Exam</th>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary)">Quiz</th>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary)">Exam</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for m in modules %}
                         <tr data-archived="0" style="border-bottom:1px solid #F3F4F6;transition:background .2s;cursor:pointer" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" onclick="showModuleDetail({{ m.id }}, '{{ m.title }}', '{{ m.description or '' }}', '{{ m.fname }} {{ m.lname or '' }}', '{{ m.training_type }}', {{ m.is_published|int }}, {{ m.quiz_count or 0 }}, {{ m.exam_count or 0 }}, 0)">
-                            <td style="padding:12px 0;color:#111827;font-weight:500">{{ m.title }}</td>
-                            <td style="padding:12px 0;color:#6B7280">{{ m.fname }} {{ m.lname or '"”' }}</td>
+                            <td style="padding:12px 0;color:var(--text-primary);font-weight:500">{{ m.title }}</td>
+                            <td style="padding:12px 0;color:var(--text-secondary)">{{ m.fname }} {{ m.lname or '"”' }}</td>
                             <td style="padding:12px 0;text-align:center">
                                 {% set tt = m.training_type %}
                                 {% if tt == 'training' %}<span style="font-size:11px;background:#E0E7FF;color:#3730A3;padding:3px 8px;border-radius:4px">CEM</span>
@@ -1885,7 +2112,7 @@
                                 {% elif tt == 'cem_renewal' %}<span style="font-size:11px;background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px">CEM-REN</span>
                                 {% elif tt == 'gemp_lgu' %}<span style="font-size:11px;background:#D1FAE5;color:#064E3B;padding:3px 8px;border-radius:4px">GEMP-LGU</span>
                                 {% elif tt == 'gemp_oge' %}<span style="font-size:11px;background:#A7F3D0;color:#064E3B;padding:3px 8px;border-radius:4px">GEMP-OGE</span>
-                                {% else %}<span style="font-size:11px;color:#6B7280">{{ tt }}</span>
+                                {% else %}<span style="font-size:11px;color:var(--text-secondary)">{{ tt }}</span>
                                 {% endif %}
                             </td>
                             <td style="padding:12px 0;text-align:center">
@@ -1893,14 +2120,14 @@
                                 {% else %}<span style="font-size:11px;background:#F3F4F6;color:#6B7280;padding:3px 8px;border-radius:4px">Draft</span>
                                 {% endif %}
                             </td>
-                            <td style="padding:12px 0;text-align:center;color:#6B7280">{{ m.quiz_count or 0 }}</td>
-                            <td style="padding:12px 0;text-align:center;color:#6B7280">{{ m.exam_count or 0 }}</td>
+                            <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">{{ m.quiz_count or 0 }}</td>
+                            <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">{{ m.exam_count or 0 }}</td>
                         </tr>
                         {% endfor %}
                         {% for m in archived_modules %}
                         <tr data-archived="1" style="border-bottom:1px solid #F3F4F6;transition:background .2s;cursor:pointer;opacity:0.6" onmouseover="this.style.background='#F9FAFB'" onmouseout="this.style.background=''" onclick="showModuleDetail({{ m.id }}, '{{ m.title }}', '{{ m.description or '' }}', '{{ m.fname }} {{ m.lname or '' }}', '{{ m.training_type }}', {{ m.is_published|int }}, {{ m.quiz_count or 0 }}, {{ m.exam_count or 0 }}, 1)">
-                            <td style="padding:12px 0;color:#111827;font-weight:500">{{ m.title }}</td>
-                            <td style="padding:12px 0;color:#6B7280">{{ m.fname }} {{ m.lname or '"”' }}</td>
+                            <td style="padding:12px 0;color:var(--text-primary);font-weight:500">{{ m.title }}</td>
+                            <td style="padding:12px 0;color:var(--text-secondary)">{{ m.fname }} {{ m.lname or '"”' }}</td>
                             <td style="padding:12px 0;text-align:center">
                                 {% set tt = m.training_type %}
                                 {% if tt == 'training' %}<span style="font-size:11px;background:#E0E7FF;color:#3730A3;padding:3px 8px;border-radius:4px">CEM</span>
@@ -1910,7 +2137,7 @@
                                 {% elif tt == 'cem_renewal' %}<span style="font-size:11px;background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px">CEM-REN</span>
                                 {% elif tt == 'gemp_lgu' %}<span style="font-size:11px;background:#D1FAE5;color:#064E3B;padding:3px 8px;border-radius:4px">GEMP-LGU</span>
                                 {% elif tt == 'gemp_oge' %}<span style="font-size:11px;background:#A7F3D0;color:#064E3B;padding:3px 8px;border-radius:4px">GEMP-OGE</span>
-                                {% else %}<span style="font-size:11px;color:#6B7280">{{ tt }}</span>
+                                {% else %}<span style="font-size:11px;color:var(--text-secondary)">{{ tt }}</span>
                                 {% endif %}
                             </td>
                             <td style="padding:12px 0;text-align:center">
@@ -1918,8 +2145,8 @@
                                 {% else %}<span style="font-size:11px;background:#F3F4F6;color:#6B7280;padding:3px 8px;border-radius:4px">Draft</span>
                                 {% endif %}
                             </td>
-                            <td style="padding:12px 0;text-align:center;color:#6B7280">{{ m.quiz_count or 0 }}</td>
-                            <td style="padding:12px 0;text-align:center;color:#6B7280">{{ m.exam_count or 0 }}</td>
+                            <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">{{ m.quiz_count or 0 }}</td>
+                            <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">{{ m.exam_count or 0 }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1928,10 +2155,10 @@
             {% endif %}
 
             <div class="panel-card" style="padding:20px 24px">
-                <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">
                     <i class="fa-solid fa-circle-info" style="color:#1D4ED8"></i> LMS Quick Guide
                 </div>
-                <ol style="font-size:13px;color:#374151;line-height:2;padding-left:18px;margin:0">
+                <ol style="font-size:13px;color:var(--text-secondary);line-height:2;padding-left:18px;margin:0">
                     <li>Go to <strong>Create Module</strong> <i class="fa-solid fa-arrow-right"></i> add title, description, and upload learning materials (PDF, DOCX, video, etc.)</li>
                     <li>Open the module <i class="fa-solid fa-arrow-right"></i> <strong>Create Quiz</strong> manually or click <strong>Generate with AI</strong> to auto-generate from uploaded files</li>
                     <li>Add a <strong>Practical Exam</strong> with task instructions and evaluation criteria; optionally require webcam</li>
@@ -1948,15 +2175,15 @@
                 <h1>Export Reports</h1>
                 <span class="topbar-badge" style="background:var(--green-lt);color:var(--green-pr);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600">Excel (.xlsx)</span>
             </div>
-            <p style="font-size:13px;color:#6B7280;margin-bottom:1.5rem">Download any report as an Excel spreadsheet for offline analysis and archiving.</p>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.5rem">Download any report as an Excel spreadsheet for offline analysis and archiving.</p>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px">
 
                 <a href="/admin/export/registrations" class="panel-card" style="display:flex;align-items:center;gap:16px;text-decoration:none;padding:20px 22px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#16583C,#1E7A4B);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0"><i class="fa-solid fa-clipboard-list"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Registrations</div>
-                        <div style="font-size:11px;color:#6B7280;margin-top:2px">All form submissions</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Registrations</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">All form submissions</div>
                         <div style="font-size:11px;color:#10B981;font-weight:600;margin-top:4px"><i class="fa-solid fa-file-excel"></i> Download .xlsx</div>
                     </div>
                 </a>
@@ -1964,8 +2191,8 @@
                 <a href="/admin/export/users" class="panel-card" style="display:flex;align-items:center;gap:16px;text-decoration:none;padding:20px 22px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#1D4ED8,#2563EB);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0"><i class="fa-solid fa-users"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Users</div>
-                        <div style="font-size:11px;color:#6B7280;margin-top:2px">All user accounts &amp; roles</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Users</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">All user accounts &amp; roles</div>
                         <div style="font-size:11px;color:#10B981;font-weight:600;margin-top:4px"><i class="fa-solid fa-file-excel"></i> Download .xlsx</div>
                     </div>
                 </a>
@@ -1973,8 +2200,8 @@
                 <a href="/admin/export/payments" class="panel-card" style="display:flex;align-items:center;gap:16px;text-decoration:none;padding:20px 22px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#854D0E,#A16207);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0"><i class="fa-solid fa-coins"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Payments</div>
-                        <div style="font-size:11px;color:#6B7280;margin-top:2px">Transaction records &amp; receipts</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Payments</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">Transaction records &amp; receipts</div>
                         <div style="font-size:11px;color:#10B981;font-weight:600;margin-top:4px"><i class="fa-solid fa-file-excel"></i> Download .xlsx</div>
                     </div>
                 </a>
@@ -1982,8 +2209,8 @@
                 <a href="/admin/export/lms-progress" class="panel-card" style="display:flex;align-items:center;gap:16px;text-decoration:none;padding:20px 22px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#6D28D9,#7C3AED);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0"><i class="fa-solid fa-chart-simple"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Training Progress</div>
-                        <div style="font-size:11px;color:#6B7280;margin-top:2px">LMS scores &amp; completions</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Training Progress</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">LMS scores &amp; completions</div>
                         <div style="font-size:11px;color:#10B981;font-weight:600;margin-top:4px"><i class="fa-solid fa-file-excel"></i> Download .xlsx</div>
                     </div>
                 </a>
@@ -1991,8 +2218,8 @@
                 <a href="/admin/export/solar-requests" class="panel-card" style="display:flex;align-items:center;gap:16px;text-decoration:none;padding:20px 22px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#B45309,#D97706);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0"><i class="fa-solid fa-solar-panel"></i></span>
                     <div>
-                        <div style="font-size:14px;font-weight:700;color:#111827">Solar Requests</div>
-                        <div style="font-size:11px;color:#6B7280;margin-top:2px">Consultation submissions</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Solar Requests</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">Consultation submissions</div>
                         <div style="font-size:11px;color:#10B981;font-weight:600;margin-top:4px"><i class="fa-solid fa-file-excel"></i> Download .xlsx</div>
                     </div>
                 </a>
@@ -2166,7 +2393,7 @@
             const form = event.currentTarget;
             Swal.fire({
                 title: 'Delete User?',
-                html: '<p style="color:#374151">You are about to permanently delete <strong>' + name + '</strong>.<br><span style="color:#991B1B;font-size:13px">This action cannot be undone.</span></p>',
+                html: '<p style="color:var(--text-secondary)">You are about to permanently delete <strong>' + name + '</strong>.<br><span style="color:#991B1B;font-size:13px">This action cannot be undone.</span></p>',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#DC2626',
@@ -2475,7 +2702,21 @@
         }
 
         // ── Document viewer modal ─────────────────────────────────────────────
+        // Origin-aware animation: the modal grows from the direction of the button
+        // that opened it (spatial consistency), not always from dead-center.
+        function anchorModalOrigin(box, triggerEl) {
+            if (!box || !triggerEl) return;
+            var r = triggerEl.getBoundingClientRect();
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var ox = 50 + (((r.left + r.width / 2) - vw / 2) / (vw / 2)) * 40;
+            var oy = 50 + (((r.top + r.height / 2) - vh / 2) / (vh / 2)) * 40;
+            ox = Math.max(15, Math.min(85, ox));
+            oy = Math.max(15, Math.min(85, oy));
+            box.style.transformOrigin = ox + '% ' + oy + '%';
+        }
+
         function openDocs(btn) {
+            anchorModalOrigin(document.querySelector('#docs-overlay .docs-box'), btn);
             var id = btn.dataset.id, name = btn.dataset.name, status = btn.dataset.status;
             var photo = btn.dataset.photo, resume = btn.dataset.resume, doe = btn.dataset.doe, valid = btn.dataset.valid;
             document.getElementById('docs-title').textContent = name.trim();
@@ -2610,7 +2851,7 @@
         function swalAccept(regId, regName) {
             Swal.fire({
                 title: 'Accept Registration',
-                html: '<p style="color:#374151;margin-bottom:4px">Is <strong>' + regName + '</strong> a qualified applicant?</p>',
+                html: '<p style="color:var(--text-secondary);margin-bottom:4px">Is <strong>' + regName + '</strong> a qualified applicant?</p>',
                 icon: 'question',
                 showCancelButton: true,
                 showDenyButton: true,
@@ -2659,11 +2900,12 @@
         }
 
         // ── Solar review modal ────────────────────────────────────────────────────
-        async function openSolarReview(id) {
+        async function openSolarReview(id, btn) {
             var overlay = document.getElementById('solar-overlay');
             var body    = document.getElementById('solar-body');
             var sub     = document.getElementById('solar-sub');
             var title   = document.getElementById('solar-title');
+            anchorModalOrigin(overlay.querySelector('.docs-box'), btn);
             overlay.classList.add('open');
             body.innerHTML = '<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
             sub.textContent = 'Request #' + id;
@@ -2894,9 +3136,9 @@
     <!-- Module Detail Modal -->
     <div id="module-detail-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
         <div style="background:#fff;border-radius:14px;padding:32px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2)">
-            <button onclick="closeModuleDetail()" style="position:absolute;top:14px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:#6B7280">&times;</button>
+            <button onclick="closeModuleDetail()" style="position:absolute;top:14px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:var(--text-secondary)">&times;</button>
 
-            <h2 id="module-detail-title" style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827"></h2>
+            <h2 id="module-detail-title" style="margin:0 0 8px;font-size:20px;font-weight:700;color:var(--text-primary)"></h2>
 
             <div style="display:flex;gap:8px;margin-bottom:16px">
                 <span id="module-detail-type" style="font-size:11px;padding:4px 10px;border-radius:6px;font-weight:500"></span>
@@ -2904,12 +3146,12 @@
             </div>
 
             <div style="background:#F9FAFB;padding:14px;border-radius:10px;margin-bottom:16px">
-                <p id="module-detail-desc" style="margin:0;font-size:13px;color:#374151;line-height:1.6"></p>
+                <p id="module-detail-desc" style="margin:0;font-size:13px;color:var(--text-secondary);line-height:1.6"></p>
             </div>
 
             <div style="margin-bottom:16px">
-                <div style="font-size:12px;color:#6B7280;margin-bottom:4px">Instructor</div>
-                <div id="module-detail-instructor" style="font-size:14px;color:#111827;font-weight:500"></div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Instructor</div>
+                <div id="module-detail-instructor" style="font-size:14px;color:var(--text-primary);font-weight:500"></div>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
@@ -3042,8 +3284,8 @@ function loadFeedback() {
                     <td>${esc(f.fname)} ${esc(f.lname)}</td>
                     <td>${esc(f.module_title)}</td>
                     <td style="text-align:center;font-size:16px">${'<i class="fa-solid fa-star"></i>'.repeat(f.rating)}${'<i class="fa-regular fa-star"></i>'.repeat(5-f.rating)}</td>
-                    <td style="color:#374151">${esc(f.comment || '"”')}</td>
-                    <td style="color:#9CA3AF;white-space:nowrap">${fmtDate(f.created_at)}</td>
+                    <td style="color:var(--text-secondary)">${esc(f.comment || '"”')}</td>
+                    <td style="color:var(--text-tertiary);white-space:nowrap">${fmtDate(f.created_at)}</td>
                 </tr>`).join('');
             }
         })
@@ -3072,11 +3314,11 @@ function renderAudit(rows) {
     const actionColor = a => a.includes('delete') ? '#EF4444' : a.includes('archive') ? '#F59E0B'
         : a.includes('issue') ? '#10B981' : a.includes('export') ? '#3B82F6' : '#6B7280';
     body.innerHTML = rows.map(r => `<tr>
-        <td style="white-space:nowrap;color:#9CA3AF;font-size:12px">${fmtDate(r.created_at)}</td>
+        <td style="white-space:nowrap;color:var(--text-tertiary);font-size:12px">${fmtDate(r.created_at)}</td>
         <td>${r.fname ? esc(r.fname) + ' ' + esc(r.lname) : '<em style="color:#ccc">System</em>'}</td>
         <td><span style="font-size:11px;font-weight:600;color:${actionColor(r.action)}">${esc(r.action)}</span></td>
-        <td style="font-size:11px;color:#6B7280">${r.entity_type ? esc(r.entity_type) + (r.entity_id ? ' #'+esc(r.entity_id) : '') : '"”'}</td>
-        <td style="font-size:12px;color:#374151">${esc(r.details || '"”')}</td>
+        <td style="font-size:11px;color:var(--text-secondary)">${r.entity_type ? esc(r.entity_type) + (r.entity_id ? ' #'+esc(r.entity_id) : '') : '"”'}</td>
+        <td style="font-size:12px;color:var(--text-secondary)">${esc(r.details || '"”')}</td>
     </tr>`).join('');
 }
 
@@ -3102,6 +3344,7 @@ function fmtDate(s) {
         + ' ' + d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
 }
 </script>
+<script src="/static/admin-theme.js"></script>
 </body>
 
 </html>
