@@ -6,8 +6,8 @@ PEAK_SUN_HOURS         = 5.0
 SYSTEM_EFFICIENCY      = 0.78
 PANEL_WATTAGE_W        = 400
 PANEL_AREA_SQM         = 2.0
-COST_MIN_PER_KWP       = 55_000
-COST_MAX_PER_KWP       = 80_000
+COST_MIN_PER_KWP       = 45_000   # client quotes ~P50k/kWp installed; range brackets it
+COST_MAX_PER_KWP       = 55_000
 MAINTENANCE_ANNUAL_PCT = 0.005
 
 
