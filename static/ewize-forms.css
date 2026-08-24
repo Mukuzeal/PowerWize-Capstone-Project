@@ -886,6 +886,95 @@ input[type=file] { display: none; }
   font-size: 0.78rem; line-height: 1.6; color: var(--fg-ghost);
 }
 
+/* --------------------------------------------------------------------------
+   13c. SOLARA — THE MASCOT
+   Ten hand-animated faces, one per beat of a turn. The art is a near-black
+   blob with cut-out eyes on transparency, which would disappear entirely into
+   an ink substrate — so it is given the light substrate the system already
+   owns. The paper disc is the mascot's habitat, not decoration: it is the only
+   reason the face reads at all.
+   -------------------------------------------------------------------------- */
+.solara-stage {
+  display: flex; flex-direction: column; align-items: center; gap: 0.7rem;
+  padding: 1.25rem 1.1rem 1.1rem;
+  border-bottom: var(--rule) solid var(--line-mid);
+  background: var(--ink-200);
+}
+.solara-stage__plinth {
+  position: relative;
+  width: 10.5rem; aspect-ratio: 1; border-radius: 999px;
+  display: grid; place-items: center;
+  background: var(--paper);
+  /* The ring is the only part that carries state as colour — the face carries
+     it as motion — so it stays a hairline and never competes with the art. */
+  box-shadow: 0 0 0 var(--rule) var(--line-strong),
+              0 0 0 0.35rem color-mix(in oklab, var(--stage-tint, transparent) 22%, transparent);
+  transition: box-shadow 420ms var(--e-out);
+}
+.solara-stage__plinth img { width: 88%; height: 88%; display: block; }
+.solara-stage__say {
+  font-size: var(--fs-mono); letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--fg-mute); text-align: center; min-height: 1em;
+}
+
+/* Each swap is a cut, not a dissolve — the faces are already animated, so
+   crossfading two of them just reads as a smear. A single-frame settle sells
+   the change without arguing with the art. */
+[data-solara-face] img, img[data-solara-face] { animation: solaraSettle 260ms var(--e-out); }
+@keyframes solaraSettle {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.solara-stage[data-state="thinking"],
+.solara-stage[data-state="answering"] { --stage-tint: var(--signal); }
+.solara-stage[data-state="sent"],
+.solara-stage[data-state="typing"]    { --stage-tint: var(--signal-dim); }
+.solara-stage[data-state="done"]      { --stage-tint: var(--signal); }
+.solara-stage[data-state="offtopic"]  { --stage-tint: var(--amber); }
+.solara-stage[data-state="error"]     { --stage-tint: var(--ember); }
+.solara-stage[data-state="offtopic"] .solara-stage__say { color: var(--amber); }
+.solara-stage[data-state="error"]    .solara-stage__say { color: var(--ember); }
+
+/* Boot. Full-bleed because the page behind it is an empty chat waiting on a
+   round trip, and half-covering that is worse than covering it. */
+.solara-boot {
+  /* Above the nav's 200, below the skip link's 999 — a curtain should never
+     be the thing that hides the escape hatch. */
+  position: fixed; inset: 0; z-index: 300;
+  display: grid; place-content: center; justify-items: center; gap: 1.4rem;
+  background: var(--ink-000);
+  cursor: pointer;
+}
+.solara-boot__plinth {
+  width: min(15rem, 44vw); aspect-ratio: 1; border-radius: 999px;
+  display: grid; place-items: center;
+  background: var(--paper);
+  box-shadow: 0 0 0 var(--rule) var(--line-strong),
+              0 0 5rem color-mix(in oklab, var(--signal) 14%, transparent);
+}
+.solara-boot__plinth img { width: 100%; height: 100%; display: block; }
+.solara-boot .mono { font-size: var(--fs-mono-lg); letter-spacing: 0.2em; text-transform: uppercase; }
+.solara-boot.is-gone {
+  opacity: 0; pointer-events: none;
+  transition: opacity 460ms var(--e-out);
+}
+
+@media (max-width: 1080px) {
+  /* Stacked, the rail is scrolled past rather than glanced at, so the stage
+     gives up its column and sits beside the readout it belongs to. */
+  .solara-stage { flex-direction: row; justify-content: flex-start; gap: 1rem; }
+  .solara-stage__plinth { width: 5.5rem; }
+  .solara-stage__say { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The faces are the content and cannot be stilled, but nothing this sheet
+     adds on top of them needs to move. */
+  [data-solara-face] img, img[data-solara-face] { animation: none; }
+  .solara-boot.is-gone { transition: none; }
+}
+
 /* Compact page header. The shell carries its own identity bar, so a full
    masthead above it would introduce Solara twice and push the conversation
    below the fold for no gain. */
@@ -908,12 +997,17 @@ input[type=file] { display: none; }
   border-bottom: var(--rule) solid var(--line-mid);
   background: var(--ink-200);
 }
+/* The identity bar's face. On a phone the rail stacks below the fold, so this
+   is the only Solara on screen mid-conversation — it mirrors the same state.
+   Paper-filled for the same reason the stage is: the art is near-black. */
 .solara-avatar {
   width: 2.5rem; height: 2.5rem; flex-shrink: 0; border-radius: 999px;
-  display: grid; place-items: center;
+  display: grid; place-items: center; overflow: hidden;
   border: var(--rule) solid var(--signal);
+  background: var(--paper);
   color: var(--signal); font-size: 1rem;
 }
+.solara-avatar img { width: 100%; height: 100%; display: block; }
 .solara-info { flex: 1; min-width: 0; }
 .solara-name { font-size: 1rem; font-variation-settings: "wght" 500; color: var(--fg); letter-spacing: -0.015em; }
 .solara-status { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.15rem; font-family: var(--mono); font-size: var(--fs-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-mute); }

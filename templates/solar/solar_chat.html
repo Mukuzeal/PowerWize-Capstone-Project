@@ -11,6 +11,22 @@
 {% endblock %}
 
 {% block main %}
+{% set SOLARA = url_for('static', filename='solara/') %}
+{# Solara boots before the page does. The first greeting is a round trip to
+   /solar/chat/msg, so without this the user's first sight of the chat is an
+   empty room — the mascot covers that wait instead of a blank box.
+
+   Two phases, because the wait has no known length: waking.gif is a loop that
+   runs for exactly as long as the server takes, and reveal.gif is the one-shot
+   that gathers those same dots into her face once she is actually there. The
+   markup is server-rendered rather than JS-injected so the curtain is already
+   painted on the first frame. #}
+<div class="solara-boot" id="solara-boot" role="status" title="Click or press Escape to skip">
+  <div class="solara-boot__plinth">
+    <img id="solara-boot-img" src="{{ SOLARA }}waking.gif" alt="" width="320" height="320">
+  </div>
+  <p class="mono mono--signal" id="solara-boot-say">Waking Solara up…</p>
+</div>
 {% set QR_FIELDS = [
   ('name',                  'Full name'),
   ('address',               'Address'),
@@ -40,7 +56,7 @@
     <div class="chat-shell">
 
       <div class="chat-header">
-        <div class="solara-avatar"><i class="fa-solid fa-solar-panel"></i></div>
+        <div class="solara-avatar" data-solara-face><img src="{{ SOLARA }}neutral.svg" alt="Solara"></div>
         <div class="solara-info">
           <div class="solara-name">Solara</div>
           <div class="solara-status"><span class="status-dot"></span> AI Solar Consultant · EnergyWize</div>
@@ -78,6 +94,15 @@
     </div>
 
     <aside class="quote-rail" id="quote-rail" aria-label="Quotation details captured so far">
+      {# Solara's own panel. The rail is the one place with room to give the
+         mascot a real size, and it sits where the user looks to check progress
+         — so her reaction and the thing she is filling in share a glance. #}
+      <div class="solara-stage" id="solara-stage" data-src="{{ SOLARA }}" data-state="neutral">
+        <div class="solara-stage__plinth">
+          <img id="solara-face" src="{{ SOLARA }}neutral.svg" alt="Solara" width="250" height="250" data-solara-face>
+        </div>
+        <p class="solara-stage__say mono" id="solara-say" aria-live="polite">Listening</p>
+      </div>
       <div class="qr-head">
         <p class="mono mono--signal">Quotation so far</p>
         <p class="qr-count"><b id="qr-done">0</b> of {{ QR_FIELDS|length }} details captured</p>

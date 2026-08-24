@@ -53,6 +53,139 @@ function removeTyping() {
   if (el) el.remove();
 }
 
+/* ── Solara's face ──────────────────────────────────────────────────────────
+   Ten drawn states, one per beat of a turn. Every asset is a self-contained
+   animation, so a state change is only ever a swapped src — no player, no
+   library. The stage carries the asset path in a data attribute so the URL
+   stays Flask's to generate. */
+var FACE = {
+  neutral:   ['neutral.svg',   'Listening'],
+  curious:   ['curious.svg',   'Go ahead'],
+  typing:    ['typing.svg',    'You’re typing'],
+  sent:      ['sent.svg',      'Got it'],
+  thinking:  ['thinking.svg',  'Thinking'],
+  answering: ['answering.gif', 'Composing'],
+  done:      ['done.svg',      'Answered'],
+  offtopic:  ['offtopic.svg',  'Off topic'],
+  error:     ['error.svg',     'Trouble']
+};
+
+var _stage    = document.getElementById('solara-stage');
+var _say      = document.getElementById('solara-say');
+var _faces    = document.querySelectorAll('[data-solara-face]');
+var _faceBase = _stage ? _stage.dataset.src : '/static/solara/';
+var _face     = 'neutral';
+var _faceStep = null;
+
+/* Review harness. Neither half of this is reachable by using the page as
+   intended: the greeting now returns in milliseconds, so the waking loop never
+   gets to loop, and a turn against a local model runs long enough that seeing
+   all nine faces means sitting through most of an hour.
+     ?boot=8000   hold the waking loop at least 8s before the reveal, so the
+                  handoff plays at a speed you can actually judge
+     ?faces       cycle every state with its caption, 2s each, on repeat
+     ?faces=error park on one state and stay there
+   Inert unless named in the URL. */
+var _q         = new URLSearchParams(location.search);
+var BOOT_FLOOR = parseInt(_q.get('boot'), 10) || 0;
+var FACE_DEMO  = _q.has('faces') ? (_q.get('faces') || 'cycle') : null;
+
+// Warmed once at load, so every later change is a repaint rather than a fetch
+// the user watches happen.
+Object.keys(FACE).forEach(function (k) { new Image().src = _faceBase + FACE[k][0]; });
+
+function paintFace(state) {
+  if (!FACE[state] || state === _face) return;
+  _face = state;
+  Array.prototype.forEach.call(_faces, function (el) {
+    var img = el.tagName === 'IMG' ? el : el.querySelector('img');
+    if (!img) return;
+    img.src = _faceBase + FACE[state][0];
+    // A src swap does not restart a running CSS animation, so the settle has
+    // to be retriggered by hand or it only ever plays on the first paint.
+    img.style.animation = 'none';
+    void img.offsetWidth;
+    img.style.animation = '';
+  });
+  if (_stage) _stage.dataset.state = state;
+  if (_say)   _say.textContent = FACE[state][1];
+}
+
+/* A turn is a short film rather than a single frame: pressed-enter, wind-up,
+   then the composing dots for however long the model actually takes. Steps are
+   [state, ms]; a duration of 0 holds until something else interrupts. */
+function playFaces(steps) {
+  clearTimeout(_faceStep);
+  var i = 0;
+  (function next() {
+    if (i >= steps.length) return;
+    var s = steps[i++];
+    paintFace(s[0]);
+    if (s[1]) _faceStep = setTimeout(next, s[1]);
+  })();
+}
+
+function setFace(state) { playFaces([[state, 0]]); }
+
+/* Whether she is between turns. Focus and blur are ambient signals, so they
+   may only speak when nothing louder is mid-sentence — sending with the mouse
+   blurs the box and refocuses it on reply, which would otherwise cut the
+   answered beat off at the knees. */
+function faceIdle() { return _face === 'neutral' || _face === 'curious'; }
+
+/* ── Boot ───────────────────────────────────────────────────────────────────
+   Waking loops for however long the greeting actually takes; the reveal then
+   plays once and lands on her face. Splitting it this way is what lets the
+   curtain be honest — a fixed-length intro either cuts the payoff off on a
+   slow server or stalls the user on a fast one.
+
+   REVEAL_MS is where the face finishes forming, a little short of the clip's
+   3.1s so the curtain does not sit on a held pose. */
+var REVEAL_MS = 2600;
+var _boot    = document.getElementById('solara-boot');
+var _bootImg = document.getElementById('solara-boot-img');
+var _bootSay = document.getElementById('solara-boot-say');
+
+function dismissBoot() {
+  if (!_boot || _boot.classList.contains('is-gone')) return;
+  _boot.classList.add('is-gone');
+  document.removeEventListener('keydown', _bootKey);
+  setTimeout(function () {
+    _boot.remove();
+    var input = document.getElementById('chat-input');
+    if (input && !input.disabled) input.focus();
+  }, 500);
+}
+
+function _bootKey(e) { if (e.key === 'Escape') dismissBoot(); }
+
+/* Solara has answered, so the dots stop waiting and become her. */
+function endBoot() {
+  if (!_boot || _boot.classList.contains('is-gone')) return;
+  if (_bootImg) _bootImg.src = _faceBase + 'reveal.gif';
+  if (_bootSay) _bootSay.textContent = 'Solara is awake';
+  setTimeout(dismissBoot, REVEAL_MS);
+}
+
+if (_boot) {
+  _boot.addEventListener('click', dismissBoot);
+  document.addEventListener('keydown', _bootKey);
+  // The reveal has to be in cache before it is swapped in, or the swap stalls
+  // on a 86KB fetch and the dots freeze at the one moment they should not.
+  new Image().src = _faceBase + 'reveal.gif';
+}
+
+/* Whether the last turn moved the quotation on at all. The backend does not
+   flag off-topic messages, and asking it to would cost another model call for
+   a face — so this reads the result instead: nothing new banked and the same
+   field still outstanding means the turn went sideways. A soft cue only; it is
+   wrong occasionally, and nothing but the mascot depends on it. */
+function bankedCount(c) {
+  return Object.keys(c || {}).filter(function (k) {
+    return c[k] !== null && c[k] !== undefined && c[k] !== '';
+  }).length;
+}
+
 /* The quotation rail. Solara returns everything she has banked on each turn;
    this puts it on screen so the user can see the estimate assembling instead
    of having to trust that it is. */
@@ -141,6 +274,10 @@ async function sendMessage() {
   isWaiting = true;
   document.getElementById('send-btn').disabled = true;
   showTyping();
+  playFaces([['sent', 600], ['thinking', 700], ['answering', 0]]);
+
+  var bankedBefore = bankedCount(collected);
+  var qBefore      = qIndex;
 
   try {
     var res = await fetch('/solar/chat/msg', {
@@ -158,6 +295,7 @@ async function sendMessage() {
         '<i class="fa-solid fa-solar-panel"></i> View My Estimate</a>',
         'ai'
       );
+      setFace('done');   // the conversation is over, so she stays pleased
       isWaiting = false;
       document.getElementById('send-btn').disabled = true;
       document.getElementById('chat-input').disabled = true;
@@ -170,10 +308,15 @@ async function sendMessage() {
       else messages.push({ role: 'assistant', content: data.text });
       if (data.collected) { collected = data.collected; renderRail(collected); }
       if (data.q_index !== undefined) qIndex = data.q_index;
+
+      var stalled = bankedCount(collected) === bankedBefore && qIndex === qBefore;
+      playFaces(stalled ? [['offtopic', 2200], ['neutral', 0]]
+                        : [['done', 1500], ['neutral', 0]]);
     }
   } catch (e) {
     removeTyping();
     addBubble('Sorry, something went wrong. Please try again or switch to form mode.', 'ai');
+    playFaces([['error', 3200], ['neutral', 0]]);
   }
 
   isWaiting = false;
@@ -214,6 +357,19 @@ var _input = document.getElementById('chat-input');
 _input.addEventListener('input', function() {
   this.style.height = 'auto';
   this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+  // Solara's own turn outranks the user's — she does not stop mid-answer to
+  // notice that someone is typing ahead of her.
+  if (isWaiting) return;
+  playFaces(this.value.trim() ? [['typing', 2200], ['curious', 0]]
+                              : [['curious', 0]]);
+});
+
+_input.addEventListener('focus', function() {
+  if (!isWaiting && faceIdle() && !this.value.trim()) setFace('curious');
+});
+
+_input.addEventListener('blur', function() {
+  if (!isWaiting && faceIdle() && !this.value.trim()) setFace('neutral');
 });
 
 _input.addEventListener('keydown', function(e) {
@@ -245,7 +401,13 @@ _input.addEventListener('keydown', function(e) {
     removeTyping();
     addBubble("Hey! I'm Solara, your solar energy assistant from EnergyWize. What's your name and what kind of property are we working with?", 'ai');
     showStarters();
+  } finally {
+    // The curtain comes down on every path. Anything else and a failed greeting
+    // leaves the page behind a permanent loading screen.
+    endBoot();
   }
+  // The boot loop ends on the face forming, so neutral is where it hands off.
+  setFace('neutral');
   document.getElementById('send-btn').disabled = false;
   document.getElementById('chat-input').focus();
 })();
