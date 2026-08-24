@@ -41,6 +41,11 @@ def portal():
     if "user_id" not in session:
         return redirect("/auth")
 
+    if session.get("user_role") == "admin":
+        return redirect("/admin")
+    if session.get("user_role") == "employee":
+        return redirect("/employee")
+
     # Fetch user info and their registration
     user = get_user_basic_info(session["user_id"])
 

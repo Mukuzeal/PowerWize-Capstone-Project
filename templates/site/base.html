@@ -57,8 +57,9 @@
 
   <div class="nav__actions">
     {# Transactional pages (portal, payment, receipts) extend this shell too, so
-       the nav has to stop offering "Sign in" to someone already signed in. #}
-    <a class="nav__signin" href="{{ '/portal' if session.get('user_id') else (url_for('auth.auth') if has_auth else '/auth') }}">
+       the nav has to stop offering "Sign in" to someone already signed in.
+       Admins/employees land on their own dashboards, not the trainee portal. #}
+    <a class="nav__signin" href="{{ ('/admin' if session.get('user_role') == 'admin' else '/employee' if session.get('user_role') == 'employee' else '/portal') if session.get('user_id') else (url_for('auth.auth') if has_auth else '/auth') }}">
       <span>{{ 'My account' if session.get('user_id') else 'Sign in' }}</span>{{ icon('arrow') }}
     </a>
     <button class="nav__burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu">
@@ -75,7 +76,7 @@
         {%- for label, endpoint in NAV %}
         <li style="--i:{{ loop.index0 }}"><a href="{{ url_for(endpoint) }}">{{ label }}</a></li>
         {%- endfor %}
-        <li style="--i:{{ NAV|length }}"><a href="{{ '/portal' if session.get('user_id') else (url_for('auth.auth') if has_auth else '/auth') }}">{{ 'My account' if session.get('user_id') else 'Sign in' }}</a></li>
+        <li style="--i:{{ NAV|length }}"><a href="{{ ('/admin' if session.get('user_role') == 'admin' else '/employee' if session.get('user_role') == 'employee' else '/portal') if session.get('user_id') else (url_for('auth.auth') if has_auth else '/auth') }}">{{ 'My account' if session.get('user_id') else 'Sign in' }}</a></li>
       </ul>
     </div>
     <div class="menu__group">
