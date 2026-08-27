@@ -70,7 +70,7 @@ from werkzeug.security import generate_password_hash
 from db import get_db
 c=get_db();cur=c.cursor()
 cur.execute('UPDATE users SET password_hash=%s WHERE email=%s',
-            (generate_password_hash('Test@1234'), 'patricia.v@ewize.com'))
+            (generate_password_hash('NEW_PASSWORD_HERE'), 'patricia.v@ewize.com'))
 c.commit(); print('reset')"
 ```
 

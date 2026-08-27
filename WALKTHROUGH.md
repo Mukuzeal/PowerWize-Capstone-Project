@@ -43,15 +43,20 @@ Solara. Everything else works without it.
 
 ### 4. Test accounts — already set up
 
-These are live and verified: each one logs in through the real form and reaches its
-dashboard. **Password is `Test@1234` for all four.**
+Four accounts are live and verified: each logs in through the real form and reaches its
+dashboard.
 
-| Role | Email | Password | Lands on | Why this one |
-|---|---|---|---|---|
-| **Admin** | `admin@ewize.com` | `Test@1234` | `/admin` | Full oversight |
-| **Trainer** | `patricia.v@ewize.com` | `Test@1234` | `/employee` | Owns modules and submissions |
-| **Trainee** | `miguel.torres@gmail.com` | `Test@1234` | `/portal` | Paid, 100% done, has a certificate — best case |
-| **Trainee** | `yivoveh244@bitmah.com` | `Test@1234` | `/portal` | Paid, 0% progress — the zero state |
+> **Passwords are deliberately not written here.** This file is committed to the
+> repository, and an earlier version of `demo_credentials.txt` put working passwords into
+> git history. Read them from **`demo_credentials.txt`** at the project root, which is
+> gitignored. It also carries the PayMongo test card numbers used in Act 5.
+
+| Role | Email | Lands on | Why this one |
+|---|---|---|---|
+| **Admin** | `admin@ewize.com` | `/admin` | Full oversight |
+| **Trainer** | `patricia.v@ewize.com` | `/employee` | Owns modules and submissions |
+| **Trainee** | `miguel.torres@gmail.com` | `/portal` | Paid, 100% done, holds certificate NFT #2 — best case |
+| **Trainee** | `yivoveh244@bitmah.com` | `/portal` | Paid, 0% progress — the zero state |
 
 Two more, for the access-control checks in Act 11 (passwords not set, you only need them
 as *targets*):
@@ -68,7 +73,7 @@ cd src && ../venv/Scripts/python.exe -c "
 from werkzeug.security import generate_password_hash as h
 from db import get_db
 c=get_db(); cur=c.cursor()
-cur.execute('UPDATE users SET password_hash=%s WHERE email=%s', (h('Test@1234'), 'EMAIL_HERE'))
+cur.execute('UPDATE users SET password_hash=%s WHERE email=%s', (h('NEW_PASSWORD_HERE'), 'EMAIL_HERE'))
 c.commit(); print('done')"
 ```
 
@@ -151,7 +156,7 @@ status `pending`.
 
 ## Act 3 — Review the application as staff *(10 min)*
 
-Switch to your **second window**. Sign in as **`admin@ewize.com` / `Test@1234`**.
+Switch to your **second window**. Sign in as **`admin@ewize.com`** (password in `demo_credentials.txt`).
 You land on `/admin`.
 
 1. **Try the theme toggle in the topbar.** Sun/moon. Reload the page — it remembers.
@@ -226,7 +231,7 @@ You're on `/payment`, fee ₱5,000.
 
 ## Act 6 — Be a trainee *(20 min)*
 
-Sign in as your new user (now paid), or as **`miguel.torres@gmail.com` / `Test@1234`**.
+Sign in as your new user (now paid), or as **`miguel.torres@gmail.com`** (password in `demo_credentials.txt`).
 
 ### The portal — `/portal`
 
@@ -263,7 +268,7 @@ that the redesigned portal reflects live state.
 
 ## Act 7 — Be the trainer *(15 min)*
 
-Second window. Sign out of admin, sign in as **`patricia.v@ewize.com` / `Test@1234`**.
+Second window. Sign out of admin, sign in as **`patricia.v@ewize.com`** (password in `demo_credentials.txt`).
 You land on `/employee` — the other redesigned screen.
 
 ### The console
