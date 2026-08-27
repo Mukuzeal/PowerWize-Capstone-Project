@@ -1,85 +1,179 @@
 {% extends "site/base.html" %}
 {% from "site/_ui.html" import fhead %}
 
-{% set is_employee = session.get('user_role') == 'employee' %}
-{% set is_staff = session.get('user_role') in ('admin', 'employee') %}
-
 {% block title %}My Account – EnergyWize{% endblock %}
 {% block description %}Your EnergyWize account, enrolment status and training modules.{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-dash.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-<section class="formpage">
+<section class="formpage portal" data-reveal-off>
   <div class="shell">
     <div class="result-wrap">
 
       {{ fhead(
         [('Home', url_for('registration.index'))],
-        'Employee Dashboard' if is_employee else 'Trainee Portal',
+        'Trainee portal',
         'Welcome back,<br><em>' ~ user.fname ~ '</em>',
-        'Manage training modules, monitor trainee progress and review submissions.'
-          if is_employee else
-        'Your enrolment at a glance, plus everything you have access to.'
+        'Where you stand in your training, and everything you have access to.'
       ) }}
 
-      <div class="result-card">
-        <div class="result-header">
-          <div class="result-icon"><i class="fa-solid fa-user"></i></div>
-          <div class="result-header-text">
-            <h2>{{ user.fname }} {{ user.lname }}</h2>
-            <p>{{ user.email }}</p>
+      {# ── Progress ────────────────────────────────────────────────────────── #}
+      {% if total %}
+      <div class="panel portal__hero">
+        <div class="panel__core">
+          <div class="panel__head">
+            <p class="mono mono--fg">Syllabus progress</p>
+            <p class="mono">{{ completed }} / {{ total }} modules</p>
           </div>
-        </div>
-
-        <div class="result-body">
-          {# Staff never pay for training, so the row would only ever read a meaningless "Unpaid". #}
-          {% if not is_staff %}
-          <div class="result-row">
-            <span class="label"><i class="fa-solid fa-credit-card"></i> Payment</span>
-            <span class="value">
-              {% if user.payment_status == 'paid' %}
-              <span class="status-pill st-accepted"><i class="fa-solid fa-circle-check"></i> Paid</span>
-              {% else %}
-              <span class="status-pill st-pending"><i class="fa-solid fa-clock"></i> Unpaid</span>
-              {% endif %}
-            </span>
+          <div class="portal__figure">
+            <span class="portal__pct">{{ pct }}<sup>%</sup></span>
+            <p class="mono">
+              {%- if pct == 100 -%}Complete
+              {%- elif pct == 0 -%}Not started
+              {%- else -%}In progress{%- endif -%}
+            </p>
           </div>
-          {% endif %}
-          {% if reg %}
-          <div class="result-row">
-            <span class="label"><i class="fa-solid fa-graduation-cap"></i> Programme</span>
-            <span class="value">{{ reg.form_label or reg.form_type }}</span>
+          <div class="meter {{ 'meter--idle' if pct == 0 }}"
+               role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"
+               aria-label="Overall syllabus progress">
+            <span class="meter__fill" style="--pct:{{ pct / 100 }}"></span>
           </div>
-          <div class="result-row">
-            <span class="label"><i class="fa-solid fa-chalkboard"></i> Training mode</span>
-            <span class="value">{{ reg.training_type or "—" }}</span>
-          </div>
-          <div class="result-row">
-            <span class="label"><i class="fa-solid fa-clipboard-check"></i> Registration</span>
-            <span class="value">
-              <span class="status-pill st-{{ reg.status }}">
-                {%- if reg.status == "accepted" %}<i class="fa-solid fa-circle-check"></i>
-                {%- elif reg.status == "pending" %}<i class="fa-solid fa-clock"></i>
-                {%- else %}<i class="fa-solid fa-circle-xmark"></i>{% endif %}
-                {{ reg.status|capitalize }}
-              </span>
-            </span>
-          </div>
-          {% else %}
-          <div class="result-row">
-            <span class="label"><i class="fa-solid fa-file-lines"></i> Registration</span>
-            <span class="value">No registration found for this email</span>
-          </div>
-          {% endif %}
         </div>
       </div>
+      {% endif %}
 
-      {% if not is_employee %}
+      {# ── Enrolment ───────────────────────────────────────────────────────── #}
+      <div class="stats">
+        <div class="stat">
+          <p class="mono stat__lab">Payment</p>
+          <p class="portal__v">
+            {% if user.payment_status == 'paid' %}
+            <span class="status-pill st-accepted"><i class="fa-solid fa-circle-check"></i> Paid</span>
+            {% else %}
+            <span class="status-pill st-pending"><i class="fa-solid fa-clock"></i> Unpaid</span>
+            {% endif %}
+          </p>
+        </div>
+        {% if reg %}
+        <div class="stat">
+          <p class="mono stat__lab">Programme</p>
+          <p class="portal__v">{{ reg.form_label or reg.form_type }}</p>
+        </div>
+        <div class="stat">
+          <p class="mono stat__lab">Training mode</p>
+          <p class="portal__v">{{ reg.training_type or "—" }}</p>
+        </div>
+        <div class="stat">
+          <p class="mono stat__lab">Registration</p>
+          <p class="portal__v">
+            <span class="status-pill st-{{ reg.status }}">
+              {%- if reg.status == "accepted" %}<i class="fa-solid fa-circle-check"></i>
+              {%- elif reg.status == "pending" %}<i class="fa-solid fa-clock"></i>
+              {%- else %}<i class="fa-solid fa-circle-xmark"></i>{% endif %}
+              {{ reg.status|capitalize }}
+            </span>
+          </p>
+        </div>
+        {% else %}
+        <div class="stat">
+          <p class="mono stat__lab">Registration</p>
+          <p class="portal__v">No registration found for {{ user.email }}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      {# ── Modules ─────────────────────────────────────────────────────────── #}
+      {% if modules %}
+      <div class="dsub">
+        <p class="mono mono--fg">My modules</p>
+        <p class="mono">{{ total }} assigned</p>
+      </div>
+
+      <div class="ledger">
+        {% for m in modules %}
+        {% set st = steps_map[m.id] %}
+        {# The first step still outstanding is the one thing worth naming here;
+           the full checklist lives on /lms/progress. #}
+        {% set nxt = st.steps | rejectattr('done') | first %}
+        <a class="ledger__row" href="/lms/learn/{{ m.id }}">
+          <span class="ledger__no">{{ '%02d' % loop.index }}</span>
+          <div>
+            <p class="ledger__name">{{ m.title }}</p>
+            <p class="ledger__sub">
+              {%- if nxt -%}Next: {{ nxt.label }}
+              {%- else -%}Completed{%- endif -%}
+            </p>
+          </div>
+          <div class="ledger__meter">
+            <div class="meter__row">
+              <span class="mono">{{ st.done }}/{{ st.total }} steps</span>
+              <span class="meter__pct">{{ st.pct }}%</span>
+            </div>
+            <div class="meter {{ 'meter--idle' if st.pct == 0 }}"
+                 role="progressbar" aria-valuenow="{{ st.pct }}" aria-valuemin="0" aria-valuemax="100"
+                 aria-label="{{ m.title }} progress">
+              <span class="meter__fill" style="--pct:{{ st.pct / 100 }}"></span>
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {# ── Certificate ─────────────────────────────────────────────────────── #}
+      <div class="dsub"><p class="mono mono--fg">Certificate</p></div>
+
+      <div class="decision-card">
+        {% if cert %}
+          {% if cert_days is not none and cert_days < 0 %}
+          <p><span class="status-pill st-rejected"><i class="fa-solid fa-circle-xmark"></i> Expired</span></p>
+          <p>Your certificate lapsed on {{ cert.expires_at.strftime('%d %B %Y') }}. Enrol in a
+            renewal programme to have it reissued.</p>
+          {% elif cert_days is not none and cert_days <= 90 %}
+          <p><span class="status-pill st-pending"><i class="fa-solid fa-clock"></i> Expiring soon</span></p>
+          <p>Valid for another {{ cert_days }} day{{ 's' if cert_days != 1 }}, until
+            {{ cert.expires_at.strftime('%d %B %Y') }}. Book a renewal batch before then.</p>
+          {% else %}
+          <p><span class="status-pill st-accepted"><i class="fa-solid fa-circle-check"></i> Issued</span></p>
+          <p>Issued {{ cert.issued_at.strftime('%d %B %Y') }}{% if cert.expires_at %},
+            valid until {{ cert.expires_at.strftime('%d %B %Y') }}{% endif %}. Recorded on-chain
+            and verifiable by anyone holding the QR code.</p>
+          {% endif %}
+        <div class="decision-grid">
+          <a class="dec-btn" href="/lms/certificates">
+            <span class="dec-icon"><i class="fa-solid fa-award"></i></span>
+            <span class="dec-text">
+              <span class="dec-title">My certificate</span>
+              <span class="dec-sub">Download it, or share its verification QR code</span>
+            </span>
+            <i class="fa-solid fa-arrow-right dec-go"></i>
+          </a>
+        </div>
+        {% else %}
+        <p><span class="status-pill st-pending"><i class="fa-solid fa-hourglass-half"></i> Not yet issued</span></p>
+        <p>
+          {%- if total and pct == 100 -%}
+            You have finished every module. A trainer reviews completed syllabuses and issues
+            certificates from there.
+          {%- elif total -%}
+            Finish all {{ total }} modules to become eligible. You have {{ total - completed }}
+            left.
+          {%- else -%}
+            Certificates are issued once you have completed the modules for your programme.
+          {%- endif -%}
+        </p>
+        {% endif %}
+      </div>
+
+      {# ── Actions ─────────────────────────────────────────────────────────── #}
+      <div class="dsub"><p class="mono mono--fg">Everything else</p></div>
+
       <div class="decision-card">
         <h3>Training</h3>
         <p>Your course materials, quizzes and practical exams.</p>
@@ -96,7 +190,7 @@
             <span class="dec-icon"><i class="fa-solid fa-chart-line"></i></span>
             <span class="dec-text">
               <span class="dec-title">View my progress</span>
-              <span class="dec-sub">How far through each module you are</span>
+              <span class="dec-sub">The full checklist for every module</span>
             </span>
             <i class="fa-solid fa-arrow-right dec-go"></i>
           </a>
@@ -117,7 +211,6 @@
           </a>
         </div>
       </div>
-      {% endif %}
 
       <div class="decision-card">
         <h3>What happens next</h3>
@@ -147,34 +240,6 @@
           </a>
         </div>
       </div>
-
-      {% if session.get('user_role') in ('admin', 'employee') %}
-      <div class="decision-card">
-        <h3>Staff</h3>
-        <p>Tools available to your role.</p>
-        <div class="decision-grid">
-          {% if session.get('user_role') == 'admin' %}
-          <a class="dec-btn" href="/admin">
-            <span class="dec-icon"><i class="fa-solid fa-shield-halved"></i></span>
-            <span class="dec-text">
-              <span class="dec-title">Admin dashboard</span>
-              <span class="dec-sub">Registrations, users and modules</span>
-            </span>
-            <i class="fa-solid fa-arrow-right dec-go"></i>
-          </a>
-          {% else %}
-          <a class="dec-btn" href="/employee">
-            <span class="dec-icon"><i class="fa-solid fa-users-gear"></i></span>
-            <span class="dec-text">
-              <span class="dec-title">Employee dashboard</span>
-              <span class="dec-sub">Modules, trainee tracking and submissions</span>
-            </span>
-            <i class="fa-solid fa-arrow-right dec-go"></i>
-          </a>
-          {% endif %}
-        </div>
-      </div>
-      {% endif %}
 
       <div class="result-foot">
         <a href="{{ url_for('registration.index') }}"><i class="fa-solid fa-house"></i> Home</a>

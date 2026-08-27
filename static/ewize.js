@@ -205,6 +205,10 @@
   function initFormReveals() {
     var page = document.querySelector(".formpage");
     if (!page) return;
+    // A dashboard borrows .formpage for its shell but is not a form: it is read
+    // at a glance and acted on, so its blocks arrive with the page rather than
+    // fading up one at a time as the reader scrolls past them.
+    if (page.hasAttribute("data-reveal-off")) return;
 
     var mark = function (el, kind) {
       if (el && !el.hasAttribute("data-reveal")) el.setAttribute("data-reveal", kind);

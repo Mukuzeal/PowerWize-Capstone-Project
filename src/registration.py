@@ -1,8 +1,10 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from flask import Blueprint, request, render_template, session, redirect
-from db import get_schedules, insert_registration, get_registration_by_email, get_user_basic_info
+from db import (get_schedules, insert_registration, get_registration_by_email,
+                get_user_basic_info, lms_get_modules_for_trainee, lms_get_progress,
+                lms_get_module_requirements, lms_get_certificate)
 from site_bp import render_home, render_programs
 from utils import save_file, check_required
 
@@ -36,6 +38,36 @@ def programs():
     return render_programs()
 
 
+def _portal_learning(user_id):
+    """Where this trainee stands in their syllabus, for the portal dashboard.
+
+    Runs each module through _progress_steps — the same helper /lms/progress
+    uses — so the bar on the portal and the bar on the progress page can never
+    disagree. Any failure here degrades to an empty syllabus rather than taking
+    down the account page: the enrolment and payment rows below matter more.
+    """
+    empty = {"modules": [], "steps_map": {}, "completed": 0, "total": 0, "pct": 0, "cert": None}
+    try:
+        from lms_bp._shared import _progress_steps
+
+        mods      = lms_get_modules_for_trainee(user_id, published_only=True)
+        prog_map  = {p["module_id"]: p for p in lms_get_progress(user_id)}
+        reqs      = lms_get_module_requirements([m["id"] for m in mods])
+        steps_map = {m["id"]: _progress_steps(prog_map.get(m["id"]), reqs.get(m["id"]))
+                     for m in mods}
+        completed = sum(1 for m in mods if prog_map.get(m["id"], {}).get("completed"))
+        return {
+            "modules":   mods,
+            "steps_map": steps_map,
+            "completed": completed,
+            "total":     len(mods),
+            "pct":       round(completed / len(mods) * 100) if mods else 0,
+            "cert":      lms_get_certificate(user_id=user_id),
+        }
+    except Exception:
+        return empty
+
+
 @registration_bp.route("/portal")
 def portal():
     if "user_id" not in session:
@@ -56,7 +88,16 @@ def portal():
         return redirect("/payment")
 
     reg = get_registration_by_email(user["email"])
-    return render_template("shared/portal.html", user=user, reg=reg)
+    lms = _portal_learning(session["user_id"])
+
+    # A certificate is valid for three years (lms_issue_certificate). Flagging
+    # the last 90 days gives a trainee time to book a renewal batch.
+    cert_days = None
+    if lms["cert"] and lms["cert"].get("expires_at"):
+        cert_days = (lms["cert"]["expires_at"] - date.today()).days
+
+    return render_template("shared/portal.html", user=user, reg=reg,
+                           cert_days=cert_days, **lms)
 
 
 # ── CEA Renewal ──────────────────────────────────────────────────────────────

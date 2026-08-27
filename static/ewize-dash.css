@@ -1,0 +1,428 @@
+/* ==========================================================================
+   ENERGYWIZE — DASHBOARD SURFACES
+   The "Instrument" system (static/ewize.css) applied to the pages where a
+   signed-in person runs the operation: the trainer console and the trainee
+   portal.
+
+   Loaded AFTER ewize.css, which owns the tokens, type, buttons and fields,
+   and alongside ewize-forms.css, which owns the status pills, the readout
+   rows and the navigational tiles this file reuses rather than rebuilds.
+
+   Two rules carry over from the marketing site:
+     · Structural zones are square. Controls are round. Nothing in between.
+     · The layout is drawn with hairlines, not with shadows.
+
+   One rule is inherited from ewize-forms.css: nothing here choreographs.
+   A dashboard is read at a glance and then acted on, so transitions report
+   state — which section you are in, that a control took the press — and are
+   over in 180ms. There is no scroll reveal on these pages.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. APP SHELL
+   The trainer console is a standalone document: it wants a persistent rail
+   and a fixed bar, not the floating marketing nav. The trainee portal keeps
+   the public shell and uses only the components further down.
+   -------------------------------------------------------------------------- */
+:root {
+  --dash-bar: 3.5rem;
+  --dash-rail: 15rem;
+}
+
+.dash { min-height: 100dvh; display: flex; flex-direction: column; }
+
+.dash__bar {
+  position: fixed; inset: 0 0 auto 0;
+  z-index: 400;
+  height: var(--dash-bar);
+  display: flex; align-items: center; gap: 1rem;
+  padding-right: clamp(1rem, 2.5vw, 1.75rem);
+  background: color-mix(in oklab, var(--ink-000) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(1.3);
+  border-bottom: var(--rule) solid var(--line-mid);
+}
+
+/* The brand block lines up with the rail, so the rail's right hairline and the
+   lockup's divider are the same vertical. */
+.dash__lock {
+  width: var(--dash-rail); flex-shrink: 0;
+  height: 100%;
+  display: flex; align-items: center; gap: 0.7rem;
+  padding-inline: clamp(0.75rem, 1.5vw, 1.15rem);
+  border-right: var(--rule) solid var(--line-mid);
+}
+.dash__lock .nav__seal { width: 1.85rem; height: 1.85rem; }
+
+.dash__tag { margin-left: auto; }
+
+.dash__rail {
+  position: fixed; left: 0; top: var(--dash-bar);
+  width: var(--dash-rail); height: calc(100dvh - var(--dash-bar));
+  z-index: 399;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-block: 1.25rem;
+  background: var(--ink-050);
+  border-right: var(--rule) solid var(--line);
+}
+
+.dash__main {
+  margin-left: var(--dash-rail);
+  margin-top: var(--dash-bar);
+  padding: clamp(1.5rem, 3vw, 2.75rem) clamp(1rem, 3vw, 2.75rem);
+  flex: 1;
+  min-width: 0;
+}
+
+.dash__foot {
+  margin-left: var(--dash-rail);
+  padding: 1.5rem clamp(1rem, 3vw, 2.75rem) 2.5rem;
+  border-top: var(--rule) solid var(--line);
+}
+
+/* --------------------------------------------------------------------------
+   2. RAIL NAVIGATION
+   The active marker grows from the left edge, which is where the eye enters
+   the row — the same left-to-right logic the site nav's underline uses.
+   -------------------------------------------------------------------------- */
+.dash__group {
+  display: block;
+  padding: 1rem clamp(0.75rem, 1.5vw, 1.15rem) 0.6rem;
+}
+.dash__group:first-child { padding-top: 0; }
+
+.dash__item {
+  display: flex; align-items: center; gap: 0.7rem;
+  width: 100%;
+  padding: 0.7rem clamp(0.75rem, 1.5vw, 1.15rem);
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--fg-dim);
+  font-family: var(--sans); font-size: 0.875rem;
+  font-variation-settings: "wdth" 100, "wght" 500;
+  letter-spacing: -0.01em;
+  text-align: left;
+  cursor: pointer;
+}
+.dash__no {
+  flex-shrink: 0;
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.16em;
+  color: var(--fg-ghost);
+  font-feature-settings: "zero" 1;
+}
+.dash__ico { flex-shrink: 0; width: 1rem; text-align: center; font-size: 0.85rem; color: var(--fg-mute); }
+.dash__label { flex: 1; min-width: 0; }
+
+.dash__item:hover { color: var(--fg); background: color-mix(in oklab, var(--signal) 4%, transparent); }
+.dash__item:hover .dash__ico { color: var(--fg-dim); }
+.dash__item.is-on {
+  color: var(--fg);
+  border-left-color: var(--amber);
+  background: color-mix(in oklab, var(--signal) 6%, transparent);
+}
+.dash__item.is-on .dash__no { color: var(--signal); }
+.dash__item.is-on .dash__ico { color: var(--signal); }
+
+/* --------------------------------------------------------------------------
+   3. SECTION HEAD
+   -------------------------------------------------------------------------- */
+.dhead {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem;
+  padding-bottom: 1.1rem;
+  margin-bottom: clamp(1.5rem, 2.5vw, 2.25rem);
+  border-bottom: var(--rule) solid var(--line-mid);
+}
+.dhead h1 {
+  font-size: var(--fs-d3);
+  font-variation-settings: "wdth" 104, "wght" 600;
+  letter-spacing: -0.028em;
+  line-height: 1.05;
+  color: var(--fg);
+}
+.dhead__sub { margin-top: 0.5rem; }
+
+.dsub {
+  margin: clamp(2rem, 3.5vw, 3rem) 0 1.25rem;
+  padding-bottom: 0.8rem;
+  border-bottom: var(--rule) solid var(--line);
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   4. SECTIONS
+   Only the panel that is on gets rendered. Switching is a state report, so it
+   is a short fade with no travel — the rail already said where you went.
+   -------------------------------------------------------------------------- */
+.dpane { display: none; }
+.dpane.is-on { display: block; animation: dpaneIn 220ms var(--e-out) both; }
+@keyframes dpaneIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* --------------------------------------------------------------------------
+   5. CARDS
+   A card is a square zone with a hairline. Hover warms the edge — it does not
+   lift, because nothing on this substrate casts a shadow.
+   -------------------------------------------------------------------------- */
+.dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: clamp(0.75rem, 1.2vw, 1.1rem); }
+@media (max-width: 640px) { .dgrid { grid-template-columns: 1fr; } }
+
+.dcard {
+  display: flex; flex-direction: column;
+  padding: clamp(1.1rem, 1.8vw, 1.5rem);
+  background: var(--ink-100);
+  border: var(--rule) solid var(--line);
+  transition: border-color 180ms var(--e-out), background-color 180ms var(--e-out);
+}
+.dcard:hover { border-color: var(--line-strong); background: var(--ink-200); }
+
+.dcard__top { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+.dcard__top .status-pill { margin-left: auto; }
+.dcard h3 {
+  font-size: 1.0625rem;
+  font-variation-settings: "wdth" 100, "wght" 600;
+  letter-spacing: -0.018em; line-height: 1.25;
+  color: var(--fg);
+}
+.dcard p { margin-top: 0.5rem; font-size: 0.85rem; color: var(--fg-dim); line-height: 1.6; }
+.dcard__fill { flex: 1; min-height: 0.75rem; }
+.dcard__note { margin-top: 0.75rem; font-family: var(--mono); font-size: var(--fs-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-ghost); }
+
+/* Archived work is still legible, just visibly set aside. */
+.dcard--filed { opacity: 0.72; border-top: 2px solid var(--amber-deep); }
+.dcard--filed:hover { opacity: 1; }
+
+.dcard__acts {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: stretch;
+  margin-top: 1.1rem; padding-top: 1rem;
+  border-top: var(--rule) solid var(--line);
+}
+.dcard__acts form { display: flex; flex: 1; }
+
+/* --------------------------------------------------------------------------
+   6. ACTIONS — round controls
+   -------------------------------------------------------------------------- */
+.act {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+  flex: 1; width: 100%;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  border: var(--rule) solid var(--line-strong);
+  background: transparent;
+  color: var(--fg-dim);
+  font-family: var(--sans); font-size: 0.8125rem;
+  font-variation-settings: "wdth" 100, "wght" 600;
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.act:hover { border-color: var(--signal); color: var(--signal); }
+.act--go { border-color: var(--signal-dim); color: var(--signal); }
+.act--go:hover { background: var(--signal); color: var(--ink-000); border-color: var(--signal); }
+.act--warn:hover { border-color: var(--amber); color: var(--amber); }
+/* Destructive is the one place --ember appears, and it is icon-only so it can
+   never be the widest control in the row. */
+.act--kill { flex: 0 0 auto; width: auto; padding-inline: 0.8rem; }
+.act--kill:hover { border-color: var(--ember); color: #F09A91; }
+
+/* --------------------------------------------------------------------------
+   7. FILTERS — round controls on a square substrate
+   -------------------------------------------------------------------------- */
+.filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+.filter {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: var(--rule) solid var(--line-mid);
+  background: color-mix(in oklab, var(--ink-100) 70%, transparent);
+  color: var(--fg-dim);
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  cursor: pointer;
+}
+.filter:hover { border-color: var(--line-strong); color: var(--fg); }
+.filter.is-on { background: var(--signal); border-color: var(--signal); color: var(--ink-000); }
+.filter__n { font-feature-settings: "zero" 1, "tnum" 1; opacity: 0.7; }
+
+/* --------------------------------------------------------------------------
+   8. METER
+   Structural, so it is square. The fill is the only thing that moves.
+   -------------------------------------------------------------------------- */
+/* The fill is scaled rather than widened: --pct is a 0-1 ratio written onto the
+   element, so the bar composites on the GPU and never touches layout. */
+.meter {
+  width: 100%; height: 4px;
+  background: var(--ink-300);
+  overflow: hidden;
+}
+.meter__fill {
+  display: block; height: 100%; width: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--pct, 0));
+  background: var(--signal);
+  transition: transform 600ms var(--e-out);
+}
+.meter--idle .meter__fill { background: var(--fg-ghost); }
+
+.meter__row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+.meter__pct {
+  font-family: var(--mono); font-size: var(--fs-mono-lg);
+  letter-spacing: 0.08em; color: var(--signal);
+  font-feature-settings: "zero" 1, "tnum" 1;
+}
+
+/* --------------------------------------------------------------------------
+   9. LEDGER — hairline rows for lists that are not quite tables
+   -------------------------------------------------------------------------- */
+.ledger { display: grid; gap: var(--rule); background: var(--line); border: var(--rule) solid var(--line); }
+.ledger__row {
+  background: var(--ink-050);
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) minmax(0, 14rem);
+  align-items: center;
+  gap: clamp(0.85rem, 2vw, 1.75rem);
+  padding: 1.15rem clamp(0.9rem, 1.8vw, 1.35rem);
+  transition: background-color 180ms var(--e-out);
+}
+.ledger__row:hover { background: var(--ink-100); }
+.ledger__no {
+  font-family: var(--mono); font-size: var(--fs-mono);
+  letter-spacing: 0.16em; color: var(--fg-ghost);
+  font-feature-settings: "zero" 1;
+}
+.ledger__name {
+  font-size: 0.95rem;
+  font-variation-settings: "wdth" 102, "wght" 500;
+  letter-spacing: -0.012em; color: var(--fg);
+}
+.ledger__sub { margin-top: 0.25rem; font-size: 0.8rem; color: var(--fg-mute); line-height: 1.5; }
+.ledger__meter { min-width: 0; }
+@media (max-width: 720px) {
+  .ledger__row { grid-template-columns: 2.25rem minmax(0, 1fr); }
+  .ledger__meter { grid-column: 2; }
+}
+
+/* --------------------------------------------------------------------------
+   10. EMPTY STATE
+   Used by the public schedule macro too (site/_ui.html), which has been
+   rendering this class unstyled.
+   -------------------------------------------------------------------------- */
+.emptystate {
+  padding: clamp(2.25rem, 5vw, 3.5rem) 1.5rem;
+  border: var(--rule) solid var(--line);
+  background: var(--ink-050);
+  text-align: center;
+}
+.emptystate > i { display: block; font-size: 1.5rem; color: var(--fg-ghost); margin-bottom: 1rem; }
+.emptystate .prose { margin-inline: auto; margin-top: 0.6rem; font-size: var(--fs-sm); }
+.emptystate .prose a { color: var(--signal); }
+
+/* --------------------------------------------------------------------------
+   11. FLASH BANNERS
+   Rendered by site/base.html on every page that extends it, and until now
+   they landed with no styling at all.
+   -------------------------------------------------------------------------- */
+.flash-banner {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  max-width: var(--maxw);
+  margin: calc(var(--dash-bar) + 1.5rem) auto 0;
+  padding: 0.95rem 1.25rem;
+  border: var(--rule) solid var(--line-mid);
+  border-left: 2px solid var(--fg-mute);
+  background: var(--ink-100);
+  color: var(--fg-dim);
+  font-size: var(--fs-sm); line-height: 1.55;
+}
+.flash-banner > i { flex-shrink: 0; margin-top: 0.15rem; }
+.flash-success { border-left-color: var(--signal); background: color-mix(in oklab, var(--signal) 7%, var(--ink-100)); }
+.flash-success > i { color: var(--signal); }
+.flash-error { border-left-color: var(--ember); background: color-mix(in oklab, var(--ember) 7%, var(--ink-100)); }
+.flash-error > i { color: #F09A91; }
+
+/* Inside the marketing/portal shell the nav floats rather than occupying a
+   fixed bar, so the banner needs the wider clearance and the page gutter. */
+body:not(.dash) .flash-banner {
+  margin-top: clamp(5.5rem, 7vw, 6.75rem);
+  margin-bottom: -2rem;
+  width: calc(100% - (var(--gut) * 2));
+}
+
+/* --------------------------------------------------------------------------
+   12. PORTAL
+   The trainee dashboard runs wider than the transactional .result-wrap it
+   used to borrow — that 42rem cap belongs to the solar estimate and the
+   receipt, which are single-column readouts.
+   -------------------------------------------------------------------------- */
+.portal .result-wrap { max-width: 62rem; }
+
+.portal__hero { margin-bottom: 1rem; }
+.portal__hero .panel__core { padding: clamp(1.35rem, 2.4vw, 2rem); }
+.portal__figure {
+  display: flex; align-items: baseline; gap: 0.75rem;
+  margin-block: 1rem 1.25rem;
+}
+.portal__pct {
+  font-family: var(--mono);
+  font-size: clamp(2.75rem, 7vw, 4.5rem);
+  font-weight: 300; letter-spacing: -0.04em; line-height: 1;
+  color: var(--fg);
+  font-feature-settings: "zero" 1, "tnum" 1;
+}
+.portal__pct sup { font-size: 0.3em; vertical-align: super; color: var(--signal); letter-spacing: 0; }
+
+/* The enrolment strip reuses the marketing stat grid, but its values are
+   pills and short strings rather than figures, so they need a smaller scale. */
+.portal .stats { border: var(--rule) solid var(--line); margin-bottom: 1rem; }
+.portal .stat { background: var(--ink-100); padding: 1.15rem clamp(1rem, 1.6vw, 1.35rem); }
+.portal .stat:hover { background: var(--ink-200); }
+.portal__v {
+  font-size: 1rem;
+  font-variation-settings: "wdth" 102, "wght" 500;
+  letter-spacing: -0.015em; color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------------------
+   13. RESPONSIVE
+   Under 900px the rail collapses to an icon strip. The labels go, the numbers
+   go, the icon and the active marker stay — which is the minimum needed to
+   still know where you are.
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  :root { --dash-rail: 3.5rem; }
+  .dash__lock { width: var(--dash-rail); padding-inline: 0; justify-content: center; }
+  .dash__lock .nav__word { display: none; }
+  .dash__item { justify-content: center; padding-inline: 0; gap: 0; }
+  .dash__label, .dash__no { display: none; }
+  .dash__ico { font-size: 0.95rem; }
+  .dash__group { padding: 0.85rem 0 0.35rem; text-align: center; font-size: 0.5rem; letter-spacing: 0.1em; }
+}
+
+@media (max-width: 560px) {
+  .dash__tag { display: none; }
+  .dcard__acts .act { flex: 1 1 100%; }
+  .dcard__acts .act--kill { flex: 0 0 auto; }
+}
+
+/* --------------------------------------------------------------------------
+   14. PRESS FEEDBACK
+   Same contract as ewize.css §22b: the press, not the release.
+   -------------------------------------------------------------------------- */
+.dash__item, .act, .filter {
+  transition:
+    transform 120ms var(--e-out),
+    background-color 180ms var(--e-out),
+    border-color 180ms var(--e-out),
+    color 180ms var(--e-out);
+}
+.dash__item:active, .act:active, .filter:active { transform: scale(0.97); }
+
+/* --------------------------------------------------------------------------
+   15. REDUCED MOTION
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .dpane.is-on { animation: none; }
+  .meter__fill { transition: none; }
+  /* The bar still reports its value, it just arrives at it. */
+  .dash__item:active, .act:active, .filter:active { transform: none; }
+}
