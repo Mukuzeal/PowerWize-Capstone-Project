@@ -1,14 +1,21 @@
+import os, sys
 from db import get_db, dict_cur
 from werkzeug.security import check_password_hash
 
 conn = get_db()
 cur = dict_cur(conn)
 
+PASSWORD = os.getenv("SEED_PASSWORD", "")
+if not PASSWORD:
+    sys.exit('SEED_PASSWORD is not set - pass the password to check, e.g.\n'
+             '  SEED_PASSWORD="..." python check_login.py')
+
+# Emails only; the password to test against comes from the environment.
 test_accounts = [
-    ("admin@ewize.com",              "Admin@1234"),
-    ("roberto.delacruz@ewize.com",   "Test@1234"),
-    ("maria.santos@gmail.com",       "Test@1234"),
-    ("miguel.torres@gmail.com",      "Test@1234"),
+    ("admin@ewize.com",              PASSWORD),
+    ("roberto.delacruz@ewize.com",   PASSWORD),
+    ("maria.santos@gmail.com",       PASSWORD),
+    ("miguel.torres@gmail.com",      PASSWORD),
 ]
 
 for email, pwd in test_accounts:

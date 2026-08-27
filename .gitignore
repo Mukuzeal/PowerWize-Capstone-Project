@@ -85,6 +85,7 @@ scripts/create_admin.py
 scripts/fix_receipt.py
 scripts/seed_all_data.py
 scripts/seed_registrations.py
+scripts/seed_users.py
 scripts/_guard.py
 
 # ── IDE / agent config ───────────────────────────────────────────────────────

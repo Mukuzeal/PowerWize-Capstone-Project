@@ -7,7 +7,7 @@ os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
 BASE_URL = "http://127.0.0.1:5000"
 EMAIL    = "roberto.delacruz@ewize.com"
-PASSWORD = "Test@1234"
+PASSWORD = os.getenv("SEED_PASSWORD", "")  # never hardcode: this file is committed
 
 async def shot(page, name, wait_ms=1200):
     await page.wait_for_timeout(wait_ms)

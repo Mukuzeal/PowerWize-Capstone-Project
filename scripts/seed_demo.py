@@ -2,23 +2,29 @@
 seed_demo.py — Seeds two demo accounts for the Research Colloquium demo.
 
 Run from the src/ directory so db.py is importable:
-    cd src && python ../scripts/seed_demo.py
+    SEED_PASSWORD=... cd src && python ../scripts/seed_demo.py
 
 Accounts created
 ----------------
-  demo.fail@powerwize.com   / Demo1234!  — trainee, no quiz history
-                                            (take quiz live, fail, show AI hints)
+  demo.fail@powerwize.com   — trainee, no quiz history
+                              (take quiz live, fail, show AI hints)
 
-  demo.ready@powerwize.com  / Demo1234!  — trainee, all modules completed
-                                            (admin issues certificate during demo)
+  demo.ready@powerwize.com  — trainee, all modules completed
+                              (admin issues certificate during demo)
 
-Both passwords: Demo1234!
+Both get the password from SEED_PASSWORD. It is not written here: a literal in
+this file is a credential in version control.
 """
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+DEMO_PASSWORD = os.getenv("SEED_PASSWORD", "")
+if not DEMO_PASSWORD:
+    sys.exit('SEED_PASSWORD is not set. Choose one and re-run, e.g.\n'
+             '  SEED_PASSWORD="something-strong" python ../scripts/seed_demo.py')
 
 from werkzeug.security import generate_password_hash
 from datetime import datetime
@@ -66,13 +72,13 @@ def seed():
 
     fail_id = upsert_user(
         cur, "trainee", "Demo", "Trainee",
-        "demo.fail@powerwize.com", "Demo1234!",
+        "demo.fail@powerwize.com", DEMO_PASSWORD,
         "09171234888", "PowerWize Demo", "training"
     )
 
     ready_id = upsert_user(
         cur, "trainee", "Ready", "Trainee",
-        "demo.ready@powerwize.com", "Demo1234!",
+        "demo.ready@powerwize.com", DEMO_PASSWORD,
         "09171234889", "PowerWize Demo", "training"
     )
 
@@ -135,7 +141,7 @@ def seed():
     print("  SEED COMPLETE")
     print("="*55)
     print()
-    print("DEMO ACCOUNTS  (password for both: Demo1234!)")
+    print("DEMO ACCOUNTS  (password: the SEED_PASSWORD you supplied)")
     print("-" * 55)
     print("  Quiz fail + AI hints  :  demo.fail@powerwize.com")
     print("  Cert issuance (admin) :  demo.ready@powerwize.com")
