@@ -52,13 +52,76 @@
       {% endif %}
       {% if cert.tx_hash %}
       <div class="verify-row">
-        <span class="verify-label">Blockchain Hash</span>
-        <span class="verify-value"><code style="font-size:11px">{{ cert.tx_hash}}</code></span>
+        <span class="verify-label">Transaction</span>
+        <span class="verify-value">
+          <a href="https://amoy.polygonscan.com/tx/{{ cert.tx_hash }}" target="_blank" rel="noopener">
+            <code style="font-size:11px">{{ cert.tx_hash}}</code>
+          </a>
+        </span>
       </div>
+      {# The badge reports what the chain was just asked, not what the database
+         claims. A tampered record fails here even though its row still exists. #}
       <div class="verify-row">
         <span class="verify-label">Blockchain Status</span>
-        <span class="verify-value"><span class="badge badge-green"><i class="fa-solid fa-link"></i> Recorded on Polygon</span></span>
+        <span class="verify-value">
+          {% if chain and chain.verified %}
+          <span class="badge badge-green"><i class="fa-solid fa-shield-halved"></i> Verified on Polygon</span>
+          {% elif chain and chain.legacy and chain.verified %}
+          <span class="badge badge-green"><i class="fa-solid fa-link"></i> Anchored (legacy)</span>
+          {% elif chain %}
+          <span class="badge badge-red"><i class="fa-solid fa-triangle-exclamation"></i> Not verified</span>
+          {% else %}
+          <span class="badge badge-gray">Not checked</span>
+          {% endif %}
+        </span>
       </div>
+      {% if chain and chain.token_id %}
+      <div class="verify-row">
+        <span class="verify-label">Certificate Token</span>
+        <span class="verify-value">
+          <span class="badge badge-blue"><i class="fa-solid fa-award"></i> NFT #{{ chain.token_id }}</span>
+          <a href="https://amoy.polygonscan.com/token/{{ contract_address }}?a={{ chain.token_id }}"
+             target="_blank" rel="noopener" style="font-size:12px;margin-left:8px">View token</a>
+        </span>
+      </div>
+      {% if chain.token_anchor_ok is not none %}
+      <div class="verify-row">
+        <span class="verify-label">Token Record</span>
+        <span class="verify-value" style="font-size:12px">
+          {% if chain.token_anchor_ok %}
+          <i class="fa-solid fa-circle-check" style="color:#166534"></i>
+          Metadata read from the contract matches this certificate
+          {% else %}
+          <i class="fa-solid fa-circle-xmark" style="color:#DC2626"></i>
+          Metadata on the token does not match this certificate
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+      {% endif %}
+      {% if chain %}
+      <div class="verify-row">
+        <span class="verify-label">Check Result</span>
+        <span class="verify-value" style="font-size:12px">{{ chain.reason }}</span>
+      </div>
+      {% if chain.block_number %}
+      <div class="verify-row">
+        <span class="verify-label">Block</span>
+        <span class="verify-value" style="font-size:12px">
+          #{{ chain.block_number }}{% if chain.confirmations %} · {{ chain.confirmations }} confirmations{% endif %}
+        </span>
+      </div>
+      {% endif %}
+      {% if chain.legacy %}
+      <div class="verify-row">
+        <span class="verify-label">Note</span>
+        <span class="verify-value" style="font-size:12px;color:#92400E">
+          Anchored under the older scheme: the hash is on-chain, but it does not
+          cover the issue and expiry dates.
+        </span>
+      </div>
+      {% endif %}
+      {% endif %}
       {% else %}
       <div class="verify-row">
         <span class="verify-label">Blockchain Status</span>

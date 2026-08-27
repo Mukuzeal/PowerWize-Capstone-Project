@@ -52,14 +52,25 @@ def get_user_payment_status(user_id):
     return row["payment_status"] if row else None
 
 
-def save_blockchain_receipt(paymongo_id, receipt_id, receipt_hash, tx_hash, qr_code_path):
+def get_payment_by_paymongo_id(paymongo_id):
+    """The stored payment row, used to build its blockchain anchor."""
+    conn = get_db()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM payments WHERE paymongo_id = %s", (paymongo_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    return dict(row) if row else None
+
+
+def save_blockchain_receipt(paymongo_id, receipt_id, receipt_hash, tx_hash, qr_code_path,
+                            anchor_version=1):
     conn = get_db()
     cur  = conn.cursor()
     cur.execute("""
         UPDATE payments
-        SET receipt_id=%s, receipt_hash=%s, tx_hash=%s, qr_code_path=%s
+        SET receipt_id=%s, receipt_hash=%s, tx_hash=%s, qr_code_path=%s, anchor_version=%s
         WHERE paymongo_id=%s
-    """, (receipt_id, receipt_hash, tx_hash, qr_code_path, paymongo_id))
+    """, (receipt_id, receipt_hash, tx_hash, qr_code_path, anchor_version, paymongo_id))
     conn.commit()
     cur.close(); conn.close()
 

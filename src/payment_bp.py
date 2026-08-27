@@ -191,18 +191,30 @@ def _complete_card_payment(user_id, pi_id):
 
 def _store_receipt_on_chain(user_id, paymongo_id):
     try:
-        receipt_id   = generate_receipt_id()
-        receipt_data = {
+        from blockchain import compute_anchor, ANCHOR_VERSION
+        from db import get_payment_by_paymongo_id
+
+        receipt_id = generate_receipt_id()
+
+        # Anchor the payment as it now stands in the database. The old version
+        # hashed a datetime.now() that was never stored, so the fingerprint
+        # could not be recomputed later and verification degenerated into
+        # comparing the database against itself. Every field below is read back
+        # out of the row at verification time.
+        row = get_payment_by_paymongo_id(paymongo_id) or {}
+        record = {
             "receipt_id":  receipt_id,
             "user_id":     user_id,
             "paymongo_id": paymongo_id,
-            "timestamp":   datetime.now().isoformat(),
+            "amount_php":  row.get("amount_php"),
+            "status":      row.get("status"),
         }
-        receipt_hash = create_receipt_hash(receipt_data)
+        receipt_hash = compute_anchor("payment", record)
         chain_result = store_hash_on_chain(receipt_hash)
         qr_path      = generate_receipt_qr(receipt_id, chain_result["tx_hash"])
         save_blockchain_receipt(paymongo_id, receipt_id, receipt_hash,
-                                chain_result["tx_hash"], qr_path)
+                                chain_result["tx_hash"], qr_path,
+                                anchor_version=ANCHOR_VERSION)
         session["last_receipt_id"] = receipt_id
     except Exception as e:
         import traceback
@@ -331,8 +343,16 @@ def verify_receipt():
             tx_hash = tx_hash or receipt.get("tx_hash")
             if not tx_hash:
                 result = {"verified": False, "reason": "No blockchain transaction found for this receipt."}
+            elif (receipt.get("anchor_version") or 1) >= 2:
+                # Rebuild the fingerprint from the row as it stands right now,
+                # so an edited amount or status fails to match the chain.
+                from blockchain import verify_anchor
+                result = verify_anchor(tx_hash, "payment", receipt)
             else:
+                # Anchored before v2: the payload cannot be recomputed, so this
+                # only shows a hash was recorded, not that the row is unchanged.
                 result = verify_hash_on_chain(tx_hash, receipt["receipt_hash"])
+                result["legacy"] = True
 
     return render_template("payment/verify_receipt.html", result=result, receipt=receipt)
 

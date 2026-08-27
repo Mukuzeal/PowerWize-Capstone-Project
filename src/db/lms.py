@@ -368,10 +368,11 @@ def lms_issue_certificate(user_id, approved_by):
     return cid, cert_id
 
 
-def lms_update_cert_blockchain(cert_id, tx_hash, blockchain_token):
+def lms_update_cert_blockchain(cert_id, tx_hash, blockchain_token, anchor_version=1):
     conn = get_db(); cur = conn.cursor()
-    cur.execute("UPDATE lms_certificates SET tx_hash=%s,blockchain_token=%s WHERE cert_id=%s",
-                (tx_hash, blockchain_token, cert_id))
+    cur.execute("UPDATE lms_certificates SET tx_hash=%s,blockchain_token=%s,anchor_version=%s "
+                "WHERE cert_id=%s",
+                (tx_hash, blockchain_token, anchor_version, cert_id))
     conn.commit(); cur.close(); conn.close()
 
 

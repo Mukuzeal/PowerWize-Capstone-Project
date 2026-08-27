@@ -122,6 +122,9 @@ def init_db():
             receipt_id   VARCHAR(30)  NULL,
             receipt_hash VARCHAR(66)  NULL,
             tx_hash      VARCHAR(66)  NULL,
+            -- 1 = legacy anchor (hash compared against this same row);
+            -- 2 = fingerprint recomputed from the record at verification time.
+            anchor_version SMALLINT   DEFAULT 1,
             qr_code_path VARCHAR(255) NULL,
             created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             paid_at      TIMESTAMP    NULL DEFAULT NULL,
@@ -335,6 +338,8 @@ def init_db():
             approved_by      INT          NULL,
             tx_hash          VARCHAR(66)  NULL,
             blockchain_token VARCHAR(255) NULL,
+            -- see payments.anchor_version
+            anchor_version   SMALLINT     DEFAULT 1,
             FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
         )

@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import render_template, redirect, url_for, abort
+from flask import render_template, redirect, url_for, abort, current_app
 
 from db import (lms_get_certificates, lms_get_eligible_for_cert, lms_get_certificate,
                 lms_issue_certificate, lms_update_cert_blockchain, audit_log)
@@ -28,15 +28,29 @@ def certificate_issue(user_id):
     existing = lms_get_certificate(user_id=user_id)
     if not existing:
         cid, cert_id = lms_issue_certificate(user_id, _uid())
+        # The certificate is valid whether or not the chain write lands, so a
+        # blockchain failure must not block issuance. It must not be silent
+        # either: an un-anchored certificate looks identical in the UI, so the
+        # only way anyone learns the write failed is this log line.
+        anchored = False
         try:
             from blockchain_utils import store_certificate_hash
             result = store_certificate_hash(cert_id, user_id)
             if result:
-                lms_update_cert_blockchain(cert_id, result["tx_hash"], result["token_id"])
-        except Exception:
-            pass
+                lms_update_cert_blockchain(cert_id, result["tx_hash"], result["token_id"],
+                                           anchor_version=result.get("anchor_version", 1))
+                anchored = True
+            else:
+                current_app.logger.warning(
+                    "Certificate %s issued but NOT anchored on-chain "
+                    "(store_certificate_hash returned None)", cert_id)
+        except Exception as e:
+            current_app.logger.warning(
+                "Certificate %s issued but chain write failed: %s: %s",
+                cert_id, type(e).__name__, e)
         audit_log(_uid(), "issue_certificate", "certificate", cert_id,
-                  f"Issued certificate {cert_id} to user {user_id}")
+                  f"Issued certificate {cert_id} to user {user_id} "
+                  f"(on-chain: {'yes' if anchored else 'NO'})")
     return redirect(url_for('lms.certificates_manage'))
 
 
@@ -69,6 +83,7 @@ def certificates():
 @lms_bp.route('/lms/certificates/verify/<cert_id>')
 def verify_certificate(cert_id):
     cert = lms_get_certificate(cert_id=cert_id)
+    chain = None
     if cert:
         try:
             tx_hash = cert.get('tx_hash')
@@ -76,4 +91,44 @@ def verify_certificate(cert_id):
             cert['qr_code'] = qr_path
         except Exception as e:
             print(f"QR generation failed: {e}")
-    return render_template('lms/cert_verify.html', cert=cert)
+
+        # This page used to print the stored tx_hash and assert "Recorded on
+        # Polygon" without ever asking the chain. Now it actually checks, so
+        # the badge reflects the blockchain rather than the database.
+        if cert.get('tx_hash'):
+            if (cert.get('anchor_version') or 1) >= 2:
+                from blockchain import verify_anchor, compute_anchor
+                chain = verify_anchor(cert['tx_hash'], 'certificate', cert)
+                # A minted certificate carries its anchor inside the token's
+                # on-chain metadata. Reading it back from the contract proves
+                # the token itself matches the record, not just that some
+                # transaction once mentioned it.
+                token_id = cert.get('blockchain_token')
+                if token_id and str(token_id).isdigit():
+                    try:
+                        from blockchain_utils import read_token_anchor
+                        on_chain, meta = read_token_anchor(token_id)
+                        chain['token_id'] = token_id
+                        chain['token_metadata'] = meta
+                        if on_chain:
+                            expected = compute_anchor('certificate', cert)
+                            chain['token_anchor_ok'] = (on_chain.lower() == expected.lower())
+                            if not chain['token_anchor_ok']:
+                                chain['verified'] = False
+                                chain['reason'] = ("The token's on-chain record does not match "
+                                                   "this certificate — it has been altered.")
+                            else:
+                                chain['reason'] = ("Verified on Polygon — tokenised certificate, "
+                                                   "unchanged since it was issued.")
+                    except Exception as e:
+                        chain['token_error'] = f"{type(e).__name__}: {e}"
+            else:
+                from blockchain import verify_hash_on_chain
+                import hashlib
+                legacy = hashlib.sha256(
+                    f"{cert_id}:{cert['user_id']}".encode()).hexdigest()
+                chain = verify_hash_on_chain(cert['tx_hash'], legacy)
+                chain['legacy'] = True
+    import os
+    return render_template('lms/cert_verify.html', cert=cert, chain=chain,
+                           contract_address=os.getenv('NFT_CONTRACT_ADDRESS', ''))
