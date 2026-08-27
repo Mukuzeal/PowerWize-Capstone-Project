@@ -1,22 +1,85 @@
-# Python
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# `.env` alone does not match `.env.bak`, `.env.local` and friends, and a
+# backup of it carries every API key and the wallet private key. Ignore the
+# whole family, then re-admit the one file that is meant to be public.
 .env
+.env.*
+!.env.example
+
+# Anything that reads like a credential dump.
+*credentials*.txt
+*secrets*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ── Python ───────────────────────────────────────────────────────────────────
 venv/
+.venv/
+env/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 
-# App-specific
+# ── Runtime output ───────────────────────────────────────────────────────────
+# Logs, and the QR images the app writes as it runs. Certificate QRs are
+# regenerated on every verification request; receipt QRs belong to a database
+# that a fresh clone will not have. Neither is source.
+*.log
+logs/
+static/certificates/
+static/receipts/
+static/uploads/
+# Written when the app is launched from inside src/ rather than the repo root,
+# because qr_gen resolves its output path relative to the working directory.
+src/static/certificates/
+src/static/receipts/
+src/static/uploads/
+src/uploads/
 uploads/
-Handoff.md
-handoffs/
-pgdata/
-powerwize_dump.sql
-scripts/*.sql
 
-# Local dev environment (machine-specific, not part of the app)
+# ── Database ─────────────────────────────────────────────────────────────────
+pgdata/
+*.sql
+!scripts/schema.sql
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# ── Editor and OS noise ──────────────────────────────────────────────────────
+# `~$...` files are the lock files Word leaves behind while a document is open.
+~$*
+*.tmp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# ── Local dev environment (machine-specific, not part of the app) ────────────
 docker-compose.yml
 LINUX_SETUP.md
+Handoff.md
+handoffs/
 
-# Local-only maintenance/seed scripts (not for the repo)
+# ── Local-only maintenance/seed scripts (not for the repo) ───────────────────
 create_demo_accounts.py
 scripts/create_admin.py
 scripts/fix_receipt.py
@@ -24,11 +87,11 @@ scripts/seed_all_data.py
 scripts/seed_registrations.py
 scripts/_guard.py
 
-# IDE / agent config
+# ── IDE / agent config ───────────────────────────────────────────────────────
 .claude/
 CLAUDE.md
 .impeccable/
 
-# graphify knowledge graph (generated, regenerate with `graphify update .`)
+# ── Generated artefacts ──────────────────────────────────────────────────────
+# graphify knowledge graph (regenerate with `graphify update .`)
 graphify-out/
-
