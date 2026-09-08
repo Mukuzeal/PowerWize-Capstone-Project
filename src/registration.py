@@ -137,6 +137,7 @@ def renewal_submit():
     photo_id    = save_file("photo_id",    prefix=prefix)
     expired_doe = save_file("expired_doe", prefix=prefix)
     valid_id    = save_file("valid_id",    prefix=prefix)
+    selfie_with_id = f.get("selfie_with_id", "").strip()
     if not photo_id:    errors.append("Please upload your recent 2x2 Photo ID.")
     if not expired_doe: errors.append("Please upload your expired DOE Certificate.")
     if not valid_id:    errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -153,7 +154,7 @@ def renewal_submit():
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, doe_expiry=doe_expiry,
         training_type=training_type, batch_id=batch_id,
-        photo_id=photo_id, expired_doe=expired_doe, valid_id=valid_id)
+        photo_id=photo_id, expired_doe=expired_doe, valid_id=valid_id, selfie_with_id=selfie_with_id)
     insert_registration(entry)
     return render_template("shared/success.html", entry=entry)
 
@@ -195,6 +196,7 @@ def renewal_cem_submit():
     photo_id    = save_file("photo_id",    prefix=prefix)
     expired_doe = save_file("expired_doe", prefix=prefix)
     valid_id    = save_file("valid_id",    prefix=prefix)
+    selfie_with_id = f.get("selfie_with_id", "").strip()
     if not photo_id:    errors.append("Please upload your recent 2x2 Photo ID.")
     if not expired_doe: errors.append("Please upload your expired DOE-CEM Certificate.")
     if not valid_id:    errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -211,7 +213,7 @@ def renewal_cem_submit():
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, doe_expiry=doe_expiry,
         training_type=training_type, batch_id=batch_id,
-        photo_id=photo_id, expired_doe=expired_doe, valid_id=valid_id)
+        photo_id=photo_id, expired_doe=expired_doe, valid_id=valid_id, selfie_with_id=selfie_with_id)
     insert_registration(entry)
     return render_template("shared/success.html", entry=entry)
 
@@ -253,6 +255,7 @@ def cea_training_submit():
     photo_id = save_file("photo_id", prefix=prefix)
     resume   = save_file("resume",   prefix=prefix)
     valid_id = save_file("valid_id", prefix=prefix)
+    selfie_with_id = f.get("selfie_with_id", "").strip()
     if not photo_id: errors.append("Please upload your recent 2x2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV.")
     if not valid_id: errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -268,7 +271,7 @@ def cea_training_submit():
         residence=residence, company_name=company_name, designation=designation,
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
-        photo_id=photo_id, resume=resume, valid_id=valid_id)
+        photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
     insert_registration(entry)
     return render_template("shared/success.html", entry=entry)
 
@@ -316,6 +319,7 @@ def gemp_lgu_submit():
     photo_id = save_file("photo_id", prefix=prefix)
     resume   = save_file("resume",   prefix=prefix, pdf_only=True)
     valid_id = save_file("valid_id", prefix=prefix)
+    selfie_with_id = f.get("selfie_with_id", "").strip()
     if not photo_id: errors.append("Please upload your recent 2×2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV (PDF only).")
     if not valid_id: errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -332,7 +336,7 @@ def gemp_lgu_submit():
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
         gemp_designation=gemp_designation,
-        photo_id=photo_id, resume=resume, valid_id=valid_id)
+        photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
     insert_registration(entry)
     return render_template("shared/success.html", entry=entry)
 
@@ -373,6 +377,7 @@ def gemp_oge_submit():
     photo_id = save_file("photo_id", prefix=prefix)
     resume   = save_file("resume",   prefix=prefix, pdf_only=True)
     valid_id = save_file("valid_id", prefix=prefix)
+    selfie_with_id = f.get("selfie_with_id", "").strip()
     if not photo_id: errors.append("Please upload your recent 2×2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV (PDF only).")
     if not valid_id: errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -389,7 +394,7 @@ def gemp_oge_submit():
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
         gemp_designation=gemp_designation,
-        photo_id=photo_id, resume=resume, valid_id=valid_id)
+        photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
     insert_registration(entry)
     return render_template("shared/success.html", entry=entry)
 
@@ -424,6 +429,7 @@ def training_submit():
     photo_id = save_file("photo_id", prefix=prefix)
     resume   = save_file("resume",   prefix=prefix, pdf_only=True)
     valid_id = save_file("valid_id", prefix=prefix)
+    selfie_with_id = f.get("selfie_with_id", "").strip()
     if not photo_id: errors.append("Please upload your recent 2x2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV (PDF only).")
     if not valid_id: errors.append("Please upload your PRC License or valid government-issued ID.")
@@ -439,7 +445,7 @@ def training_submit():
         residence=residence, company_name=company_name, designation=designation,
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
-        photo_id=photo_id, resume=resume, valid_id=valid_id)
+        photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
     insert_registration(entry)
     return render_template("shared/success.html", entry=entry)
 

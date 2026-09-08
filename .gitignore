@@ -96,3 +96,9 @@ CLAUDE.md
 # ── Generated artefacts ──────────────────────────────────────────────────────
 # graphify knowledge graph (regenerate with `graphify update .`)
 graphify-out/
+
+# ── Non-essential (docs, planning material, dev-only scripts, stray junk) ────
+non_essential/
+
+# Skill lockfile: local to this machine's skill installs, not app source.
+skills-lock.json

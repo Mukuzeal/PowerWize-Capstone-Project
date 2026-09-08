@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import request, redirect, flash, session
+from flask import request, redirect, flash, session, current_app, send_from_directory, abort
 
 from db import (get_db, dict_cur, set_registration_status, build_batch_label,
                 TYPE_OFFSETS, create_account_token, audit_log, get_pending_selfies)
@@ -83,6 +83,22 @@ def admin_add_schedule():
         conn.close()
         flash(f'"{label}" has been added.', "success")
     return redirect("/admin#schedules")
+
+
+@admin_bp.route("/admin/registration/<reg_id>/selfie")
+def admin_registration_selfie(reg_id):
+    if session.get("user_role") != "admin":
+        abort(403)
+    conn = get_db()
+    cur  = dict_cur(conn)
+    cur.execute("SELECT selfie_with_id FROM registrations WHERE id = %s", (reg_id,))
+    reg = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not reg or not reg.get("selfie_with_id"):
+        abort(404)
+    return send_from_directory(current_app.config["UPLOAD_FOLDER"], reg["selfie_with_id"])
 
 
 @admin_bp.route("/admin/selfie/<reg_id>/approve", methods=["POST"])

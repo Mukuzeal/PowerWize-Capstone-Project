@@ -1384,9 +1384,6 @@
         <button class="nav-item" onclick="showSection('registrations', this)">
     <span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span> Registrations
   </button>
-        <button class="nav-item" onclick="showSection('selfies', this)">
-    <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> Selfies ({{ pending_selfies|length }})
-  </button>
         <button class="nav-item" onclick="showSection('solar', this)">
     <span class="nav-icon"><i class="fa-solid fa-solar-panel"></i></span> Solar Requests
   </button>
@@ -1910,6 +1907,9 @@
                             </td>
                             <td style="white-space:nowrap">
                                 <button type="button" class="btn-docs" onclick="openDocs(this)" data-id="{{ r.id }}" data-name="{{ (r.title or '') ~ ' ' ~ r.full_name }}" data-status="{{ r.status }}" data-photo="{{ r.photo_id or '' }}" data-resume="{{ r.resume or '' }}" data-doe="{{ r.expired_doe or '' }}" data-valid="{{ r.valid_id or '' }}"><i class="fa-solid fa-folder-open"></i> Documents</button>
+                                {% if r.selfie_with_id %}
+                                <button type="button" class="btn-docs" onclick="openSelfie(this)" data-url="/admin/registration/{{ r.id }}/selfie" data-label="Selfie with ID &mdash; {{ (r.title or '') ~ ' ' ~ r.full_name }}" style="margin-left:6px"><i class="fa-solid fa-id-badge"></i> Selfie</button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -1921,43 +1921,6 @@
                 </div>
                 {% endif %}
             </div>
-        </div>
-
-        <!-- ═══ SELFIES ═══ -->
-        <div id="section-selfies" class="section">
-            <div class="page-head">
-                <h1>Identity Verification – Selfies</h1>
-                <span class="count-badge">{{ pending_selfies|length }} pending</span>
-            </div>
-
-            {% if pending_selfies %}
-            <div class="selfies-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem">
-                {% for selfie in pending_selfies %}
-                <div class="selfie-card" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
-                    <div style="background:var(--green-lt);padding:1rem;border-bottom:1px solid var(--border)">
-                        <div style="font-weight:600;color:var(--green-dk);margin-bottom:0.25rem">{{ selfie.full_name }}</div>
-                        <div style="font-size:12px;color:var(--gray)">{{ selfie.email }}</div>
-                        <div style="font-size:11px;color:var(--gray);margin-top:0.25rem">{{ selfie.form_label }}</div>
-                    </div>
-                    <div style="aspect-ratio:1;background:#f0f0f0;display:flex;align-items:center;justify-content:center;overflow:hidden">
-                        <img src="/uploads/{{ selfie.selfie_with_id }}" alt="Selfie" style="width:100%;height:100%;object-fit:cover">
-                    </div>
-                    <div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:0.75rem">
-                        <form method="POST" action="/admin/selfie/{{ selfie.id }}/approve" style="flex:1">
-                            <button type="submit" style="width:100%;padding:0.75rem;background:var(--green-pr);color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px">✓ Approve</button>
-                        </form>
-                        <form method="POST" action="/admin/selfie/{{ selfie.id }}/reject" style="flex:1">
-                            <button type="submit" style="width:100%;padding:0.75rem;background:#EF4444;color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px">✗ Reject</button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="table-card">
-                <p class="empty" style="text-align:center;padding:3rem">No pending selfies for verification.</p>
-            </div>
-            {% endif %}
         </div>
 
         <!-- ═══ SOLAR ═══ -->
@@ -2754,6 +2717,10 @@
             if (event && event.target !== document.getElementById('docs-overlay')) return;
             document.getElementById('docs-overlay').classList.remove('open');
             document.body.style.overflow = '';
+        }
+
+        function openSelfie(btn) {
+            openLightbox(btn.dataset.url, btn.dataset.label);
         }
 
         document.addEventListener('keydown', function(e) {
