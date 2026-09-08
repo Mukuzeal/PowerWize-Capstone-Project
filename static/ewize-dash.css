@@ -223,7 +223,7 @@
 /* Destructive is the one place --ember appears, and it is icon-only so it can
    never be the widest control in the row. */
 .act--kill { flex: 0 0 auto; width: auto; padding-inline: 0.8rem; }
-.act--kill:hover { border-color: var(--ember); color: #F09A91; }
+.act--kill:hover { border-color: var(--ember); color: var(--ember-fg); }
 
 /* --------------------------------------------------------------------------
    7. FILTERS — round controls on a square substrate
@@ -337,7 +337,7 @@
 .flash-success { border-left-color: var(--signal); background: color-mix(in oklab, var(--signal) 7%, var(--ink-100)); }
 .flash-success > i { color: var(--signal); }
 .flash-error { border-left-color: var(--ember); background: color-mix(in oklab, var(--ember) 7%, var(--ink-100)); }
-.flash-error > i { color: #F09A91; }
+.flash-error > i { color: var(--ember-fg); }
 
 /* Inside the marketing/portal shell the nav floats rather than occupying a
    fixed bar, so the banner needs the wider clearance and the page gutter. */

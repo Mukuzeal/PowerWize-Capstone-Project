@@ -23,6 +23,34 @@
         'Where you stand in your training, and everything you have access to.'
       ) }}
 
+      {# ── Training (the primary action for a trainee, so it leads the page) ── #}
+      {% if session.get('user_role') == 'trainee' %}
+      <div class="dsub"><p class="mono mono--fg">Training</p></div>
+
+      <div class="decision-card decision-card--spotlight">
+        <h3>Training</h3>
+        <p>Your course materials, quizzes and practical exams.</p>
+        <div class="decision-grid">
+          <a class="dec-btn" href="/lms/learn">
+            <span class="dec-icon"><i class="fa-solid fa-book-open"></i></span>
+            <span class="dec-text">
+              <span class="dec-title">Go to my learning</span>
+              <span class="dec-sub">Modules, quizzes and exam submissions</span>
+            </span>
+            <i class="fa-solid fa-arrow-right dec-go"></i>
+          </a>
+          <a class="dec-btn" href="/lms/progress">
+            <span class="dec-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="dec-text">
+              <span class="dec-title">View my progress</span>
+              <span class="dec-sub">The full checklist for every module</span>
+            </span>
+            <i class="fa-solid fa-arrow-right dec-go"></i>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
       {# ── Progress ────────────────────────────────────────────────────────── #}
       {% if total %}
       <div class="panel portal__hero">
@@ -173,29 +201,6 @@
 
       {# ── Actions ─────────────────────────────────────────────────────────── #}
       <div class="dsub"><p class="mono mono--fg">Everything else</p></div>
-
-      <div class="decision-card">
-        <h3>Training</h3>
-        <p>Your course materials, quizzes and practical exams.</p>
-        <div class="decision-grid">
-          <a class="dec-btn" href="/lms/learn">
-            <span class="dec-icon"><i class="fa-solid fa-book-open"></i></span>
-            <span class="dec-text">
-              <span class="dec-title">Go to my learning</span>
-              <span class="dec-sub">Modules, quizzes and exam submissions</span>
-            </span>
-            <i class="fa-solid fa-arrow-right dec-go"></i>
-          </a>
-          <a class="dec-btn" href="/lms/progress">
-            <span class="dec-icon"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="dec-text">
-              <span class="dec-title">View my progress</span>
-              <span class="dec-sub">The full checklist for every module</span>
-            </span>
-            <i class="fa-solid fa-arrow-right dec-go"></i>
-          </a>
-        </div>
-      </div>
 
       <div class="decision-card">
         <h3>Solar PV Quotation</h3>

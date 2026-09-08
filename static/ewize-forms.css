@@ -82,7 +82,7 @@
 }
 /* A section can also report a dead end (an expired link, a failed check). The
    glyph is the same size and place; only the colour says it went wrong. */
-.section-icon.is-bad { border-color: var(--ember); color: #F09A91; }
+.section-icon.is-bad { border-color: var(--ember); color: var(--ember-fg); }
 .section-header h2 {
   font-size: 1.0625rem;
   font-variation-settings: "wdth" 100, "wght" 500;
@@ -254,7 +254,7 @@ input[type=file] { display: none; }
 }
 .upload-validation[data-status="invalid"] .uv-bad,
 .selfie-validation[data-status="invalid"] .uv-bad {
-  display: flex; border-color: var(--ember); color: #F09A91;
+  display: flex; border-color: var(--ember); color: var(--ember-fg);
   background: color-mix(in oklab, var(--ember) 10%, var(--ink-200));
 }
 
@@ -473,9 +473,9 @@ input[type=file] { display: none; }
   color: var(--fg-dim);
 }
 .error-banner, .flash-error, .err-box { border-color: var(--ember); background: color-mix(in oklab, var(--ember) 9%, var(--ink-100)); }
-.error-banner strong, .flash-error strong { display: flex; align-items: center; gap: 0.5rem; color: #F09A91; font-variation-settings: "wght" 600; margin-bottom: 0.4rem; }
+.error-banner strong, .flash-error strong { display: flex; align-items: center; gap: 0.5rem; color: var(--ember-fg); font-variation-settings: "wght" 600; margin-bottom: 0.4rem; }
 .error-banner ul { padding-left: 1.2rem; list-style: disc; }
-.error-banner li { color: #F09A91; margin-block: 0.2rem; }
+.error-banner li { color: var(--ember-fg); margin-block: 0.2rem; }
 .flash-success { border-color: var(--signal-dim); background: color-mix(in oklab, var(--signal) 8%, var(--ink-100)); color: var(--signal); display: flex; align-items: center; gap: 0.6rem; }
 .flash-error { display: flex; align-items: center; gap: 0.6rem; }
 .notice-box { border-color: var(--amber-deep); background: color-mix(in oklab, var(--amber) 7%, var(--ink-100)); }
@@ -579,7 +579,7 @@ input[type=file] { display: none; }
   padding: 0.75rem 1rem;
   border: var(--rule) solid var(--ember);
   background: color-mix(in oklab, var(--ember) 9%, var(--ink-100));
-  color: #F09A91;
+  color: var(--ember-fg);
   font-size: 0.85rem;
 }
 .wizard-step-error.show { display: flex; }
@@ -661,7 +661,7 @@ input[type=file] { display: none; }
 .status-pill.st-accepted { border-color: var(--signal-dim); color: var(--signal); }
 /* Registration statuses (pending/accepted/rejected) share the pill with solar
    request statuses — one vocabulary for "where does this stand". */
-.status-pill.st-rejected { border-color: var(--ember); color: #F09A91; }
+.status-pill.st-rejected { border-color: var(--ember); color: var(--ember-fg); }
 
 .prelim-badge {
   display: inline-flex; align-items: center; gap: 0.5rem;
@@ -721,7 +721,7 @@ input[type=file] { display: none; }
 }
 .feas-badge.feas-feasible, .sys-badge.sys-hybrid { border-color: var(--signal-dim); color: var(--signal); }
 .feas-badge.feas-limited { border-color: var(--amber-deep); color: var(--amber); }
-.feas-badge.feas-unfeasible { border-color: var(--ember); color: #F09A91; }
+.feas-badge.feas-unfeasible { border-color: var(--ember); color: var(--ember-fg); }
 .sys-badge.sys-grid { border-color: var(--line-strong); color: var(--fg-dim); }
 .result-row .battery-note { margin-left: 0.5rem; font-size: 0.72rem; color: var(--fg-mute); }
 
@@ -733,6 +733,8 @@ input[type=file] { display: none; }
 
 .decision-card { padding: 1.25rem 1.5rem; }
 .decision-card h3 { font-size: 0.95rem; font-variation-settings: "wght" 500; color: var(--fg); margin-bottom: 0.35rem; }
+.decision-card--spotlight { border-color: var(--signal-dim); background: color-mix(in oklab, var(--signal) 7%, var(--ink-100)); }
+.decision-card--spotlight h3 { color: var(--signal); }
 .decision-card p { font-size: 0.85rem; color: var(--fg-mute); margin-bottom: 1.1rem; line-height: 1.55; }
 .decision-grid { display: grid; gap: 0.6rem; }
 .dec-btn {
@@ -1241,10 +1243,10 @@ input[type=file] { display: none; }
 .qr-status.waiting, .qr-status.paid, .qr-status.failed { display: flex; }
 .qr-status.waiting { border-color: var(--amber-deep); color: var(--amber); }
 .qr-status.paid { border-color: var(--signal-dim); background: color-mix(in oklab, var(--signal) 8%, transparent); color: var(--signal); }
-.qr-status.failed { border-color: var(--ember); color: #F09A91; }
+.qr-status.failed { border-color: var(--ember); color: var(--ember-fg); }
 
 /* Shares the banner styling in §9; payment.js only toggles `.shown`. */
-.err-box { display: none; color: #F09A91; }
+.err-box { display: none; color: var(--ember-fg); }
 .err-box.shown { display: flex; align-items: center; gap: 0.6rem; }
 
 /* Written into a button's own label while a request is in flight, so the
@@ -1286,11 +1288,11 @@ input[type=file] { display: none; }
   font-family: var(--mono); font-size: var(--fs-mono);
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--signal);
 }
-.scan-status.is-bad { border-color: var(--ember); color: #F09A91; }
+.scan-status.is-bad { border-color: var(--ember); color: var(--ember-fg); }
 
 /* A failed verification is still a result, not an error banner — same card,
    same weight, only the seal changes colour. */
-.result-icon.is-bad { border-color: var(--ember); color: #F09A91; }
+.result-icon.is-bad { border-color: var(--ember); color: var(--ember-fg); }
 
 .chain-link {
   display: inline-flex; align-items: center; gap: 0.5rem;

@@ -35,6 +35,7 @@
   --amber:      #E9A93B;   /* logo gold — the secondary accent */
   --amber-deep: #9A6714;
   --ember:      #D8483C;   /* logo red — hazard / seal only, used sparingly */
+  --ember-fg:   #F09A91;   /* ember, lifted for legible error text on dark */
 
   /* Light substrate (used by exactly two sections) */
   --paper:      #EFEDE6;
@@ -82,6 +83,34 @@
   --z-grain: 700;
 
   color-scheme: dark;
+}
+
+/* Light theme — opt-in via [data-theme="light"] on <html> (static/ewize-theme.js).
+   Reuses the "light substrate" reading already established by .band--paper:
+   forest/amber-deep carry more contrast than signal/amber on a light page. */
+:root[data-theme="light"] {
+  --ink-000: #FBFAF5;
+  --ink-050: #F3F1E8;
+  --ink-100: #FFFFFF;
+  --ink-200: #ECE9DD;
+  --ink-300: #E0DCCC;
+  --ink-400: #D2CDB8;
+
+  --fg:       #0A1710;
+  --fg-dim:   #3B4A42;
+  --fg-mute:  #6A776F;
+  --fg-ghost: #A7B2A5;
+
+  --line:        rgba(10, 23, 16, 0.10);
+  --line-mid:    rgba(10, 23, 16, 0.18);
+  --line-strong: rgba(10, 23, 16, 0.36);
+
+  --signal:     var(--forest);
+  --signal-dim: var(--forest-deep);
+  --amber:      #A9761B;
+  --ember-fg:   #B23A2E;   /* darker than --ember-fg's dark value; #F09A91 fails contrast on paper */
+
+  color-scheme: light;
 }
 
 /* --------------------------------------------------------------------------
@@ -248,6 +277,9 @@ section { position: relative; }
   --signal: var(--forest);
   --amber: #A9761B;
 }
+/* In light theme the page itself is already paper-toned, so the inversion
+   needs a whiter substrate to still read as a distinct section. */
+:root[data-theme="light"] .band--paper { background: var(--ink-100); }
 
 /* --------------------------------------------------------------------------
    5. TYPOGRAPHY
@@ -572,6 +604,25 @@ section { position: relative; }
 /* Hidden wherever the burger takes over — an icon-only pill reads as nothing,
    and the menu already lists Sign in. */
 @media (max-width: 1100px) { .nav__signin { display: none; } }
+
+/* Theme toggle — same pill language as the burger, stays visible at every
+   breakpoint since there is nowhere else on the public site to reach it. */
+.nav__theme {
+  display: grid; place-items: center;
+  width: 2.85rem; height: 2.85rem; flex-shrink: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink-000) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(1.3);
+  border: var(--rule) solid var(--line-mid);
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition: border-color 300ms var(--e-out), color 300ms var(--e-out);
+}
+.nav__theme:hover { border-color: var(--signal); color: var(--signal); }
+.nav__theme svg { width: 1.05rem; height: 1.05rem; }
+.nav__theme .icon-sun { display: none; }
+:root[data-theme="light"] .nav__theme .icon-sun { display: block; }
+:root[data-theme="light"] .nav__theme .icon-moon { display: none; }
 
 @media (max-width: 1100px) { .nav__rail { display: none; } }
 @media (min-width: 1101px) { .nav__burger { display: none; } }
