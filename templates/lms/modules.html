@@ -1,20 +1,18 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}Modules – LMS{% endblock %}
+{% block title %}Modules – EnergyWize LMS{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("Training Modules")}}
 <div class="page-body">
 <div class="lms-wrap">
 
-  <div class="lms-page-header">
+  <div class="lms-page-header" data-reveal="tight">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-layer-group"></i> Your Modules</h2>
       <p class="lms-page-sub">Create and manage training modules for trainees.</p>
@@ -23,16 +21,16 @@
   </div>
 
   {% if modules %}
-  <div class="module-grid">
+  <div class="module-grid" data-reveal-group>
     {% for m in modules %}
-    <div class="module-card">
+    <div class="module-card" data-reveal="tight">
       <div class="module-card-header">
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
           <span class="module-status-badge {{ 'published' if m.is_published else 'draft'}}">
             <i class="fa-solid {{ 'fa-globe' if m.is_published else 'fa-pen-to-square'}}"></i>
             {{ 'Published' if m.is_published else 'Draft'}}
           </span>
-          <span class="module-status-badge" style="background: #DBEAFE; color: #1E40AF">
+          <span class="module-status-badge">
             <i class="fa-solid fa-tag"></i>
             {% if m.training_type == 'training' %}CEM Training
             {% elif m.training_type == 'cea_training' %}CEA Training
@@ -61,7 +59,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="lms-empty">
+  <div class="lms-empty" data-reveal="tight">
     <i class="fa-solid fa-layer-group"></i>
     <p>No modules yet. Create your first module to get started.</p>
     <a href="/lms/modules/create" class="btn-primary">Create Module</a>

@@ -1,96 +1,81 @@
-{%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead, tlink with context %}
 
-{% block title %}{{ 'Edit' if module else 'Create'}} Module – LMS{% endblock %}
+{% block title %}{{ 'Edit' if module else 'Create' }} Module – EnergyWize LMS{% endblock %}
+{% block description %}{{ 'Update a training module.' if module else 'Add a new training module to the EnergyWize LMS.' }}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("Training Modules")}}
-<div class="page-body">
-<div class="lms-wrap" style="max-width:960px">
+{% set role = session.get('user_role') %}
+{% set back = '/admin' if role == 'admin' else '/employee' if role == 'employee' else '/lms/modules' %}
+{% set back_label = 'Back to dashboard' if role in ('admin', 'employee') else 'Back to modules' %}
 
-  <div class="lms-page-header">
-    <div>
-      <h2 class="lms-page-title">
-        <i class="fa-solid {{ 'fa-pen-to-square' if module else 'fa-plus-circle'}}"></i>
-        {{ 'Edit Module' if module else 'Create New Module'}}
-      </h2>
-      <p class="lms-page-sub">
-        {{ 'Update module details. Changes are visible to trainees immediately.' if module else 'Add a new training module to the LMS.'}}
-      </p>
+<section class="formpage">
+  <div class="shell" style="max-width:48rem">
+
+    {{ fhead(
+      [('Dashboard', back)],
+      'Training Modules',
+      ('Edit<br><em>' ~ module.title ~ '</em>') if module else 'Create a<br><em>new module</em>',
+      ('Update the module details. Changes are visible to trainees immediately.' if module
+       else 'Add a new training module to the LMS. Once created, you can upload materials, set up a quiz, and add a practical exam from its management page.')
+    ) }}
+
+    {% if module %}
+    <div class="info-card">
+      <div class="ic-label"><i class="fa-solid fa-book-open-reader"></i> Editing module</div>
+      <div class="ic-value">{{ module.title }}</div>
+      <div class="ic-sub">
+        ID {{ module.id }}
+        {% if module.created_at %} · Created {{ module.created_at.strftime('%b %d, %Y') }}{% endif %}
+        · {{ 'Published' if module.is_published else 'Draft' }}
+      </div>
     </div>
-    {% if session.get('user_role') == 'admin' %}
-      <a href="/admin" class="btn-ghost">
-        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-      </a>
-    {% elif session.get('user_role') == 'employee' %}
-      <a href="/employee" class="btn-ghost">
-        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-      </a>
-    {% else %}
-      <a href="/lms/modules" class="btn-ghost">
-        <i class="fa-solid fa-arrow-left"></i> Back to Modules
-      </a>
     {% endif %}
-  </div>
 
-  <!-- Hero banner -->
-  <div class="mf-hero">
-    <div class="mf-hero-icon">
-      <i class="fa-solid {{ 'fa-book-open-reader' if module else 'fa-book-open'}}"></i>
-    </div>
-    <div>
-      <div class="mf-hero-title">
-        {{ 'Editing: ' ~ module.title if module else 'New Training Module'}}
-      </div>
-      <div class="mf-hero-sub">
-        {% if module %}
-          After saving, trainees enrolled in this module will see the updated content on their next visit.
-        {% else %}
-          Once created, you can upload materials, set up a quiz, and add a practical exam from the module's management page.
-        {% endif %}
-      </div>
-    </div>
-  </div>
+    <form class="form-card" method="post" id="module-form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-  <div class="mf-layout">
-    <!-- Form card -->
-    <div class="lms-card">
-      <form method="post" id="module-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
-        <div class="form-group">
-          <label class="form-label">
-            Module Title <span class="req">*</span>
-          </label>
-          <input type="text" name="title" id="title-input" class="form-input"
-                 value="{{ module.title if module else ''}}"
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid {{ 'fa-pen-to-square' if module else 'fa-book-open' }}"></i></div>
+        <div>
+          <h2>Module Details</h2>
+          <p>{{ 'Update and save' if module else 'Step 1 of 3' }}</p>
+        </div>
+      </div>
+
+      <div class="form-body">
+
+        <div class="field">
+          <label for="title-input">Module Title <span class="req">*</span></label>
+          <input type="text" name="title" id="title-input"
+                 value="{{ module.title if module else '' }}"
                  placeholder="e.g. Introduction to Solar Energy Systems"
                  maxlength="120" required autofocus>
-          <div class="char-counter" id="title-counter">0 / 120</div>
+          <span class="form-hint" id="title-counter" style="display:block;text-align:right;margin-top:.35rem">0 / 120</span>
         </div>
 
-        <hr class="form-divider">
+        <div class="form-divider"></div>
 
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <textarea name="description" id="desc-input" class="form-input form-textarea" rows="7"
-                    placeholder="Describe what trainees will learn, key topics covered, and any prerequisites for this module…"
-                    maxlength="1000">{{ module.description if module else ''}}</textarea>
-          <div class="char-counter" id="desc-counter">0 / 1000</div>
-          <div class="form-hint">A good description helps trainees understand what to expect and prepares them for the material.</div>
+        <div class="field">
+          <label for="desc-input">Description</label>
+          <textarea name="description" id="desc-input" rows="7" maxlength="1000"
+                    placeholder="Describe what trainees will learn, key topics covered, and any prerequisites for this module…">{{ module.description if module else '' }}</textarea>
+          <span class="form-hint" id="desc-counter" style="display:block;text-align:right;margin-top:.35rem">0 / 1000</span>
+          <p class="form-hint">A good description helps trainees understand what to expect and prepares them for the material.</p>
         </div>
 
-        <hr class="form-divider">
+        <div class="form-divider"></div>
 
-        <div class="form-group">
-          <label class="form-label">Training Type <span class="req">*</span></label>
-          <select name="training_type" class="form-input" required>
-            <option value="">-- Select Training Type --</option>
+        <div class="field">
+          <label for="type-input">Training Type <span class="req">*</span></label>
+          <select name="training_type" id="type-input" required>
+            <option value="">— Select training type —</option>
             <option value="training" {% if module and module.training_type == 'training' %}selected{% endif %}>CEM Training</option>
             <option value="cea_training" {% if module and module.training_type == 'cea_training' %}selected{% endif %}>CEA Training</option>
             <option value="renewal" {% if module and module.training_type == 'renewal' %}selected{% endif %}>Renewal</option>
@@ -99,81 +84,36 @@
             <option value="gemp_lgu" {% if module and module.training_type == 'gemp_lgu' %}selected{% endif %}>GEMP Training – LGU</option>
             <option value="gemp_oge" {% if module and module.training_type == 'gemp_oge' %}selected{% endif %}>GEMP Training – Gov't Entity</option>
           </select>
-          <div class="form-hint">Only trainees registered for this training type will see this module.</div>
+          <p class="form-hint">Only trainees registered for this training type will see this module.</p>
         </div>
 
-        <hr class="form-divider">
-
-        <div class="form-actions">
-          {% if session.get('user_role') == 'admin' %}
-            <a href="/admin" class="btn-ghost">Cancel</a>
-          {% elif session.get('user_role') == 'employee' %}
-            <a href="/employee" class="btn-ghost">Cancel</a>
-          {% else %}
-            <a href="/lms/modules" class="btn-ghost">Cancel</a>
-          {% endif %}
-          <button type="submit" class="btn-primary">
-            <i class="fa-solid fa-floppy-disk"></i>
-            {{ 'Save Changes' if module else 'Create Module'}}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Sidebar -->
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div class="tips-card">
-        <div class="tips-title">
-          <i class="fa-solid fa-lightbulb" style="color:#D97706"></i> Writing Tips
-        </div>
-        <div class="tip-item">
-          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
-          <div>Use a clear, specific title so trainees immediately know the topic.</div>
-        </div>
-        <div class="tip-item">
-          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
-          <div>List learning objectives, prerequisites, and estimated completion time in the description.</div>
-        </div>
-        <div class="tip-item">
-          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
-          <div>After creating, upload PDFs, DOCX files, or other materials from the manage page.</div>
-        </div>
-        <div class="tip-item">
-          <div class="tip-dot"><i class="fa-solid fa-check"></i></div>
-          <div>Modules stay in <strong>Draft</strong> until published – trainees can't see them until you publish.</div>
-        </div>
       </div>
 
-      {% if module %}
-      <div class="tips-card" style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1.5px solid #BFDBFE">
-        <div class="tips-title" style="color:#1D4ED8">
-          <i class="fa-solid fa-circle-info" style="color:#3B82F6"></i> Module Details
-        </div>
-        <div class="info-pill">
-          <i class="fa-solid fa-hashtag" style="color:#3B82F6"></i>
-          <span>ID: <strong>{{ module.id}}</strong></span>
-        </div>
-        {% if module.created_at %}
-        <div class="info-pill">
-          <i class="fa-solid fa-calendar-plus" style="color:#3B82F6"></i>
-          <span>Created: <strong>{{ module.created_at.strftime('%b %d, %Y')}}</strong></span>
-        </div>
-        {% endif %}
-        <div class="info-pill">
-          <i class="fa-solid fa-circle" style="color:{{ '#16A34A' if module.published else '#D97706'}}"></i>
-          <span>Status: <strong>{{ 'Published' if module.published else 'Draft'}}</strong></span>
-        </div>
+      <div class="form-footer">
+        <p>Fields marked <strong class="req-key">*</strong> are required.</p>
+        <button type="submit" class="btn-submit">
+          {{ 'Save Changes' if module else 'Create Module' }} <i class="fa-solid fa-arrow-right"></i>
+        </button>
       </div>
+    </form>
 
-      <a href="/lms/modules/{{ module.id}}/manage" class="btn-outline" style="width:100%;justify-content:center;box-sizing:border-box">
-        <i class="fa-solid fa-sliders"></i> Manage Module
-      </a>
-      {% endif %}
+    <div class="notice-box">
+      <strong><i class="fa-solid fa-lightbulb"></i> Writing tips</strong>
+      <p>
+        Use a clear, specific title so trainees immediately know the topic.
+        List learning objectives, prerequisites, and estimated completion time in the description.
+        After creating, upload PDFs or other materials from the manage page.
+        Modules stay in <strong>Draft</strong> until published — trainees can't see them until you publish.
+      </p>
     </div>
+
+    <p style="margin-top:2rem">
+      {{ tlink(back_label, back) }}
+      {% if module %} &nbsp; {{ tlink('Manage module', '/lms/modules/' ~ module.id ~ '/manage') }}{% endif %}
+    </p>
+
   </div>
-
-</div>
-</div>
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -185,7 +125,7 @@ function initCounter(inputId, counterId, max) {
   function update() {
     const n = el.value.length;
     ct.textContent = n + ' / ' + max;
-    ct.className = 'char-counter' + (n >= max ? ' over' : n > max * 0.85 ? ' warn' : '');
+    ct.style.color = n >= max ? 'var(--amber)' : '';
   }
   update();
   el.addEventListener('input', update);

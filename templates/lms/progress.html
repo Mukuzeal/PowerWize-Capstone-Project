@@ -1,20 +1,18 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}My Progress – LMS{% endblock %}
+{% block title %}My Progress – EnergyWize LMS{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css')}}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css')}}">
 <meta name="csrf-token" content="{{ csrf_token()}}">
 {% endblock %}
 
 {% block main %}
-{{ header("My Progress")}}
 <div class="page-body">
         <div class="lms-wrap lms-wrap-narrow">
 
-            <div class="lms-page-header">
+            <div class="lms-page-header" data-reveal="tight">
                 <div>
                     <h2 class="lms-page-title"><i class="fa-solid fa-chart-line"></i> My Progress</h2>
                 </div>
@@ -22,7 +20,7 @@
             </div>
 
             <!-- Overall -->
-            <div class="lms-card progress-hero">
+            <div class="lms-card progress-hero" data-reveal="tight">
                 <div class="progress-hero-info">
                     <h2>Overall Progress</h2>
                     <p>{{ completed}} of {{ total}} module{{ 's' if total != 1}} completed</p>
@@ -41,7 +39,7 @@
             <!-- Per-module -->
             {% if modules %} {% for m in modules %} {% set p = prog_map.get(m.id, {}) %}
             {% set st = steps_map.get(m.id) %} {% set rq = reqs.get(m.id, {}) %}
-            <div class="lms-card progress-module-card">
+            <div class="lms-card progress-module-card" data-reveal="tight">
                 <div class="progress-module-header">
                     <div>
                         <h3 class="progress-module-title">{{ m.title}}</h3>
@@ -88,7 +86,7 @@
                     {% endif %}
                 </div>
                 {% if p.get('completed') and p.get('completed_at') %}
-                <p style="font-size:11px;color:#9CA3AF;margin-top:8px">
+                <p style="font-size:11px;color:var(--fg-mute);margin-top:8px">
                     Completed on {{ p.completed_at.strftime('%B %d, %Y')}}
                 </p>
                 {% endif %}

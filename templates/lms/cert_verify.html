@@ -1,23 +1,21 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}Verify Certificate – PowerWize{% endblock %}
+{% block title %}Verify Certificate – EnergyWize{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("Certificate Verification")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
-  <h2 class="lms-page-title" style="margin-bottom:24px"><i class="fa-solid fa-shield-check"></i> Certificate Verification</h2>
+  <h2 class="lms-page-title" style="margin-bottom:24px" data-reveal="tight"><i class="fa-solid fa-shield-check"></i> Certificate Verification</h2>
 
   {% if cert %}
-  <div class="lms-card verify-card">
+  <div class="lms-card verify-card" data-reveal="tight">
     <div class="verify-icon valid"><i class="fa-solid fa-circle-check"></i></div>
     <h3 class="verify-title valid">Valid Certificate</h3>
     <p class="verify-sub">This certificate is authentic and was issued by EnergyWize.</p>
@@ -44,7 +42,7 @@
         <span class="verify-value">
           {{ cert.expires_at.strftime('%B %d, %Y')}}
           {% set today_ts = namespace(v=0) %}
-          <span id="expiry-status-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;margin-left:8px;background:#D1FAE5;color:#065F46">
+          <span id="expiry-status-badge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;margin-left:8px;background:rgba(53,199,124,0.16);color:var(--signal)">
             <i class="fa-solid fa-calendar-check"></i> Valid
           </span>
         </span>
@@ -89,10 +87,10 @@
         <span class="verify-label">Token Record</span>
         <span class="verify-value" style="font-size:12px">
           {% if chain.token_anchor_ok %}
-          <i class="fa-solid fa-circle-check" style="color:#166534"></i>
+          <i class="fa-solid fa-circle-check" style="color:var(--signal)"></i>
           Metadata read from the contract matches this certificate
           {% else %}
-          <i class="fa-solid fa-circle-xmark" style="color:#DC2626"></i>
+          <i class="fa-solid fa-circle-xmark" style="color:#f97a7a"></i>
           Metadata on the token does not match this certificate
           {% endif %}
         </span>
@@ -115,7 +113,7 @@
       {% if chain.legacy %}
       <div class="verify-row">
         <span class="verify-label">Note</span>
-        <span class="verify-value" style="font-size:12px;color:#92400E">
+        <span class="verify-value" style="font-size:12px;color:var(--amber)">
           Anchored under the older scheme: the hash is on-chain, but it does not
           cover the issue and expiry dates.
         </span>
@@ -137,10 +135,10 @@
     </div>
 
     {% if cert.qr_code %}
-    <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid #E5E7EB">
-      <p style="font-size:12px;color:#6B7280;margin-bottom:12px"><strong>Verification QR Code</strong></p>
-      <img src="/{{ cert.qr_code}}" alt="Certificate QR Code" style="width:200px;height:200px;border:2px solid #0D5E3B;border-radius:8px">
-      <p style="font-size:11px;color:#6B7280;margin-top:12px">Scan to verify this certificate</p>
+    <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid var(--line)">
+      <p style="font-size:12px;color:var(--fg-mute);margin-bottom:12px"><strong>Verification QR Code</strong></p>
+      <img src="/{{ cert.qr_code}}" alt="Certificate QR Code" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:8px">
+      <p style="font-size:11px;color:var(--fg-mute);margin-top:12px">Scan to verify this certificate</p>
     </div>
     {% endif %}
   </div>
@@ -164,7 +162,7 @@
   </script>
   {% endif %}
   {% else %}
-  <div class="lms-card verify-card">
+  <div class="lms-card verify-card" data-reveal="tight">
     <div class="verify-icon invalid"><i class="fa-solid fa-circle-xmark"></i></div>
     <h3 class="verify-title invalid">Certificate Not Found</h3>
     <p class="verify-sub">No certificate matches this ID. It may be invalid or was not yet issued.</p>

@@ -1,20 +1,18 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}My Certificate – LMS{% endblock %}
+{% block title %}My Certificate – EnergyWize LMS{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("My Certificate")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
-  <div class="lms-page-header">
+  <div class="lms-page-header" data-reveal="tight">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-certificate"></i> My Certificate</h2>
     </div>
@@ -24,9 +22,9 @@
   {% if cert %}
   {% set verify_url = request.host_url.rstrip('/') + '/lms/certificates/verify/' + cert.cert_id %}
 
-  <div class="certificate-card">
+  <div class="certificate-card" data-reveal="tight">
     <div class="cert-header">
-      <img src="/static/logo.png" alt="PowerWize" style="height:44px;width:auto">
+      <img src="/static/logo.png" alt="PowerWize">
       <div class="cert-badge"><i class="fa-solid fa-medal"></i></div>
     </div>
     <div class="cert-body">
@@ -59,15 +57,15 @@
     <!-- QR code section (visible on screen + print) -->
     <div class="cert-qr-wrap">
       {% if cert.qr_code %}
-      <img src="/{{ cert.qr_code}}" alt="Certificate QR" style="width:80px;height:80px;flex-shrink:0;border:1px solid #E5E7EB;border-radius:4px">
+      <img src="/{{ cert.qr_code}}" alt="Certificate QR" style="width:80px;height:80px;flex-shrink:0;background:#fff;padding:4px;border-radius:4px">
       {% else %}
-      <div id="cert-qr" style="width:80px;height:80px;flex-shrink:0"></div>
+      <div id="cert-qr" style="width:80px;height:80px;flex-shrink:0;background:#fff;padding:4px;border-radius:4px"></div>
       {% endif %}
       <div>
         <div class="cert-qr-label">Scan to Verify Authenticity</div>
         <div class="cert-qr-sub">{{ verify_url}}</div>
         {% if cert.expires_at %}
-        <div style="font-size:11px;color:#6B7280;margin-top:4px">
+        <div style="font-size:11px;color:#5a6b60;margin-top:4px">
           DOE Certificate · Valid for 3 years · Expires {{ cert.expires_at.strftime('%B %d, %Y')}}
         </div>
         {% endif %}
@@ -116,10 +114,10 @@
   </script>
 
   {% else %}
-  <div class="lms-card" style="text-align:center;padding:48px 24px">
-    <i class="fa-solid fa-hourglass-half" style="font-size:48px;color:#9CA3AF;margin-bottom:16px"></i>
-    <h3 style="color:#374151;margin-bottom:8px">Certificate Not Yet Issued</h3>
-    <p style="color:#6B7280;font-size:14px;margin-bottom:24px">
+  <div class="lms-card" style="text-align:center;padding:48px 24px" data-reveal="tight">
+    <i class="fa-solid fa-hourglass-half" style="font-size:48px;color:var(--fg-ghost);margin-bottom:16px"></i>
+    <h3 style="color:var(--fg);margin-bottom:8px;font-family:'Archivo',sans-serif">Certificate Not Yet Issued</h3>
+    <p style="color:var(--fg-mute);font-size:14px;margin-bottom:24px">
       Complete all training modules and your certificate will be issued by an instructor.
     </p>
     <a href="/lms/progress" class="btn-outline"><i class="fa-solid fa-chart-line"></i> View My Progress</a>

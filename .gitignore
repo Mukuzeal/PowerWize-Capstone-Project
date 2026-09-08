@@ -102,3 +102,6 @@ non_essential/
 
 # Skill lockfile: local to this machine's skill installs, not app source.
 skills-lock.json
+
+# Claude Code agent working notes — local scratch, not app source.
+memory/

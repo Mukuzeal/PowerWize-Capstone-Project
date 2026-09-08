@@ -1,7 +1,7 @@
 import os
 import secrets
 
-from flask import render_template, request, redirect, url_for, jsonify, send_file, send_from_directory, abort
+from flask import render_template, request, redirect, url_for, jsonify, send_file, send_from_directory, abort, flash
 
 from db import (lms_create_module, lms_get_modules, lms_get_module,
                 lms_update_module, lms_toggle_publish, lms_delete_module,
@@ -95,11 +95,13 @@ def module_delete(module_id):
         abort(403)
     if not _owns_module(lms_get_module(module_id)):
         abort(403)
+    mod = lms_get_module(module_id)
     for f in lms_get_files(module_id):
         fp = os.path.join(LMS_UPLOAD_DIR, f['filename'])
         if os.path.exists(fp):
             os.remove(fp)
     lms_delete_module(module_id)
+    flash(f'"{mod["title"]}" permanently deleted.', 'success')
     if _role() == 'admin':
         return redirect('/admin')
     elif _role() == 'employee':
@@ -113,7 +115,9 @@ def module_archive(module_id):
         abort(403)
     if not _owns_module(lms_get_module(module_id)):
         abort(403)
+    mod = lms_get_module(module_id)
     lms_archive_module(module_id)
+    flash(f'"{mod["title"]}" archived - trainees can no longer see it.', 'success')
     if _role() == 'admin':
         return redirect('/admin')
     elif _role() == 'employee':
@@ -127,7 +131,9 @@ def module_restore(module_id):
         abort(403)
     if not _owns_module(lms_get_module(module_id)):
         abort(403)
+    mod = lms_get_module(module_id)
     lms_restore_module(module_id)
+    flash(f'"{mod["title"]}" restored - it is live for trainees again.', 'success')
     if _role() == 'admin':
         return redirect('/admin')
     elif _role() == 'employee':
@@ -141,7 +147,9 @@ def module_delete_archived(module_id):
         abort(403)
     if not _owns_module(lms_get_module(module_id)):
         abort(403)
+    mod = lms_get_module(module_id)
     lms_delete_module(module_id)
+    flash(f'"{mod["title"]}" permanently deleted.', 'success')
     if _role() == 'admin':
         return redirect('/admin')
     elif _role() == 'employee':

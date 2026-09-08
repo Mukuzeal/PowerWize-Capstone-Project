@@ -96,7 +96,7 @@
         }
 
         :root[data-theme="dark"] {
-            --green-dk: #0D3B27;
+            --green-dk: #34D399;
             --green-pr: #20C997;
             --green-md: #2BD9A8;
             --green-lt: rgba(32, 201, 151, 0.16);
@@ -284,14 +284,28 @@
         }
 
         .topbar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
             font-size: 12px;
+            font-weight: 600;
             color: var(--gold);
             text-decoration: none;
-            font-weight: 500
+            padding: 6px 14px;
+            border: 1px solid rgba(212, 167, 42, 0.4);
+            border-radius: 8px;
+            background: rgba(212, 167, 42, 0.08);
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease
         }
 
         .topbar-link:hover {
-            color: #e6c840
+            color: #f0d060;
+            background: rgba(212, 167, 42, 0.16);
+            border-color: rgba(212, 167, 42, 0.7)
+        }
+
+        .topbar-link:active {
+            transform: scale(0.97)
         }
         /* ── Sidebar ── */
 
@@ -703,6 +717,9 @@
         .docs-close{background:none;border:none;font-size:18px;color:var(--gray);cursor:pointer;padding:4px;line-height:1;flex-shrink:0}
         .docs-close:hover{color:var(--text-primary)}
         .docs-body{padding:20px 24px;overflow-y:auto;flex:1}
+        /* Solar quotation review: roomier box + larger body text */
+        #solar-overlay .docs-box{max-width:880px}
+        #solar-overlay .docs-body{padding:24px 28px;font-size:15px;line-height:1.55}
         .docs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
         .doc-card{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg-tertiary)}
         .doc-card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);padding:9px 12px;border-bottom:1px solid var(--border);background:var(--bg-secondary)}
@@ -1151,12 +1168,12 @@
         }
         
         .btn-archive {
-            background: #FEF3C7;
-            color: #92400E
+            background: #FEE2E2;
+            color: #B91C1C
         }
-        
+
         .btn-archive:hover {
-            background: #FDE68A
+            background: #FECACA
         }
         
         .btn-restore {
@@ -1612,7 +1629,7 @@
                             <td style="color:var(--gray);font-size:12px">{{ u.created_at.strftime('%b %d, %Y') }}</td>
                             <td>
                                 {% if u.role != 'admin' %}
-                                <form method="POST" action="/admin/user/archive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Archive {{ u.fname }} {{ u.lname }}?','Archive')">
+                                <form method="POST" action="/admin/user/archive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Archive {{ u.fname }} {{ u.lname }}?','Archive','#DC2626')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-action btn-archive">
                   <i class="fa-solid fa-box-archive"></i> Archive
@@ -1734,7 +1751,7 @@
                                 <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-laptop" style="color:#5B21B6;width:13px"></i> Online &amp; Hybrid · {{ s.start_date.strftime('%b %d, %Y') }} · 7 days</span>
                                 <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-chalkboard-user" style="color:#92400E;width:13px"></i> Self-paced · {{ s.start_date.strftime('%b %d, %Y') }} · 3 days</span>
                             </div>
-                            <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
+                            <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
                             </form>
@@ -1758,7 +1775,7 @@
                                 <span style="font-weight:700;font-size:13px;color:var(--green-pr)">{{ s.name }}</span>
                                 <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-rotate" style="color:#9D174D;width:13px"></i> CEA &amp; CEM Renewal · {{ s.start_date.strftime('%b %d, %Y') }} · 2 days (Fri"“Sat)</span>
                             </div>
-                            <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
+                            <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
                             </form>
@@ -1805,7 +1822,7 @@
                                 <td style="font-size:12px;color:var(--gray)">{{ s.start_date.strftime('%b %d, %Y') }}</td>
                                 <td style="font-size:12px;color:var(--gray)">{{ s.end_date.strftime('%b %d, %Y') }}</td>
                                 <td>
-                                    <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete')">
+                                    <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
                                         <button type="submit" class="btn-del-sched" style="color:var(--text-tertiary)"><i class="fa-solid fa-trash-can"></i></button>
                                     </form>
                                 </td>
@@ -1842,13 +1859,13 @@
                     <div class="s-label">CEM Training</div>
                     <div class="s-value">{{ registrations|selectattr('form_type','equalto','training')|list|length }}</div>
                 </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#D1FAE5,#A7F3D0);border:1.5px solid #6EE7B7">
-                    <div class="s-label" style="color:#065F46">GEMP (LGU)</div>
-                    <div class="s-value" style="color:#064E3B">{{ registrations|selectattr('form_type','equalto','gemp_lgu')|list|length }}</div>
+                <div class="stat-card c-green">
+                    <div class="s-label">GEMP (LGU)</div>
+                    <div class="s-value">{{ registrations|selectattr('form_type','equalto','gemp_lgu')|list|length }}</div>
                 </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border:1.5px solid #6EE7B7">
-                    <div class="s-label" style="color:#065F46">GEMP (Gov't)</div>
-                    <div class="s-value" style="color:#064E3B">{{ registrations|selectattr('form_type','equalto','gemp_oge')|list|length }}</div>
+                <div class="stat-card c-green">
+                    <div class="s-label">GEMP (Gov't)</div>
+                    <div class="s-value">{{ registrations|selectattr('form_type','equalto','gemp_oge')|list|length }}</div>
                 </div>
             </div>
 
@@ -2012,8 +2029,16 @@
         <div id="section-modules" class="section">
             <div class="page-head">
                 <h1>Training Modules (LMS)</h1>
-                <a href="/lms/modules" target="_blank" class="btn-export" style="text-decoration:none">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open LMS Manager
+                <a href="/lms/modules" target="_blank"
+                   style="display:inline-flex;align-items:center;gap:10px;padding:8px 16px 8px 8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;text-decoration:none;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s"
+                   onmouseover="this.style.borderColor='#1E7A4B';this.style.boxShadow='0 4px 14px rgba(0,0,0,.12)'"
+                   onmouseout="this.style.borderColor='var(--border-color)';this.style.boxShadow='var(--shadow-sm)'">
+                    <span style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#16583C,#1E7A4B);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0"><i class="fa-solid fa-graduation-cap"></i></span>
+                    <span style="display:flex;flex-direction:column;line-height:1.25">
+                        <span style="font-size:13px;font-weight:700;color:var(--text-primary)">Open LMS Manager</span>
+                        <span style="font-size:10.5px;color:var(--text-secondary)">Full module workspace</span>
+                    </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;color:var(--text-tertiary);margin-left:4px"></i>
                 </a>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px">
@@ -2328,7 +2353,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // ── SweetAlert2 confirmation ───────────────────────────────────────────────
-        function swalConfirm(event, message, confirmLabel) {
+        function swalConfirm(event, message, confirmLabel, confirmColor) {
             event.preventDefault();
             const form = event.currentTarget;
             Swal.fire({
@@ -2336,7 +2361,7 @@
                 text: message,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#16583C',
+                confirmButtonColor: confirmColor || '#16583C',
                 cancelButtonColor: '#6B7280',
                 confirmButtonText: confirmLabel || 'Confirm',
                 cancelButtonText: 'Cancel',
@@ -2705,7 +2730,7 @@
             var foot = document.getElementById('docs-foot');
             var html = '';
             if (status !== 'accepted') html += '<button type="button" class="btn-accept" onclick="swalAccept(\'' + id + '\',\'' + name.trim().replace(/'/g, "\\'") + '\')"><i class="fa-solid fa-check"></i> Accept</button>';
-            if (status !== 'rejected') html += '<form method="POST" action="/admin/registration/' + id + '/status/rejected" style="display:inline;margin-left:4px"><input type="hidden" name="csrf_token" value="' + document.querySelector('meta[name="csrf-token"]').content + '"><button type="submit" class="btn-reject"><i class="fa-solid fa-xmark"></i> Reject</button></form>';
+            if (status !== 'rejected') html += '<button type="button" class="btn-reject" style="margin-left:4px" onclick="swalReject(\'' + id + '\',\'' + name.trim().replace(/'/g, "\\'") + '\')"><i class="fa-solid fa-xmark"></i> Reject</button>';
             if (status === 'accepted') html += '<span class="badge b-accepted" style="font-size:13px;padding:6px 14px">Accepted</span>';
             if (status === 'rejected') html += '<span class="badge b-rejected" style="font-size:13px;padding:6px 14px">Rejected</span>';
             document.getElementById('docs-foot').innerHTML = html;
@@ -2848,6 +2873,33 @@
             });
         }
 
+        function swalReject(regId, regName) {
+            Swal.fire({
+                title: 'Reject Registration',
+                html: '<p style="color:var(--text-secondary)">Are you sure you want to reject <strong>' + regName + '</strong>’s registration?</p>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-xmark"></i> Yes, reject',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#DC2626',
+                cancelButtonColor: '#6B7280',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: { popup: 'swal-font' }
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/admin/registration/' + regId + '/status/rejected';
+                var csrfInp = document.createElement('input');
+                csrfInp.type = 'hidden'; csrfInp.name = 'csrf_token';
+                csrfInp.value = document.querySelector('meta[name="csrf-token"]').content;
+                form.appendChild(csrfInp);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        }
+
         // ── Registrations status filter ───────────────────────────────────────────
         function filterRegs(status, btn) {
             document.querySelectorAll('.reg-filter').forEach(b => b.classList.remove('active'));
@@ -2881,31 +2933,31 @@
                 var res = await fetch('/admin/solar/' + id + '/data');
                 var r   = await res.json();
                 title.textContent = r.name || 'Solar Quotation Review';
-                var fmt = function(n) { return n ? '₱' + Number(n).toLocaleString() : '"”'; };
+                var fmt = function(n) { return n ? '₱' + Number(n).toLocaleString() : '—'; };
                 var lbl = function(text) {
-                    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);margin-bottom:3px">' + text + '</div>';
+                    return '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray);margin-bottom:4px">' + text + '</div>';
                 };
                 var val = function(text, style) {
-                    return '<div style="font-size:13px' + (style ? ';' + style : '') + '">' + (text || '"”') + '</div>';
+                    return '<div style="font-size:15px;line-height:1.4' + (style ? ';' + style : '') + '">' + (text || '—') + '</div>';
                 };
                 var cell = function(label, content) {
                     return '<div>' + lbl(label) + content + '</div>';
                 };
                 var aiBlock = r.ai_explanation
-                    ? '<div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#166534;white-space:pre-wrap;line-height:1.65">' + r.ai_explanation + '</div>'
+                    ? '<div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:16px 18px;margin-bottom:18px;font-size:14.5px;color:#166534;white-space:pre-wrap;line-height:1.7">' + r.ai_explanation + '</div>'
                     : '';
-                var inputStyle = 'width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:13px;outline:none';
+                var inputStyle = 'width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;outline:none';
                 body.innerHTML =
-                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;margin-bottom:20px">' +
                         cell('Email', val(r.email)) +
                         cell('Contact', val(r.contact)) +
                         cell('Establishment', val(r.establishment_type)) +
                         cell('Phase', val((r.electrical_phase || '') + '-phase')) +
                         cell('Monthly kWh', val(r.kwh_monthly ? r.kwh_monthly + ' kWh' : null)) +
                         cell('Monthly Bill', val(r.monthly_bill_php ? fmt(r.monthly_bill_php) : null)) +
-                        cell('System Size', val(r.system_size_kw ? r.system_size_kw + ' kWp' : null, 'font-size:15px;font-weight:700;color:var(--green-pr)')) +
-                        cell('Panel Count', val(r.panel_count ? r.panel_count + ' panels' : null, 'font-size:15px;font-weight:700;color:var(--green-pr)')) +
-                        cell('Cost Range', val(r.cost_min ? fmt(r.cost_min) + ' "“ ' + fmt(r.cost_max) : null)) +
+                        cell('System Size', val(r.system_size_kw ? r.system_size_kw + ' kWp' : null, 'font-size:18px;font-weight:700;color:var(--green-pr)')) +
+                        cell('Panel Count', val(r.panel_count ? r.panel_count + ' panels' : null, 'font-size:18px;font-weight:700;color:var(--green-pr)')) +
+                        cell('Cost Range', val(r.cost_min ? fmt(r.cost_min) + ' – ' + fmt(r.cost_max) : null)) +
                         cell('Monthly Savings', val(r.monthly_savings ? fmt(r.monthly_savings) : null, 'color:#16A34A;font-weight:600')) +
                         cell('System Type', val(r.system_type)) +
                         cell('Feasibility', val(r.feasibility)) +
@@ -3001,7 +3053,7 @@
                     <a href="/lms/modules/${id}/edit" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#6B7280;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;transition:background .2s;flex:1" onmouseover="this.style.background='#4B5563'" onmouseout="this.style.background='#6B7280'">
                         <i class="fa-solid fa-pen"></i> Edit
                     </a>
-                    <button onclick="moduleAction(${id}, 'archive')" style="flex:1;padding:10px;background:#F59E0B;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s" onmouseover="this.style.background='#D97706'" onmouseout="this.style.background='#F59E0B'">
+                    <button onclick="moduleAction(${id}, 'archive')" style="flex:1;padding:10px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s" onmouseover="this.style.background='#B91C1C'" onmouseout="this.style.background='#DC2626'">
                         <i class="fa-solid fa-box-archive"></i> Archive
                     </button>
                 `;
@@ -3072,8 +3124,36 @@
 
         // Handle module archive/restore/delete via AJAX
         async function moduleAction(moduleId, action) {
-            if (action === 'delete' && !confirm('Permanently delete this module? This cannot be undone.')) {
-                return;
+            const prompts = {
+                archive: {
+                    title: 'Archive this module?',
+                    html: 'Trainees will no longer see it. You can restore it anytime from the <strong>Archived</strong> list.',
+                    confirmText: '<i class="fa-solid fa-box-archive"></i> Yes, archive',
+                    confirmColor: '#DC2626'
+                },
+                delete: {
+                    title: 'Permanently delete this module?',
+                    html: '<span style="color:#991B1B">This cannot be undone.</span>',
+                    confirmText: '<i class="fa-solid fa-trash"></i> Yes, delete',
+                    confirmColor: '#DC2626'
+                }
+            };
+            const p = prompts[action];
+            if (p) {
+                const result = await Swal.fire({
+                    title: p.title,
+                    html: '<p style="color:var(--text-secondary)">' + p.html + '</p>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: p.confirmColor,
+                    cancelButtonColor: '#6B7280',
+                    confirmButtonText: p.confirmText,
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true,
+                    focusCancel: true,
+                    customClass: { popup: 'swal-font' }
+                });
+                if (!result.isConfirmed) return;
             }
 
             const actionMap = {
@@ -3102,10 +3182,10 @@
 
     <!-- Module Detail Modal -->
     <div id="module-detail-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:14px;padding:32px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2)">
-            <button onclick="closeModuleDetail()" style="position:absolute;top:14px;right:14px;border:none;background:none;font-size:20px;cursor:pointer;color:var(--text-secondary)">&times;</button>
+        <div style="position:relative;background:#fff;border-radius:14px;padding:32px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2)">
+            <button onclick="closeModuleDetail()" aria-label="Close" style="position:absolute;top:12px;right:12px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;border-radius:8px;background:#FEE2E2;font-size:20px;line-height:1;cursor:pointer;color:#DC2626;transition:background .15s" onmouseover="this.style.background='#FECACA'" onmouseout="this.style.background='#FEE2E2'">&times;</button>
 
-            <h2 id="module-detail-title" style="margin:0 0 8px;font-size:20px;font-weight:700;color:var(--text-primary)"></h2>
+            <h2 id="module-detail-title" style="margin:0 40px 8px 0;font-size:20px;font-weight:700;color:#0F1419"></h2>
 
             <div style="display:flex;gap:8px;margin-bottom:16px">
                 <span id="module-detail-type" style="font-size:11px;padding:4px 10px;border-radius:6px;font-weight:500"></span>
@@ -3113,12 +3193,12 @@
             </div>
 
             <div style="background:#F9FAFB;padding:14px;border-radius:10px;margin-bottom:16px">
-                <p id="module-detail-desc" style="margin:0;font-size:13px;color:var(--text-secondary);line-height:1.6"></p>
+                <p id="module-detail-desc" style="margin:0;font-size:13px;color:#4B5563;line-height:1.6"></p>
             </div>
 
             <div style="margin-bottom:16px">
-                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Instructor</div>
-                <div id="module-detail-instructor" style="font-size:14px;color:var(--text-primary);font-weight:500"></div>
+                <div style="font-size:12px;color:#6B7280;margin-bottom:4px">Instructor</div>
+                <div id="module-detail-instructor" style="font-size:14px;color:#0F1419;font-weight:600"></div>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">

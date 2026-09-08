@@ -1,23 +1,21 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}{{ mod.title}} – Learn{% endblock %}
+{% block title %}{{ mod.title}} – Learn – EnergyWize LMS{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("My Learning")}}
 <div class="page-body">
 <div class="lms-wrap lms-learn-layout">
 
   <!-- Left: Content -->
   <div class="learn-main">
 
-    <div class="lms-page-header">
+    <div class="lms-page-header" data-reveal="tight">
       <div>
         <h2 class="lms-page-title">{{ mod.title}}</h2>
         <p class="lms-page-sub">{{ mod.description or ''}}</p>
@@ -26,7 +24,7 @@
     </div>
 
     <!-- Materials -->
-    <div class="lms-card">
+    <div class="lms-card" data-reveal="tight">
       <h3 class="card-inner-title"><i class="fa-solid fa-folder-open"></i> Learning Materials</h3>
       {% if files %}
       <div class="file-list-trainee">
@@ -85,15 +83,15 @@
           <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Hints
         </button>
       </div>
-      <p style="font-size:13px;color:#6B7280;margin-bottom:0.5rem">
+      <p style="font-size:13px;color:var(--fg-dim);margin-bottom:0.5rem">
         You scored <strong>{{ quiz_attempt.score}}%</strong> – passing is <strong>{{ quiz.passing_score}}%</strong>.
         Get targeted AI study hints based on the questions you missed.
       </p>
-      <div id="hints-output" style="display:none;margin-top:0.75rem;padding:14px 16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;font-size:13px;line-height:1.7;color:#1F4C35;white-space:pre-wrap"></div>
-      <div id="hints-loading" style="display:none;margin-top:0.75rem;font-size:13px;color:#6B7280">
+      <div id="hints-output" style="display:none;margin-top:0.75rem;padding:14px 16px;background:rgba(53,199,124,0.08);border:1px solid rgba(53,199,124,0.3);border-radius:10px;font-size:13px;line-height:1.7;color:var(--fg);white-space:pre-wrap"></div>
+      <div id="hints-loading" style="display:none;margin-top:0.75rem;font-size:13px;color:var(--fg-mute)">
         <i class="fa-solid fa-spinner fa-spin"></i> Generating personalized hints…
       </div>
-      <div id="hints-error" style="display:none;margin-top:0.75rem;font-size:13px;color:#DC2626"></div>
+      <div id="hints-error" style="display:none;margin-top:0.75rem;font-size:13px;color:#f97a7a"></div>
     </div>
     {% endif %}
 
@@ -142,30 +140,30 @@
     <div class="lms-card" style="margin-top:1rem">
       <h3 class="card-inner-title"><i class="fa-solid fa-star"></i> Rate this Module</h3>
       {% if my_feedback %}
-      <p style="font-size:13px;color:#374151;margin-bottom:0.5rem">
-        Your rating: <strong style="color:#D4A72A">{% for _ in range(my_feedback.rating) %}<i class='fa-solid fa-star'></i>{% endfor %}{% for _ in range(5 - my_feedback.rating) %}<i class='fa-regular fa-star'></i>{% endfor %}</strong>
+      <p style="font-size:13px;color:var(--fg-dim);margin-bottom:0.5rem">
+        Your rating: <strong style="color:var(--amber)">{% for _ in range(my_feedback.rating) %}<i class='fa-solid fa-star'></i>{% endfor %}{% for _ in range(5 - my_feedback.rating) %}<i class='fa-regular fa-star'></i>{% endfor %}</strong>
         {% if my_feedback.comment %} – {{ my_feedback.comment}}{% endif %}
       </p>
-      <p style="font-size:11px;color:#9CA3AF">You can update your feedback by submitting again.</p>
+      <p style="font-size:11px;color:var(--fg-mute)">You can update your feedback by submitting again.</p>
       {% else %}
-      <p style="font-size:13px;color:#6B7280;margin-bottom:0.75rem">Help us improve – how was this module?</p>
+      <p style="font-size:13px;color:var(--fg-dim);margin-bottom:0.75rem">Help us improve – how was this module?</p>
       {% endif %}
       <form method="POST" action="/lms/learn/{{ mod.id}}/feedback" style="display:flex;flex-direction:column;gap:10px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
         <div style="display:flex;gap:8px;align-items:center">
-          <label style="font-size:12px;font-weight:600;color:#374151">Rating:</label>
+          <label style="font-size:12px;font-weight:600;color:var(--fg-dim)">Rating:</label>
           {% for i in [1,2,3,4,5] %}
-          <label style="cursor:pointer;font-size:22px;color:#D4A72A;line-height:1">
+          <label style="cursor:pointer;font-size:22px;color:var(--amber);line-height:1">
             <input type="radio" name="rating" value="{{ i}}" style="display:none"
               {% if my_feedback and my_feedback.rating == i %}checked{% endif %} required>
             <span class="star-lbl"><i class='fa-{{ 'solid' if my_feedback and my_feedback.rating >= i else 'regular'}} fa-star'></i></span>
           </label>
           {% endfor %}
         </div>
-        <textarea name="comment" placeholder="Optional comment…" rows="2"
-          style="padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;outline:none">{{ my_feedback.comment if my_feedback and my_feedback.comment else ''}}</textarea>
+        <textarea name="comment" placeholder="Optional comment…" rows="2" class="form-input form-textarea"
+          style="min-height:auto">{{ my_feedback.comment if my_feedback and my_feedback.comment else ''}}</textarea>
         <div>
-          <button type="submit" style="padding:8px 20px;background:#16583C;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer">
+          <button type="submit" class="btn-primary" style="font-size:13px">
             {% if my_feedback %}Update Feedback{% else %}Submit Feedback{% endif %}
           </button>
         </div>

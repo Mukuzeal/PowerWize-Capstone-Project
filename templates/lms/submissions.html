@@ -1,16 +1,14 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}Exam Submissions – LMS{% endblock %}
+{% block title %}Exam Submissions – EnergyWize LMS{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("Training Modules")}}
 {% set ns = namespace(pending=0, passed=0, failed=0) %}
 {% for s in submissions %}
   {% if s.grade is none %}{% set ns.pending = ns.pending + 1 %}
@@ -21,7 +19,7 @@
 <div class="page-body">
 <div class="lms-wrap">
 
-  <div class="lms-page-header">
+  <div class="lms-page-header" data-reveal="tight">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-inbox"></i> Exam Submissions</h2>
       <p class="lms-page-sub">Review and grade trainee practical exam submissions.</p>
@@ -30,8 +28,8 @@
   </div>
 
   <!-- Stats -->
-  <div class="sub-stats">
-    <div class="sub-stat">
+  <div class="sub-stats" data-reveal-group>
+    <div class="sub-stat" data-reveal="tight">
       <div class="sub-stat-icon" style="background:#F3F4F6;color:#374151">
         <i class="fa-solid fa-inbox"></i>
       </div>
@@ -40,7 +38,7 @@
         <div class="sub-stat-label">Total</div>
       </div>
     </div>
-    <div class="sub-stat">
+    <div class="sub-stat" data-reveal="tight">
       <div class="sub-stat-icon" style="background:#FEF9C3;color:#854D0E">
         <i class="fa-solid fa-clock"></i>
       </div>
@@ -49,7 +47,7 @@
         <div class="sub-stat-label">Pending</div>
       </div>
     </div>
-    <div class="sub-stat">
+    <div class="sub-stat" data-reveal="tight">
       <div class="sub-stat-icon" style="background:#DCFCE7;color:#166534">
         <i class="fa-solid fa-circle-check"></i>
       </div>
@@ -58,7 +56,7 @@
         <div class="sub-stat-label">Passed</div>
       </div>
     </div>
-    <div class="sub-stat">
+    <div class="sub-stat" data-reveal="tight">
       <div class="sub-stat-icon" style="background:#FEF2F2;color:#DC2626">
         <i class="fa-solid fa-circle-xmark"></i>
       </div>
@@ -71,7 +69,7 @@
 
   {% if submissions %}
   <!-- Filter tabs -->
-  <div class="filter-bar">
+  <div class="filter-bar" data-reveal="tight">
     <button class="filter-btn active" onclick="filterRows('all', this)">All ({{ submissions | length}})</button>
     <button class="filter-btn" onclick="filterRows('pending', this)">
       <i class="fa-solid fa-clock"></i> Pending ({{ ns.pending}})
@@ -84,7 +82,7 @@
     </button>
   </div>
 
-  <div class="lms-card" style="padding:0;overflow:hidden">
+  <div class="lms-card" style="padding:0;overflow:hidden" data-reveal="tight">
     <div class="lms-table-wrap">
       <table class="lms-table" id="sub-table">
         <thead>
@@ -117,9 +115,9 @@
                 </div>
               </div>
             </td>
-            <td style="font-size:13px;color:#374151;max-width:160px">{{ s.module_title}}</td>
-            <td style="font-size:13px;color:#374151;max-width:140px">{{ s.exam_title}}</td>
-            <td style="font-size:12px;color:var(--gray);white-space:nowrap">
+            <td style="font-size:13px;max-width:160px">{{ s.module_title}}</td>
+            <td style="font-size:13px;max-width:140px">{{ s.exam_title}}</td>
+            <td style="font-size:12px;white-space:nowrap">
               {{ s.submitted_at.strftime('%b %d, %Y') if s.submitted_at else '–'}}<br>
               <span style="font-size:11px">{{ s.submitted_at.strftime('%I:%M %p') if s.submitted_at else ''}}</span>
             </td>
@@ -154,7 +152,7 @@
   </div>
 
   {% else %}
-  <div class="lms-card">
+  <div class="lms-card" data-reveal="tight">
     <div class="lms-empty">
       <i class="fa-solid fa-inbox" style="color:#D1D5DB"></i>
       <p style="color:var(--gray);font-size:14px">No submissions yet.</p>

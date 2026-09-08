@@ -25,9 +25,91 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-dash.css') }}">
+<style>
+  /* Toast notifications */
+  .dnotes { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 900;
+    display: flex; flex-direction: column; gap: .6rem;
+    max-width: min(24rem, calc(100vw - 2.5rem)); }
+  .dnote { display: flex; align-items: flex-start; gap: .7rem; padding: .85rem 1rem;
+    background: var(--ink-100); border: 1px solid var(--line-mid);
+    border-left: 3px solid var(--signal); border-radius: 4px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.45); font-size: .85rem; color: var(--fg);
+    line-height: 1.5; animation: dnoteIn .3s cubic-bezier(.16,1,.3,1); }
+  .dnote.is-out { animation: dnoteOut .25s ease forwards; }
+  .dnote--err { border-left-color: #E5484D; }
+  .dnote > i { color: var(--signal); margin-top: .12rem; flex-shrink: 0; }
+  .dnote--err > i { color: #E5484D; }
+  .dnote button { margin-left: auto; background: none; border: none;
+    color: var(--fg-mute); cursor: pointer; font-size: 1rem; line-height: 1;
+    padding: 0 0 0 .5rem; }
+  .dnote button:hover { color: var(--fg); }
+  @keyframes dnoteIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes dnoteOut { to { opacity: 0; transform: translateX(16px); } }
+
+  /* Confirm dialog */
+  .cdlg { position: fixed; inset: 0; z-index: 950; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(4,9,7,.72); padding: 1rem; }
+  .cdlg.is-open { display: flex; }
+  .cdlg__box { background: var(--ink-100); border: 1px solid var(--line-mid);
+    border-radius: 6px; max-width: 26rem; width: 100%; padding: 1.5rem;
+    box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    animation: dnoteIn .22s cubic-bezier(.16,1,.3,1); }
+  .cdlg__tag { font-family: 'JetBrains Mono', monospace; font-size: .68rem;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--amber); margin: 0; }
+  .cdlg__msg { margin: .6rem 0 1.4rem; font-size: .95rem; line-height: 1.55; color: var(--fg); }
+  .cdlg__acts { display: flex; justify-content: flex-end; gap: .6rem; }
+  .cdlg__btn { font-family: inherit; font-size: .82rem; font-weight: 600;
+    padding: .55rem 1.1rem; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--line-mid); background: transparent; color: var(--fg-dim);
+    transition: border-color .15s, color .15s, background .15s; }
+  .cdlg__btn:hover { border-color: var(--line-strong); color: var(--fg); }
+  .cdlg__btn--go { background: var(--amber); border-color: var(--amber); color: #1a1205; }
+  .cdlg__btn--go:hover { background: color-mix(in oklab, var(--amber) 88%, #fff); color: #1a1205; }
+  .cdlg__btn--danger { background: #E5484D; border-color: #E5484D; color: #fff; }
+  .cdlg__btn--danger:hover { background: #d93a3f; color: #fff; }
+
+  /* Archive = a destructive-ish action → red, matching the confirm dialog. */
+  .dcard__acts .act--warn { border-color: rgba(229, 72, 77, 0.5); color: #E5484D; }
+  .dcard__acts .act--warn:hover { border-color: #E5484D; background: rgba(229, 72, 77, 0.12); color: #E5484D; }
+
+  /* Sign-out link in the console header → a proper pill button. */
+  .dash__bar .tlink {
+    border: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong);
+    border-radius: 999px; padding: 0.5rem 1.1rem;
+    color: var(--fg-dim); background: var(--ink-100);
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .dash__bar .tlink:hover { border-color: var(--amber); color: var(--amber); background: rgba(233, 169, 59, 0.1); }
+</style>
 </head>
 <body class="dash">
 <a class="skip" href="#main">Skip to content</a>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+{% if msgs %}
+<div class="dnotes" id="dnotes">
+  {% for cat, msg in msgs %}
+  <div class="dnote {{ 'dnote--err' if cat in ('error', 'danger') else '' }}">
+    <i class="fa-solid {{ 'fa-circle-exclamation' if cat in ('error', 'danger') else 'fa-circle-check' }}"></i>
+    <span>{{ msg }}</span>
+    <button type="button" aria-label="Dismiss" onclick="this.closest('.dnote').remove()">&times;</button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="cdlg" id="cdlg" role="dialog" aria-modal="true" aria-labelledby="cdlg-msg">
+  <div class="cdlg__box">
+    <p class="cdlg__tag" id="cdlg-tag">Confirm</p>
+    <p class="cdlg__msg" id="cdlg-msg"></p>
+    <div class="cdlg__acts">
+      <button type="button" class="cdlg__btn" id="cdlg-cancel">Cancel</button>
+      <button type="button" class="cdlg__btn cdlg__btn--go" id="cdlg-go">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <header class="dash__bar">
   <a class="dash__lock" href="{{ url_for('registration.index') }}">
@@ -492,11 +574,47 @@
     });
   }
 
-  /* One confirm handler for every destructive control, rather than an inline
-     onclick on each. */
+  /* Styled confirm dialog — replaces window.confirm for destructive actions. */
+  var cdlg = document.getElementById("cdlg");
+  var cdlgMsg = document.getElementById("cdlg-msg");
+  var cdlgTag = document.getElementById("cdlg-tag");
+  var cdlgGo = document.getElementById("cdlg-go");
+  var cdlgCancel = document.getElementById("cdlg-cancel");
+  var cdlgAction = null;
+
+  function askConfirm(opts) {
+    cdlgMsg.textContent = opts.message;
+    cdlgTag.textContent = opts.tag || "Confirm";
+    cdlgGo.textContent = opts.confirmLabel || "Confirm";
+    cdlgGo.className = "cdlg__btn " + (opts.danger ? "cdlg__btn--danger" : "cdlg__btn--go");
+    cdlgAction = opts.onConfirm;
+    cdlg.classList.add("is-open");
+    cdlgCancel.focus();
+  }
+  function closeConfirm() { cdlg.classList.remove("is-open"); cdlgAction = null; }
+  cdlgCancel.addEventListener("click", closeConfirm);
+  cdlg.addEventListener("click", function (e) { if (e.target === cdlg) closeConfirm(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && cdlg.classList.contains("is-open")) closeConfirm();
+  });
+  cdlgGo.addEventListener("click", function () {
+    var run = cdlgAction; closeConfirm(); if (run) run();
+  });
+
   document.querySelectorAll("[data-confirm]").forEach(function (el) {
+    var kill = el.classList.contains("act--kill");
+    var action = (el.form && el.form.getAttribute("action")) || "";
+    var tag = /restore/.test(action) ? "Restore module"
+            : (kill || /delete/.test(action)) ? "Delete module" : "Archive module";
+    var label = /restore/.test(action) ? "Restore"
+              : (kill || /delete/.test(action)) ? "Delete" : "Archive";
     el.addEventListener("click", function (e) {
-      if (!window.confirm(el.dataset.confirm)) { e.preventDefault(); }
+      e.preventDefault();
+      askConfirm({
+        message: el.dataset.confirm, tag: tag, confirmLabel: label,
+        danger: kill || /delete|archive/.test(action),
+        onConfirm: function () { el.form.submit(); }
+      });
     });
   });
 
@@ -505,10 +623,24 @@
   var killForm = document.getElementById("kill-form");
   document.querySelectorAll("[data-delete]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      if (!window.confirm("Delete this module? This cannot be undone.")) return;
-      killForm.action = "/lms/modules/" + btn.dataset.delete + "/delete";
-      killForm.submit();
+      askConfirm({
+        message: "Delete this module? This cannot be undone.",
+        tag: "Delete module", confirmLabel: "Delete", danger: true,
+        onConfirm: function () {
+          killForm.action = "/lms/modules/" + btn.dataset.delete + "/delete";
+          killForm.submit();
+        }
+      });
     });
+  });
+
+  /* Auto-dismiss toast notifications. */
+  var notes = document.querySelectorAll("#dnotes .dnote");
+  notes.forEach(function (n, i) {
+    setTimeout(function () {
+      n.classList.add("is-out");
+      setTimeout(function () { n.remove(); }, 260);
+    }, 4500 + i * 500);
   });
 })();
 </script>

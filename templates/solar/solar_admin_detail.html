@@ -1,61 +1,139 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-PH">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>Solar Request Detail – EnergyWize</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<title>Solar consultation – {{ request.name }} – EnergyWize</title>
+<meta name="theme-color" content="#071009">
+<link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{--green-dk:#0D3B27;--green-pr:#16583C;--green-md:#1E7A4B;--green-lt:#E2F5EC;--gold:#D4A72A;--gray:#6B7280;--border:#E5E7EB;--shadow:0 1px 3px rgba(0,0,0,0.06)}
-  body{font-family:'DM Sans',sans-serif;background:#F3F4F6;color:#1F2937;padding:0;margin:0}
-  .detail-wrap{max-width:100%;padding:0}
-  .detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem}
-  .detail-header h1{margin:0;font-size:22px;font-weight:700;color:#111827}
-  .status-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase}
-  .status-ai{background:#DDD6FE;color:#4F46E5}
-  .status-pending{background:#FEF3C7;color:#854D0E}
-  .status-reviewed{background:#DCFCE7;color:#166534}
-  .detail-card{background:#fff;border-radius:10px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem}
-  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1.5rem;margin-bottom:1.5rem}
-  .detail-item{padding-bottom:0.5rem}
-  .detail-label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;margin-bottom:0.5rem}
-  .detail-value{font-size:14px;color:#111827;font-weight:600}
-  .detail-value.highlight{color:var(--green-pr)}
-  .form-group{margin-bottom:1.25rem}
-  .form-label{display:block;font-size:12px;font-weight:600;color:#111827;margin-bottom:0.5rem}
-  .form-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif}
-  .form-input:focus{outline:none;border-color:var(--green-pr);box-shadow:0 0 0 2px rgba(22,88,60,0.1)}
-  .form-textarea{resize:vertical;min-height:100px}
-  .form-hint{font-size:11px;color:var(--gray);margin-top:4px}
-  .form-actions{display:flex;gap:10px;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)}
-  .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:var(--green-pr);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all 0.15s;font-family:'DM Sans',sans-serif}
-  .btn-primary:hover{background:var(--green-md)}
-  .btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:#fff;color:var(--gray);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all 0.15s;font-family:'DM Sans',sans-serif}
-  .btn-ghost:hover{background:#F3F4F6;color:#111827;border-color:#111827}
-  .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--gray);text-decoration:none;font-size:12px;margin-bottom:1rem}
-  .back-link:hover{color:#111827}
-  .review-success{background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:1.5rem;margin-bottom:1.5rem}
-  .review-success h3{margin:0 0 0.5rem;color:#166534;font-size:14px}
-  .review-success p{margin:0;color:#166534;font-size:13px}
+  html { background: #071009; color-scheme: dark; }
+  body { margin: 0; background: #071009; color: #E7F1EA; font-family: system-ui, sans-serif; }
+  a { color: inherit; text-decoration: none; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all';this.onload=null"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@300;400;500&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@300;400;500&display=swap"></noscript>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-dash.css') }}">
+<style>
+  body { font-family: 'Archivo', system-ui, sans-serif; background: var(--ink-050); color: var(--fg); }
+
+  .sd-bar {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem clamp(1rem, 4vw, 2.5rem);
+    border-bottom: 1px solid var(--line-mid);
+  }
+  .sd-bar__seal img { width: 34px; height: 34px; display: block; }
+  .sd-bar__word b { font-variation-settings: "wght" 800; letter-spacing: 0.02em; }
+  .sd-bar__word span { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--fg-mute); }
+  .sd-bar__tag { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg-mute); }
+
+  .sd-wrap { max-width: 68rem; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 4vw, 2.5rem) 5rem; }
+
+  .sd-back {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-mute);
+    margin-bottom: 1.5rem; transition: color 0.15s;
+  }
+  .sd-back:hover { color: var(--fg); }
+
+  .sd-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .sd-head h1 { margin: 0; font-family: 'Archivo', sans-serif; font-size: clamp(1.6rem, 3vw, 2.1rem); font-variation-settings: "wght" 800; letter-spacing: -0.02em; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.35rem 0.8rem; border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.66rem;
+    letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500;
+    border: 1px solid var(--line-mid); color: var(--fg-dim);
+  }
+  .status-ai       { color: #b39dff; border-color: rgba(160, 140, 255, 0.45); background: rgba(120, 100, 240, 0.12); }
+  .status-pending  { color: var(--amber); border-color: rgba(233, 169, 59, 0.45); background: rgba(233, 169, 59, 0.1); }
+  .status-reviewed { color: var(--signal); border-color: rgba(53, 199, 124, 0.45); background: rgba(53, 199, 124, 0.1); }
+
+  .detail-card {
+    background: var(--ink-100); border: 1px solid var(--line);
+    border-radius: 8px; padding: clamp(1.25rem, 3vw, 1.75rem); margin-bottom: 1.25rem;
+  }
+  .detail-card h2 {
+    margin: 0 0 1.25rem; font-family: 'Archivo', sans-serif;
+    font-size: 1.05rem; font-variation-settings: "wght" 700;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .detail-card h2 i { color: var(--signal); font-size: 0.95rem; }
+
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1.4rem 1.5rem; }
+  .detail-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 0.4rem;
+  }
+  .detail-value { font-size: 0.95rem; font-weight: 600; color: var(--fg); line-height: 1.4; }
+  .detail-value.muted { color: var(--fg-dim); font-weight: 400; }
+  .detail-value.highlight { color: var(--signal); }
+
+  .form-group { margin-bottom: 1.4rem; }
+  .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--fg); margin-bottom: 0.5rem; }
+  .form-input {
+    width: 100%; padding: 0.7rem 0.9rem; font: inherit; font-size: 0.9rem;
+    color: var(--fg); background: var(--ink-050);
+    border: 1px solid var(--line-mid); border-radius: 6px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input::placeholder { color: var(--fg-ghost); }
+  .form-input:focus { border-color: var(--signal); }
+  .form-textarea { resize: vertical; min-height: 6.5rem; line-height: 1.6; }
+  .form-hint { font-size: 0.72rem; color: var(--fg-mute); margin-top: 0.4rem; line-height: 1.5; }
+
+  .form-actions { display: flex; gap: 0.7rem; margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 1.4rem; background: var(--signal); color: var(--ink-000);
+    border: none; border-radius: 6px; font: inherit; font-size: 0.85rem;
+    font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.1s;
+  }
+  .btn-primary:hover { background: color-mix(in oklab, var(--signal) 88%, #fff); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 1.4rem; background: transparent; color: var(--fg-dim);
+    border: 1px solid var(--line-mid); border-radius: 6px; font: inherit;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--line-strong); color: var(--fg); }
+
+  .review-success {
+    background: rgba(53, 199, 124, 0.08); border: 1px solid rgba(53, 199, 124, 0.35);
+    border-radius: 8px; padding: 1.1rem 1.25rem; margin-bottom: 1.5rem;
+  }
+  .review-success h3 { margin: 0 0 0.35rem; color: var(--signal); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
+  .review-success p { margin: 0; color: var(--fg-dim); font-size: 0.82rem; }
 </style>
 </head>
 <body>
-<div class="detail-wrap">
-  <a href="/admin/solar" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back</a>
 
-  <div class="detail-header">
-    <div>
-      <h1>{{ request.name }}</h1>
-    </div>
+<header class="sd-bar">
+  <span class="sd-bar__seal"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></span>
+  <span class="sd-bar__word"><b>ENERGYWIZE</b><span>Solutions</span></span>
+  <span class="sd-bar__tag">Solar consultation</span>
+</header>
+
+<div class="sd-wrap">
+  <a href="/admin/solar" class="sd-back"><i class="fa-solid fa-arrow-left"></i> Back to consultations</a>
+
+  <div class="sd-head">
+    <h1>{{ request.name }}</h1>
     {% if request.status == 'ai_processed' %}
-      <span class="status-badge status-ai">AI Processed</span>
+      <span class="status-badge status-ai"><i class="fa-solid fa-robot"></i> AI Processed</span>
     {% elif request.status == 'pending_review' %}
-      <span class="status-badge status-pending">Pending Review</span>
+      <span class="status-badge status-pending"><i class="fa-solid fa-clock"></i> Pending Review</span>
     {% elif request.status == 'reviewed' or request.status == 'quotation_sent' %}
-      <span class="status-badge status-reviewed">Reviewed</span>
+      <span class="status-badge status-reviewed"><i class="fa-solid fa-circle-check"></i> Reviewed</span>
     {% else %}
       <span class="status-badge">{{ request.status | upper | replace('_', ' ') }}</span>
     {% endif %}
@@ -63,60 +141,60 @@
 
   <!-- Client Information -->
   <div class="detail-card">
-    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">Client Information</h2>
+    <h2><i class="fa-solid fa-user"></i> Client Information</h2>
     <div class="detail-grid">
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Full Name</div>
         <div class="detail-value">{{ request.name }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Email</div>
-        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.email }}</div>
+        <div class="detail-value muted">{{ request.email or "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Contact</div>
-        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.contact or "—" }}</div>
+        <div class="detail-value muted">{{ request.contact or "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Address</div>
-        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.address or "—" }}</div>
+        <div class="detail-value muted">{{ request.address or "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Monthly Bill (₱)</div>
         <div class="detail-value highlight">{{ "{:,.2f}".format(request.monthly_bill) if request.monthly_bill else "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Submitted</div>
-        <div class="detail-value" style="color:var(--gray);font-weight:400">{{ request.created_at.strftime("%b %d, %Y") if request.created_at else "—" }}</div>
+        <div class="detail-value muted">{{ request.created_at.strftime("%b %d, %Y") if request.created_at else "—" }}</div>
       </div>
     </div>
   </div>
 
   <!-- AI-Generated Estimates -->
   <div class="detail-card">
-    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">AI-Generated Estimates</h2>
+    <h2><i class="fa-solid fa-wand-magic-sparkles"></i> AI-Generated Estimates</h2>
     <div class="detail-grid">
-      <div class="detail-item">
+      <div>
         <div class="detail-label">System Size (kWp)</div>
         <div class="detail-value">{{ request.system_size_kw or "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Panel Count</div>
         <div class="detail-value">{{ request.panel_count or "—" }} panels</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Cost Range (₱)</div>
-        <div class="detail-value">{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "—" }}–{{ "{:,.0f}".format(request.cost_max) if request.cost_max else "—" }}</div>
+        <div class="detail-value">{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "—" }} – {{ "{:,.0f}".format(request.cost_max) if request.cost_max else "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Monthly Savings (₱)</div>
         <div class="detail-value highlight">{{ "{:,.2f}".format(request.monthly_savings) if request.monthly_savings else "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">ROI Period</div>
         <div class="detail-value">{{ request.roi_years or "—" }} years</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">System Type</div>
         <div class="detail-value">{{ (request.system_type or "Grid-Tie").title() }}</div>
       </div>
@@ -130,33 +208,33 @@
       <h3><i class="fa-solid fa-circle-check"></i> Quotation Sent to Client</h3>
       <p>Reviewed on {{ request.reviewed_at.strftime("%b %d, %Y") if request.reviewed_at else "—" }}</p>
     </div>
-    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">Quotation Details</h2>
+    <h2><i class="fa-solid fa-file-invoice"></i> Quotation Details</h2>
     <div class="detail-grid">
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Final System Size (kWp)</div>
         <div class="detail-value">{{ request.final_system_kw or request.system_size_kw or "—" }}</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Final Panel Count</div>
         <div class="detail-value">{{ request.final_panel_count or request.panel_count or "—" }} panels</div>
       </div>
-      <div class="detail-item">
+      <div>
         <div class="detail-label">Final Cost (₱)</div>
         <div class="detail-value highlight">{{ "{:,.0f}".format(request.final_cost) if request.final_cost else "—" }}</div>
       </div>
     </div>
     {% if request.reviewer_notes %}
-    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+    <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--line)">
       <div class="detail-label">Specialist Notes</div>
-      <div style="margin-top:0.5rem;color:#374151;font-size:13px;line-height:1.5">{{ request.reviewer_notes }}</div>
+      <div style="margin-top:0.5rem;color:var(--fg-dim);font-size:0.88rem;line-height:1.6">{{ request.reviewer_notes }}</div>
     </div>
     {% endif %}
   </div>
   {% else %}
   <!-- Review Form -->
   <div class="detail-card">
-    <h2 style="margin-bottom:1rem;font-size:16px;color:#111827">Specialist Review</h2>
-    <p style="color:var(--gray);font-size:12px;margin-bottom:1.5rem">Review and adjust the AI estimates if needed, then send the quotation to the client.</p>
+    <h2><i class="fa-solid fa-clipboard-check"></i> Specialist Review</h2>
+    <p style="color:var(--fg-mute);font-size:0.82rem;margin-bottom:1.5rem;line-height:1.6">Review and adjust the AI estimates if needed, then send the quotation to the client.</p>
 
     <form method="POST" action="/admin/solar/{{ request.id }}/review">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -175,12 +253,12 @@
       <div class="form-group">
         <label class="form-label">Final Cost (₱)</label>
         <input type="number" step="0.01" name="final_cost" class="form-input" placeholder="0.00" value="{{ request.final_cost or '' }}">
-        <div class="form-hint">Leave blank to use AI range: ₱{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "0" }}–₱{{ "{:,.0f}".format(request.cost_max) if request.cost_max else "0" }}</div>
+        <div class="form-hint">Leave blank to use AI range: ₱{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "0" }} – ₱{{ "{:,.0f}".format(request.cost_max) if request.cost_max else "0" }}</div>
       </div>
 
       <div class="form-group">
         <label class="form-label">Specialist Notes (Optional)</label>
-        <textarea name="reviewer_notes" class="form-input form-textarea" placeholder="Add any notes or recommendations for the client...">{{ request.reviewer_notes or '' }}</textarea>
+        <textarea name="reviewer_notes" class="form-input form-textarea" placeholder="Add any notes or recommendations for the client…">{{ request.reviewer_notes or '' }}</textarea>
       </div>
 
       <div class="form-actions">

@@ -1,22 +1,20 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
-{% block title %}Certificates – LMS{% endblock %}
+{% block title %}Certificates – EnergyWize LMS{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("Training Modules")}}
 {% set on_chain_count = certs | selectattr('tx_hash') | list | length %}
 
 <div class="page-body">
 <div class="lms-wrap">
 
-  <div class="lms-page-header">
+  <div class="lms-page-header" data-reveal="tight">
     <div>
       <h2 class="lms-page-title">
         <i class="fa-solid fa-certificate"></i> Certificates
@@ -29,8 +27,8 @@
   </div>
 
   <!-- Stats -->
-  <div class="cert-stats">
-    <div class="cert-stat">
+  <div class="cert-stats" data-reveal-group>
+    <div class="cert-stat" data-reveal="tight">
       <div class="cert-stat-icon" style="background:#FEF9C3;color:#854D0E">
         <i class="fa-solid fa-user-check"></i>
       </div>
@@ -39,7 +37,7 @@
         <div class="cert-stat-label">Eligible</div>
       </div>
     </div>
-    <div class="cert-stat">
+    <div class="cert-stat" data-reveal="tight">
       <div class="cert-stat-icon" style="background:#DCFCE7;color:#166534">
         <i class="fa-solid fa-certificate"></i>
       </div>
@@ -48,7 +46,7 @@
         <div class="cert-stat-label">Issued</div>
       </div>
     </div>
-    <div class="cert-stat" style="grid-column:span 2">
+    <div class="cert-stat" data-reveal="tight" style="grid-column:span 2">
       <div class="cert-stat-icon" style="background:#EFF6FF;color:#1D4ED8">
         <i class="fa-solid fa-link"></i>
       </div>
@@ -60,7 +58,7 @@
   </div>
 
   <!-- Eligible trainees -->
-  <div class="lms-card" style="margin-bottom:16px">
+  <div class="lms-card" style="margin-bottom:16px" data-reveal="tight">
     <div class="eligible-hero">
       <div class="eligible-hero-icon"><i class="fa-solid fa-user-graduate"></i></div>
       <div>
@@ -102,7 +100,7 @@
   </div>
 
   <!-- Issued certificates -->
-  <div class="lms-card">
+  <div class="lms-card" data-reveal="tight">
     <div class="issued-hero">
       <div class="issued-hero-icon"><i class="fa-solid fa-list-check"></i></div>
       <div>
@@ -139,7 +137,7 @@
             <td>
               <span class="cert-id-chip">{{ c.cert_id[:20]}}…</span>
             </td>
-            <td style="font-size:12px;color:var(--gray);white-space:nowrap">
+            <td style="font-size:12px;white-space:nowrap">
               {{ c.issued_at.strftime('%b %d, %Y') if c.issued_at else '–'}}
             </td>
             <td>
