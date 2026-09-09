@@ -137,7 +137,7 @@
     {% if cert.qr_code %}
     <div style="margin-top:32px;text-align:center;padding-top:24px;border-top:1px solid var(--line)">
       <p style="font-size:12px;color:var(--fg-mute);margin-bottom:12px"><strong>Verification QR Code</strong></p>
-      <img src="/{{ cert.qr_code}}" alt="Certificate QR Code" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:8px">
+      <img src="/{{ cert.qr_code}}" alt="Certificate QR Code" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:8px;margin:0 auto">
       <p style="font-size:11px;color:var(--fg-mute);margin-top:12px">Scan to verify this certificate</p>
     </div>
     {% endif %}
@@ -169,8 +169,10 @@
   </div>
   {% endif %}
 
+  {% set role = session.get('user_role') %}
+  {% set home = '/admin' if role == 'admin' else '/employee' if role == 'employee' else '/portal' if role == 'trainee' else '/' %}
   <div style="text-align:center;margin-top:16px">
-    <a href="/" class="btn-ghost"><i class="fa-solid fa-house"></i> Back to Home</a>
+    <a href="{{ home }}" class="btn-ghost"><i class="fa-solid fa-house"></i> {{ 'Back to Portal' if role == 'trainee' else 'Back to Dashboard' if role in ('admin','employee') else 'Back to Home' }}</a>
   </div>
 
 </div>
