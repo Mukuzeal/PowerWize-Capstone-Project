@@ -131,6 +131,10 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     """)
+    # anchor_version was added to the CREATE TABLE after this table already
+    # existed in deployed databases, so CREATE TABLE IF NOT EXISTS never
+    # applied it there. This backfills it on every startup.
+    cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS anchor_version SMALLINT DEFAULT 1")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS account_tokens (
@@ -344,6 +348,9 @@ def init_db():
             FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
         )
     """)
+    # Same drift as payments.anchor_version above — backfill for tables that
+    # already existed before this column was added.
+    cur.execute("ALTER TABLE lms_certificates ADD COLUMN IF NOT EXISTS anchor_version SMALLINT DEFAULT 1")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_exam_questions (
