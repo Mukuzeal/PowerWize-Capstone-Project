@@ -38,7 +38,7 @@ def update_solar_request(req_id: int, **fields):
         "system_size_kw", "panel_count", "cost_min", "cost_max",
         "monthly_savings", "roi_years", "feasibility", "system_type",
         "battery_recommended", "ai_explanation", "status",
-        "reviewer_notes", "reviewed_at",
+        "reviewer_notes", "reviewed_at", "email", "contact",
         "final_system_kw", "final_panel_count", "final_cost",
     }
     safe = {k: v for k, v in fields.items() if k in allowed}
