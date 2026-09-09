@@ -44,22 +44,27 @@
 {% endmacro %}
 
 {% macro selfie_capture(id_input_name='valid_id') %}
-{# Camera-based selfie widget with blink-liveness. User holds their physical ID next to their face. #}
+{# Camera-based selfie widget. User centers their face in the oval and it
+   auto-captures after holding still for 3s; no blink required. User holds
+   their physical ID next to their face. #}
 <div class="field selfie-capture" data-id-input="{{ id_input_name }}">
-  <label>Identity Verification — Selfie with ID <span class="req">*</span> <span class="hint">(Live photo with liveness check)</span></label>
+  <label>Identity Verification — Selfie with ID <span class="req">*</span> <span class="hint">(Live photo — auto-captures when centered)</span></label>
   <div class="selfie-stage" data-state="idle">
     <div class="selfie-empty">
       <i class="fa-solid fa-id-card"></i>
       <strong>Take a selfie holding your government ID</strong>
-      <span class="hint-txt">Blink once to prove you're a real person. Hold your physical government ID visible next to your face so both are clearly visible in the photo. An admin will verify your identity.</span>
+      <span class="hint-txt">Center your face in the oval and hold still — it captures automatically after 3 seconds. Hold your physical government ID visible next to your face so both are clearly visible in the photo. An admin will verify your identity.</span>
       <button type="button" class="btn-selfie-start"><i class="fa-solid fa-video"></i> Open Camera</button>
     </div>
     <div class="selfie-live">
-      <video class="selfie-video" autoplay playsinline muted></video>
+      <div class="selfie-video-wrap">
+        <video class="selfie-video" autoplay playsinline muted></video>
+        <div class="face-guide-oval"></div>
+        <div class="face-guide-countdown"></div>
+      </div>
       <div class="liveness-banner">
         <i class="fa-solid fa-eye liveness-icon"></i>
-        <span class="liveness-msg">Loading liveness detector…</span>
-        <span class="blink-pips"><span class="pip"></span><span class="pip"></span></span>
+        <span class="liveness-msg">Starting camera…</span>
       </div>
       <div class="selfie-live-actions">
         <button type="button" class="btn-selfie-cancel">Cancel</button>
@@ -100,16 +105,10 @@
       if(window.faceapi) return Promise.resolve();
       return loadScript(FACEAPI_SRC);
     })().then(function(){
-      return Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS),
-        faceapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELS)
-      ]);
+      return faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS);
     });
     return faceApiReady;
   }
-
-  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
-  function ear(eye){ return (dist(eye[1],eye[5]) + dist(eye[2],eye[4])) / (2*dist(eye[0],eye[3])); }
 
   function initSelfieWidget(field){
     var idInputName = field.dataset.idInput;
@@ -119,8 +118,9 @@
     var valBox= field.querySelector('.selfie-validation');
     var flag  = field.querySelector('.selfie-verified-flag');
     var msgEl = field.querySelector('.liveness-msg');
-    var pips  = field.querySelectorAll('.blink-pips .pip');
-    var stream = null, capturedBlob = null, livenessLoop = null;
+    var oval  = field.querySelector('.face-guide-oval');
+    var countdownEl = field.querySelector('.face-guide-countdown');
+    var stream = null, capturedBlob = null, captureLoop = null;
 
     function setState(s){ stage.dataset.state = s; }
     function setMsg(t, kind){
@@ -128,68 +128,85 @@
       var banner = field.querySelector('.liveness-banner');
       banner.dataset.kind = kind || '';
     }
-    function setPip(i, on){ if(pips[i]) pips[i].classList.toggle('on', !!on); }
+    function setCentered(on){ if(oval) oval.classList.toggle('is-centered', !!on); }
+    function showCountdown(n){ if(countdownEl){ countdownEl.textContent = n; countdownEl.classList.add('show'); } }
+    function hideCountdown(){ if(countdownEl){ countdownEl.classList.remove('show'); } }
     function stopStream(){ if(stream){ stream.getTracks().forEach(function(t){t.stop();}); stream=null; } }
-    function stopLoop(){ if(livenessLoop){ cancelAnimationFrame(livenessLoop); livenessLoop=null; } }
+    function stopLoop(){ if(captureLoop){ cancelAnimationFrame(captureLoop); captureLoop=null; } }
 
-    function startLivenessLoop(){
-      var blinks = 0;
-      var wasOpen = true;
-      var consecClosed = 0;
+    function doCapture(){
+      var canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.toBlob(function(blob){
+        capturedBlob = blob;
+        img.src = URL.createObjectURL(blob);
+        setState('preview');
+        runFaceMatch();
+      }, 'image/jpeg', 0.9);
+    }
+
+    function startAutoCapture(){
       var noFaceFrames = 0;
-      var lastBlinkAt = 0;
-      var CLOSED = 0.24, OPEN = 0.30;  // Slightly looser thresholds for faster detection
+      var centerSince = null;  // timestamp centering began; null while not centered
+      var lastShown = null;    // last countdown integer drawn, avoids redundant DOM writes
       var detectorOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      var CENTER_TOL = 0.12;   // face center within 12% of frame center
+      var MIN_SIZE = 0.22, MAX_SIZE = 0.58; // face width as a fraction of frame width
+      var HOLD_MS = 3000;      // how long to hold centered before it auto-captures
 
-      setPip(0,false); setPip(1,false);
-      setMsg('Look straight at the camera and BLINK', 'info');
+      setCentered(false);
+      hideCountdown();
+      setMsg('Center your face in the oval', 'info');
 
       function loop(){
-        if(video.readyState < 2){ livenessLoop = requestAnimationFrame(loop); return; }
-        faceapi.detectSingleFace(video, detectorOpts).withFaceLandmarks().then(function(det){
+        if(video.readyState < 2){ captureLoop = requestAnimationFrame(loop); return; }
+        faceapi.detectSingleFace(video, detectorOpts).then(function(det){
           if(!det){
             noFaceFrames++;
-            if(noFaceFrames > 15) setMsg('Please center your face in the frame', 'warn');
-            livenessLoop = requestAnimationFrame(loop); return;
+            centerSince = null; lastShown = null;
+            setCentered(false); hideCountdown();
+            if(noFaceFrames > 15) setMsg('Position your face in the oval', 'warn');
+            captureLoop = requestAnimationFrame(loop); return;
           }
           noFaceFrames = 0;
-          var lEAR = ear(det.landmarks.getLeftEye());
-          var rEAR = ear(det.landmarks.getRightEye());
-          var e = (lEAR + rEAR) / 2;
 
-          if(wasOpen && e < CLOSED){
-            consecClosed++;
-            if(consecClosed >= 1) wasOpen = false;
-          } else if(!wasOpen && e > OPEN){
+          var box = det.box;
+          var vw = video.videoWidth, vh = video.videoHeight;
+          var faceCx = box.x + box.width/2, faceCy = box.y + box.height/2;
+          var offX = Math.abs(faceCx - vw/2) / vw;
+          var offY = Math.abs(faceCy - vh/2) / vh;
+          var sizeRatio = box.width / vw;
+          var isCentered = offX < CENTER_TOL && offY < CENTER_TOL;
+          var isGoodSize = sizeRatio > MIN_SIZE && sizeRatio < MAX_SIZE;
+
+          if(isCentered && isGoodSize){
+            setCentered(true);
             var now = Date.now();
-            if(now - lastBlinkAt > 200){  // Reduced from 250ms for faster response
-              blinks++;
-              lastBlinkAt = now;
-              setPip(blinks-1, true);
-              if(blinks >= 1){
-                stopLoop();
-                setMsg('Liveness verified! Capturing your selfie…', 'ok');
-                // Wait 300ms after eyes open for face to stabilize
-                setTimeout(function(){
-                  var canvas = document.createElement('canvas');
-                  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                  canvas.getContext('2d').drawImage(video, 0, 0);
-                  canvas.toBlob(function(blob){
-                    capturedBlob = blob;
-                    img.src = URL.createObjectURL(blob);
-                    setState('preview');
-                    runFaceMatch();
-                  }, 'image/jpeg', 0.9);
-                }, 300);
-                return;
-              }
+            if(centerSince === null) centerSince = now;
+            var remaining = HOLD_MS - (now - centerSince);
+            if(remaining <= 0){
+              stopLoop();
+              hideCountdown();
+              setMsg('Capturing…', 'ok');
+              doCapture();
+              return; // stop polling — we're done
             }
-            wasOpen = true;
-            consecClosed = 0;
+            var n = Math.ceil(remaining / 1000);
+            if(n !== lastShown){
+              lastShown = n;
+              showCountdown(n);
+              setMsg('Hold still…', 'ok');
+            }
+          } else {
+            centerSince = null; lastShown = null;
+            setCentered(false); hideCountdown();
+            if(!isGoodSize) setMsg(sizeRatio <= MIN_SIZE ? 'Move closer' : 'Move back a little', 'warn');
+            else setMsg('Center your face in the oval', 'warn');
           }
-          livenessLoop = requestAnimationFrame(loop);
+          captureLoop = requestAnimationFrame(loop);
         }).catch(function(){
-          livenessLoop = requestAnimationFrame(loop);
+          captureLoop = requestAnimationFrame(loop);
         });
       }
       loop();
@@ -202,20 +219,20 @@
         return;
       }
       setState('live');
-      setMsg('Loading liveness detector…', 'info');
+      setMsg('Starting camera…', 'info');
       navigator.mediaDevices.getUserMedia({video:{facingMode:'user', width:{ideal:640}, height:{ideal:480}}, audio:false})
         .then(function(s){ stream = s; video.srcObject = s; return ensureFaceApi(); })
-        .then(function(){ startLivenessLoop(); })
+        .then(function(){ startAutoCapture(); })
         .catch(function(err){
           stopStream(); setState('idle');
           if(typeof Swal !== 'undefined'){
-            Swal.fire({icon:'error', title:'Camera or liveness error', text:'Could not start the camera or load the liveness detector. ' + (err && err.message ? err.message : '')});
+            Swal.fire({icon:'error', title:'Camera error', text:'Could not start the camera. ' + (err && err.message ? err.message : '')});
           }
         });
     });
 
     field.querySelector('.btn-selfie-cancel').addEventListener('click', function(){
-      stopLoop(); stopStream(); setState('idle');
+      stopLoop(); stopStream(); setCentered(false); hideCountdown(); setState('idle');
     });
 
     field.querySelector('.btn-selfie-retake').addEventListener('click', function(){

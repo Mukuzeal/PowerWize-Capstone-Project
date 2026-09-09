@@ -279,7 +279,24 @@ input[type=file] { display: none; }
 .selfie-empty .hint-txt { font-size: 0.82rem; color: var(--fg-mute); max-width: 46ch; line-height: 1.6; }
 
 .selfie-live { flex-direction: column; align-items: center; gap: 0.75rem; }
-.selfie-video { width: 100%; max-width: 22rem; aspect-ratio: 4/3; object-fit: cover; background: var(--ink-000); border: var(--rule) solid var(--line-mid); }
+.selfie-video-wrap { position: relative; width: 100%; max-width: 22rem; }
+.selfie-video { display: block; width: 100%; aspect-ratio: 4/3; object-fit: cover; background: var(--ink-000); border: var(--rule) solid var(--line-mid); }
+.face-guide-oval {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 52%; height: 72%; border-radius: 50%;
+  border: 3px dashed rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+  transition: border-color 180ms var(--e-out);
+}
+.face-guide-oval.is-centered { border-style: solid; border-color: var(--signal); }
+.face-guide-countdown {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-family: 'JetBrains Mono', monospace; font-size: 3rem; font-weight: 700;
+  color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  pointer-events: none; opacity: 0; transition: opacity 150ms var(--e-out);
+}
+.face-guide-countdown.show { opacity: 1; }
 .selfie-preview { flex-direction: column; align-items: center; gap: 0.75rem; }
 .selfie-img { width: 100%; max-width: 12rem; border: var(--rule) solid var(--signal); }
 .selfie-live-actions, .selfie-preview-actions { display: flex; gap: 0.6rem; }
@@ -297,15 +314,6 @@ input[type=file] { display: none; }
 .liveness-banner[data-kind="warn"] { border-color: var(--amber-deep); color: var(--amber); background: color-mix(in oklab, var(--amber) 8%, var(--ink-200)); }
 .liveness-banner[data-kind="ok"]   { border-color: var(--signal-dim); color: var(--signal); background: color-mix(in oklab, var(--signal) 8%, var(--ink-200)); }
 .liveness-icon { flex-shrink: 0; font-size: 0.95rem; }
-
-.blink-pips { margin-left: auto; display: flex; gap: 0.4rem; }
-.blink-pips .pip {
-  width: 0.7rem; height: 0.7rem; border-radius: 999px;
-  border: var(--rule) solid var(--line-strong);
-  background: transparent;
-  transition: background-color 180ms var(--e-out), border-color 180ms var(--e-out);
-}
-.blink-pips .pip.on { background: var(--signal); border-color: var(--signal); }
 
 /* Secondary controls: round, like every other control in the system. */
 .btn-selfie-start, .btn-selfie-cancel, .btn-selfie-retake, .btn-selfie-capture {
