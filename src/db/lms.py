@@ -91,12 +91,22 @@ def get_user_training_type(user_id):
 
 
 def lms_get_modules_for_trainee(user_id, published_only=True):
+    """A trainee's syllabus: their training type's published modules.
+
+    Once a trainee holds a certificate, modules published after it was issued
+    don't belong to the syllabus they certified on, so they're left out —
+    otherwise a certified trainee's own progress bar would fall below 100%
+    every time the curriculum grows.
+    """
     training_type = get_user_training_type(user_id)
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if published_only:
         cur.execute("""SELECT m.*,u.fname,u.lname FROM lms_modules m
                        JOIN users u ON m.instructor_id=u.id
-                       WHERE m.is_published=1 AND m.training_type=%s ORDER BY m.created_at DESC""", (training_type,))
+                       LEFT JOIN lms_certificates c ON c.user_id=%s
+                       WHERE m.is_published=1 AND m.training_type=%s
+                         AND (c.issued_at IS NULL OR m.created_at <= c.issued_at)
+                       ORDER BY m.created_at DESC""", (user_id, training_type))
     else:
         cur.execute("""SELECT m.*,u.fname,u.lname FROM lms_modules m
                        JOIN users u ON m.instructor_id=u.id
@@ -426,20 +436,32 @@ def lms_get_wrong_questions(attempt_id):
 
 
 def lms_get_eligible_for_cert():
+    """Trainees who've finished their own syllabus and don't hold a certificate yet.
+
+    Used to count against the trainee's own training-type module set (the same
+    one lms_get_modules_for_trainee / the trainee's progress bar use), not the
+    total number of published modules across every training type — a trainee
+    with a handful of stale completions could otherwise clear a global count
+    without actually finishing the modules that are currently theirs to do.
+    """
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
-        SELECT u.id, u.fname, u.lname, u.email, COUNT(p.id) AS completed_count,
-               (SELECT COUNT(*) FROM lms_modules WHERE is_published=1) AS total_modules
-        FROM users u
-        JOIN lms_progress p ON u.id=p.user_id AND p.completed=1
-        WHERE u.role='trainee'
-          AND u.id NOT IN (SELECT user_id FROM lms_certificates)
-        GROUP BY u.id, u.fname, u.lname, u.email
-        HAVING COUNT(p.id) >= (SELECT COUNT(*) FROM lms_modules WHERE is_published=1)
-           AND (SELECT COUNT(*) FROM lms_modules WHERE is_published=1) > 0
+        SELECT id, fname, lname, email FROM users
+        WHERE role='trainee' AND id NOT IN (SELECT user_id FROM lms_certificates)
     """)
-    rows = cur.fetchall(); cur.close(); conn.close()
-    return [dict(r) for r in rows]
+    trainees = cur.fetchall(); cur.close(); conn.close()
+
+    eligible = []
+    for t in trainees:
+        mods = lms_get_modules_for_trainee(t["id"], published_only=True)
+        total = len(mods)
+        if not total:
+            continue
+        prog_map = {p["module_id"]: p for p in lms_get_progress(t["id"])}
+        completed = sum(1 for m in mods if prog_map.get(m["id"], {}).get("completed"))
+        if completed >= total:
+            eligible.append({**dict(t), "completed_count": completed, "total_modules": total})
+    return eligible
 
 
 # ── LMS Quiz Question Types Helpers ───────────────────────────────────────────
