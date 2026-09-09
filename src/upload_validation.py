@@ -185,22 +185,16 @@ def _validate_prc(ex: dict) -> tuple[bool, str]:
 
 
 def _validate_drivers_license(ex: dict) -> tuple[bool, str]:
-    # LTO licenses look like XXX-YY-NNNNNN (3 letters, 2 digits, 6 digits) or NXX-NN-NNNNNN
-    raw = (ex.get("id_number") or "").upper().replace(" ", "")
+    raw = (ex.get("id_number") or "").strip()
     if not raw:
         return False, "Could not read the driver's license number."
-    if not re.match(r"^[A-Z0-9]{3}-?\d{2}-?\d{6}$", raw):
-        return False, f"Driver's license number format looks invalid: '{raw}'. Expected XXX-YY-NNNNNN."
     return True, "Driver's license format checks passed."
 
 
 def _validate_passport(ex: dict) -> tuple[bool, str]:
-    raw = (ex.get("id_number") or "").upper().replace(" ", "")
+    raw = (ex.get("id_number") or "").strip()
     if not raw:
         return False, "Could not read the passport number."
-    # PH passports: P + 7 digits + 1 letter (older), or 2 letters + 7 digits (newer)
-    if not (re.match(r"^P\d{7}[A-Z]$", raw) or re.match(r"^[A-Z]{2}\d{7}$", raw)):
-        return False, f"Passport number format looks invalid: '{raw}'."
     return True, "Passport format checks passed."
 
 
@@ -208,8 +202,6 @@ def _validate_philsys(ex: dict) -> tuple[bool, str]:
     raw = _strip_nondigit(ex.get("id_number") or "")
     if not raw:
         return False, "Could not read the PhilSys card number (PCN)."
-    if len(raw) != 16:
-        return False, f"PhilSys card number should be 16 digits, but read {len(raw)}."
     return True, "PhilSys number format checks passed."
 
 
@@ -217,8 +209,6 @@ def _validate_umid(ex: dict) -> tuple[bool, str]:
     raw = _strip_nondigit(ex.get("id_number") or "")
     if not raw:
         return False, "Could not read the UMID CRN."
-    if not (10 <= len(raw) <= 12):
-        return False, f"UMID CRN should be 10-12 digits, but read {len(raw)}."
     return True, "UMID format checks passed."
 
 
