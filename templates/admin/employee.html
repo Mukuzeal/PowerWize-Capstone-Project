@@ -68,6 +68,24 @@
   .cdlg__btn--go:hover { background: color-mix(in oklab, var(--amber) 88%, #fff); color: #1a1205; }
   .cdlg__btn--danger { background: #E5484D; border-color: #E5484D; color: #fff; }
   .cdlg__btn--danger:hover { background: #d93a3f; color: #fff; }
+  .cdlg__box--form { max-width: 32rem; text-align: left; }
+
+  /* New-module form (inside the modal) */
+  .modal-form .field { margin-top: 1.1rem; }
+  .modal-form .field:first-child { margin-top: 0; }
+  .modal-form label { display: block; font-family: 'JetBrains Mono', monospace;
+    font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--fg-mute); margin-bottom: .5rem; }
+  .modal-form label .req { color: var(--amber); margin-left: .2rem; }
+  .modal-form input[type=text], .modal-form textarea, .modal-form select {
+    width: 100%; box-sizing: border-box; padding: .6rem .8rem; border-radius: 4px;
+    border: 1px solid var(--line-mid); background: var(--ink-200); color: var(--fg);
+    font-family: inherit; font-size: .88rem; }
+  .modal-form input[type=text]:focus, .modal-form textarea:focus, .modal-form select:focus {
+    outline: none; border-color: var(--signal); }
+  .modal-form textarea { min-height: 6rem; resize: vertical; line-height: 1.55; }
+  .modal-form select { cursor: pointer; }
+  .modal-form .cdlg__acts { margin-top: 1.4rem; }
 
   /* Archive = a destructive-ish action → red, matching the confirm dialog. */
   .dcard__acts .act--warn { border-color: rgba(229, 72, 77, 0.5); color: #E5484D; }
@@ -108,6 +126,44 @@
       <button type="button" class="cdlg__btn" id="cdlg-cancel">Cancel</button>
       <button type="button" class="cdlg__btn cdlg__btn--go" id="cdlg-go">Confirm</button>
     </div>
+  </div>
+</div>
+
+<div class="cdlg" id="modcreate" role="dialog" aria-modal="true" aria-labelledby="modcreate-tag">
+  <div class="cdlg__box cdlg__box--form">
+    <p class="cdlg__tag" id="modcreate-tag">New Module</p>
+    <p class="cdlg__msg">Add a training module to the LMS. Once created, you can upload
+      materials, set up a quiz, and add a practical exam from its manage page.</p>
+    <form class="modal-form" method="post" action="/lms/modules/create">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field">
+        <label for="nm-title">Module title <span class="req">*</span></label>
+        <input type="text" id="nm-title" name="title" maxlength="120"
+               placeholder="e.g. Introduction to Solar Energy Systems" required autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="nm-desc">Description</label>
+        <textarea id="nm-desc" name="description" maxlength="1000"
+                  placeholder="What will trainees learn in this module?"></textarea>
+      </div>
+      <div class="field">
+        <label for="nm-type">Training type <span class="req">*</span></label>
+        <select id="nm-type" name="training_type" required>
+          <option value="">— Select —</option>
+          <option value="training">CEM Training</option>
+          <option value="cea_training">CEA Training</option>
+          <option value="renewal">Renewal</option>
+          <option value="cea_renewal">CEA Renewal</option>
+          <option value="cem_renewal">CEM Renewal</option>
+          <option value="gemp_lgu">GEMP Training – LGU</option>
+          <option value="gemp_oge">GEMP Training – Gov't Entity</option>
+        </select>
+      </div>
+      <div class="cdlg__acts">
+        <button type="button" class="cdlg__btn" id="modcreate-cancel">Cancel</button>
+        <button type="submit" class="cdlg__btn cdlg__btn--go">Create Module</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -233,7 +289,7 @@
       </div>
       <div class="dhead__side">
         <p class="mono dhead__sub">{{ modules | length }} live · {{ archived_modules | length }} archived</p>
-        <a class="act act--go" href="/lms/modules/create"><i class="fa-solid fa-plus"></i> New Module</a>
+        <button type="button" class="act act--go" data-open-modal="modcreate"><i class="fa-solid fa-plus"></i> New Module</button>
       </div>
     </div>
 
@@ -272,7 +328,7 @@
       <p class="mono mono--fg">No modules created yet</p>
       <p class="prose">Create a training module to get started. Modules you publish become
         visible to every trainee registered for that training type.</p>
-      <a class="act act--go" href="/lms/modules/create"><i class="fa-solid fa-plus"></i> New Module</a>
+      <button type="button" class="act act--go" data-open-modal="modcreate"><i class="fa-solid fa-plus"></i> New Module</button>
     </div>
     {% endif %}
 
@@ -635,6 +691,27 @@
           killForm.submit();
         }
       });
+    });
+  });
+
+  /* New-module modal — same show/hide pattern as the confirm dialog, but
+     opened straight from a trigger button instead of built dynamically. */
+  document.querySelectorAll("[data-open-modal]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var m = document.getElementById(btn.dataset.openModal);
+      if (!m) return;
+      m.classList.add("is-open");
+      var first = m.querySelector("input, textarea, select");
+      if (first) first.focus();
+    });
+  });
+  document.querySelectorAll(".cdlg[id]").forEach(function (modal) {
+    if (modal.id === "cdlg") return; // handled above
+    var cancel = modal.querySelector("[id$='-cancel']");
+    if (cancel) cancel.addEventListener("click", function () { modal.classList.remove("is-open"); });
+    modal.addEventListener("click", function (e) { if (e.target === modal) modal.classList.remove("is-open"); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && modal.classList.contains("is-open")) modal.classList.remove("is-open");
     });
   });
 
