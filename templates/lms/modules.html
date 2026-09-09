@@ -17,7 +17,14 @@
       <h2 class="lms-page-title"><i class="fa-solid fa-layer-group"></i> Your Modules</h2>
       <p class="lms-page-sub">Create and manage training modules for trainees.</p>
     </div>
-    <a href="/lms/modules/create" class="btn-primary"><i class="fa-solid fa-plus"></i> New Module</a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% if session.get('user_role') == 'admin' %}
+      <a href="/admin" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+      {% elif session.get('user_role') == 'employee' %}
+      <a href="/employee#modules" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+      {% endif %}
+      <a href="/lms/modules/create" class="btn-primary"><i class="fa-solid fa-plus"></i> New Module</a>
+    </div>
   </div>
 
   {% if modules %}

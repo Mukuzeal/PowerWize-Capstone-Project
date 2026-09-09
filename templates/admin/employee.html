@@ -87,6 +87,21 @@
   .modal-form select { cursor: pointer; }
   .modal-form .cdlg__acts { margin-top: 1.4rem; }
 
+  /* Manage step — shown in the same modal right after a module is created */
+  .mm-card { border: 1px solid var(--line-mid); border-radius: 6px;
+    padding: .9rem 1.1rem; margin-top: 1rem; }
+  .mm-card__head { display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-bottom: .5rem; }
+  .mm-card__head h4 { margin: 0; font-size: .88rem; color: var(--fg);
+    font-variation-settings: "wdth" 100, "wght" 600; display: flex; align-items: center; gap: .5rem; }
+  .mm-card__head .act { width: auto; padding: .4rem .8rem; font-size: .75rem; }
+  .mm-card__empty { margin: 0; font-size: .8rem; color: var(--fg-mute); }
+  .mm-file-row { display: flex; align-items: center; gap: .6rem; font-size: .82rem;
+    color: var(--fg-dim); padding: .3rem 0; }
+  .mm-file-row .file-name { flex: 1; color: var(--fg); }
+  #mm-step-manage .cdlg__acts { margin-top: 1.3rem; }
+  #mm-step-manage .cdlg__acts .cdlg__btn { flex: 0 0 auto; }
+
   /* Archive = a destructive-ish action → red, matching the confirm dialog. */
   .dcard__acts .act--warn { border-color: rgba(229, 72, 77, 0.5); color: #E5484D; }
   .dcard__acts .act--warn:hover { border-color: #E5484D; background: rgba(229, 72, 77, 0.12); color: #E5484D; }
@@ -131,39 +146,81 @@
 
 <div class="cdlg" id="modcreate" role="dialog" aria-modal="true" aria-labelledby="modcreate-tag">
   <div class="cdlg__box cdlg__box--form">
-    <p class="cdlg__tag" id="modcreate-tag">New Module</p>
-    <p class="cdlg__msg">Add a training module to the LMS. Once created, you can upload
-      materials, set up a quiz, and add a practical exam from its manage page.</p>
-    <form class="modal-form" method="post" action="/lms/modules/create">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="field">
-        <label for="nm-title">Module title <span class="req">*</span></label>
-        <input type="text" id="nm-title" name="title" maxlength="120"
-               placeholder="e.g. Introduction to Solar Energy Systems" required autocomplete="off">
+
+    <div class="mm-step" id="mm-step-form">
+      <p class="cdlg__tag" id="modcreate-tag">New Module</p>
+      <p class="cdlg__msg">Add a training module to the LMS. Once created, you can upload
+        materials, set up a quiz, and add a practical exam right here.</p>
+      <form class="modal-form" id="modcreate-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label for="nm-title">Module title <span class="req">*</span></label>
+          <input type="text" id="nm-title" name="title" maxlength="120"
+                 placeholder="e.g. Introduction to Solar Energy Systems" required autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="nm-desc">Description</label>
+          <textarea id="nm-desc" name="description" maxlength="1000"
+                    placeholder="What will trainees learn in this module?"></textarea>
+        </div>
+        <div class="field">
+          <label for="nm-type">Training type <span class="req">*</span></label>
+          <select id="nm-type" name="training_type" required>
+            <option value="">— Select —</option>
+            <option value="training">CEM Training</option>
+            <option value="cea_training">CEA Training</option>
+            <option value="renewal">Renewal</option>
+            <option value="cea_renewal">CEA Renewal</option>
+            <option value="cem_renewal">CEM Renewal</option>
+            <option value="gemp_lgu">GEMP Training – LGU</option>
+            <option value="gemp_oge">GEMP Training – Gov't Entity</option>
+          </select>
+        </div>
+        <div class="cdlg__acts">
+          <button type="button" class="cdlg__btn" id="modcreate-cancel">Cancel</button>
+          <button type="submit" class="cdlg__btn cdlg__btn--go" id="modcreate-submit">Create Module</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="mm-step" id="mm-step-manage" hidden>
+      <p class="cdlg__tag">Module Created</p>
+      <p class="cdlg__msg" id="mm-title" style="font-weight:600"></p>
+
+      <div class="mm-card">
+        <div class="mm-card__head">
+          <h4><i class="fa-solid fa-folder-open"></i> Learning Materials</h4>
+          <label class="act act--go" for="mm-upload"><i class="fa-solid fa-upload"></i> Upload File</label>
+        </div>
+        <input type="file" id="mm-upload" style="display:none"
+               accept=".pdf,.docx,.pptx,.xlsx,.txt,.mp4,.mkv,.avi,.png,.jpg,.jpeg">
+        <div id="mm-file-list">
+          <p class="mm-card__empty" id="mm-no-files">No files uploaded yet.</p>
+        </div>
       </div>
-      <div class="field">
-        <label for="nm-desc">Description</label>
-        <textarea id="nm-desc" name="description" maxlength="1000"
-                  placeholder="What will trainees learn in this module?"></textarea>
+
+      <div class="mm-card">
+        <div class="mm-card__head">
+          <h4><i class="fa-solid fa-circle-question"></i> Quiz</h4>
+          <a class="act act--go" id="mm-quiz-link" href="#"><i class="fa-solid fa-plus"></i> Create Quiz</a>
+        </div>
+        <p class="mm-card__empty">No quiz created yet.</p>
       </div>
-      <div class="field">
-        <label for="nm-type">Training type <span class="req">*</span></label>
-        <select id="nm-type" name="training_type" required>
-          <option value="">— Select —</option>
-          <option value="training">CEM Training</option>
-          <option value="cea_training">CEA Training</option>
-          <option value="renewal">Renewal</option>
-          <option value="cea_renewal">CEA Renewal</option>
-          <option value="cem_renewal">CEM Renewal</option>
-          <option value="gemp_lgu">GEMP Training – LGU</option>
-          <option value="gemp_oge">GEMP Training – Gov't Entity</option>
-        </select>
+
+      <div class="mm-card">
+        <div class="mm-card__head">
+          <h4><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h4>
+          <a class="act act--go" id="mm-exam-link" href="#"><i class="fa-solid fa-plus"></i> Create Exam</a>
+        </div>
+        <p class="mm-card__empty">No practical exam created yet.</p>
       </div>
+
       <div class="cdlg__acts">
-        <button type="button" class="cdlg__btn" id="modcreate-cancel">Cancel</button>
-        <button type="submit" class="cdlg__btn cdlg__btn--go">Create Module</button>
+        <button type="button" class="cdlg__btn" id="mm-publish"><i class="fa-solid fa-globe"></i> Publish</button>
+        <button type="button" class="cdlg__btn cdlg__btn--go" id="mm-done">Done</button>
       </div>
-    </form>
+    </div>
+
   </div>
 </div>
 
@@ -696,12 +753,21 @@
 
   /* New-module modal — same show/hide pattern as the confirm dialog, but
      opened straight from a trigger button instead of built dynamically. */
+  var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+  function resetCreateModal() {
+    document.getElementById("mm-step-manage").hidden = true;
+    document.getElementById("mm-step-form").hidden = false;
+    document.getElementById("modcreate-form").reset();
+  }
+
   document.querySelectorAll("[data-open-modal]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var m = document.getElementById(btn.dataset.openModal);
       if (!m) return;
+      if (m.id === "modcreate") resetCreateModal();
       m.classList.add("is-open");
-      var first = m.querySelector("input, textarea, select");
+      var first = m.querySelector(":not([hidden]) input, :not([hidden]) textarea, :not([hidden]) select");
       if (first) first.focus();
     });
   });
@@ -713,6 +779,90 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && modal.classList.contains("is-open")) modal.classList.remove("is-open");
     });
+  });
+
+  /* Create-module submit — swaps the modal into the "manage this module" step
+     in place instead of navigating to the separate manage page, so the
+     trainer never leaves the console for the immediate next steps. */
+  var mmModuleId = null;
+  var mmForm = document.getElementById("modcreate-form");
+  var mmSubmit = document.getElementById("modcreate-submit");
+
+  mmForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    mmSubmit.disabled = true;
+    mmSubmit.textContent = "Creating…";
+    fetch("/lms/modules/create", {
+      method: "POST",
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      body: new FormData(mmForm)
+    }).then(function (r) {
+      if (!r.ok) throw new Error("request failed");
+      return r.json();
+    }).then(function (mod) {
+      mmModuleId = mod.id;
+      document.getElementById("mm-title").textContent = mod.title;
+      document.getElementById("mm-quiz-link").href = "/lms/modules/" + mod.id + "/quiz";
+      document.getElementById("mm-exam-link").href = "/lms/modules/" + mod.id + "/exam";
+      setPublishBtn(mod.is_published);
+      document.getElementById("mm-step-form").hidden = true;
+      document.getElementById("mm-step-manage").hidden = false;
+    }).catch(function () {
+      alert("Could not create the module. Please try again.");
+    }).finally(function () {
+      mmSubmit.disabled = false;
+      mmSubmit.textContent = "Create Module";
+    });
+  });
+
+  function setPublishBtn(isPublished) {
+    var btn = document.getElementById("mm-publish");
+    btn.innerHTML = isPublished
+      ? '<i class="fa-solid fa-eye-slash"></i> Unpublish'
+      : '<i class="fa-solid fa-globe"></i> Publish';
+    btn.dataset.published = isPublished ? "1" : "";
+  }
+
+  document.getElementById("mm-publish").addEventListener("click", function () {
+    if (!mmModuleId) return;
+    fetch("/lms/modules/" + mmModuleId + "/publish", {
+      method: "POST",
+      headers: { "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrfToken }
+    }).then(function (r) { return r.json(); })
+      .then(function (data) { setPublishBtn(data.is_published); })
+      .catch(function () { alert("Could not update the module's publish state."); });
+  });
+
+  document.getElementById("mm-upload").addEventListener("change", function () {
+    if (!this.files.length || !mmModuleId) return;
+    var file = this.files[0];
+    var fd = new FormData();
+    fd.append("file", file);
+    fetch("/lms/modules/" + mmModuleId + "/files/upload", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfToken },
+      body: fd
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (data.error) { alert(data.error); return; }
+      var noFiles = document.getElementById("mm-no-files");
+      if (noFiles) noFiles.remove();
+      var row = document.createElement("div");
+      row.className = "mm-file-row";
+      row.innerHTML = '<i class="fa-solid fa-file"></i><span class="file-name"></span>' +
+        '<span class="file-size"></span>';
+      row.querySelector(".file-name").textContent = data.name;
+      row.querySelector(".file-size").textContent = (data.size / 1024).toFixed(1) + " KB";
+      document.getElementById("mm-file-list").appendChild(row);
+    }).catch(function () {
+      alert("Upload failed. Please try again.");
+    }).finally(function () { this.value = ""; }.bind(this));
+  });
+
+  /* Leaving the modal after creating a module means the dashboard's module
+     grid and live/archived counts are stale, so this is the one place a
+     full reload is worth it. */
+  document.getElementById("mm-done").addEventListener("click", function () {
+    location.reload();
   });
 
   /* Auto-dismiss toast notifications. */

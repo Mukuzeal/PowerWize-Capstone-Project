@@ -652,7 +652,7 @@ def lms_get_archived_modules(instructor_id=None):
 
 def lms_delete_module(module_id):
     conn = get_db(); cur = conn.cursor()
-    cur.execute("DELETE FROM lms_modules WHERE id = %s AND archived_at IS NOT NULL", (module_id,))
+    cur.execute("DELETE FROM lms_modules WHERE id = %s", (module_id,))
     conn.commit(); cur.close(); conn.close()
 
 

@@ -2,13 +2,14 @@ import os
 import json
 from datetime import datetime
 
-from flask import session
+from flask import session, request, redirect, url_for
 import requests as _http
 
 from db import lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms_update_progress
 
-LMS_UPLOAD_DIR   = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'lms')
-EXAM_UPLOAD_DIR  = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'exam_submissions')
+_PROJECT_ROOT    = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+LMS_UPLOAD_DIR   = os.path.join(_PROJECT_ROOT, 'uploads', 'lms')
+EXAM_UPLOAD_DIR  = os.path.join(_PROJECT_ROOT, 'uploads', 'exam_submissions')
 os.makedirs(LMS_UPLOAD_DIR,  exist_ok=True)
 os.makedirs(EXAM_UPLOAD_DIR, exist_ok=True)
 
@@ -45,6 +46,24 @@ def _allowed(filename, allowed_set):
 
 def _owns_module(mod):
     return _role() == 'admin' or (mod is not None and mod.get('instructor_id') == _uid())
+
+def _back_to_modules():
+    """Return to wherever a module action (archive/restore/delete) was
+    submitted from, rather than always jumping to the role dashboard.
+
+    The trainer console is a hash-routed single-page app, and a referrer
+    can't carry a fragment — so a bare /employee would land on the Dashboard
+    pane, hiding the module list the trainer was just looking at. Every
+    other caller (the standalone /lms/modules page, /admin) is a real URL
+    the referrer preserves correctly, so it's trusted there.
+    """
+    if _role() == 'employee':
+        return redirect('/employee#modules')
+    if request.referrer:
+        return redirect(request.referrer)
+    if _role() == 'admin':
+        return redirect('/admin')
+    return redirect(url_for('lms.modules'))
 
 
 # ── AI helpers ────────────────────────────────────────────────────────────────

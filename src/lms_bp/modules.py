@@ -10,7 +10,7 @@ from db import (lms_create_module, lms_get_modules, lms_get_module,
                 lms_get_quiz, lms_get_exam, lms_get_questions)
 
 from . import lms_bp
-from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL
+from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, _back_to_modules, LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL
 
 
 # ── INSTRUCTOR ROUTES ─────────────────────────────────────────────────────────
@@ -37,6 +37,10 @@ def module_create():
         training_type = request.form.get('training_type', 'training').strip()
         if title:
             mid = lms_create_module(_uid(), title, desc, training_type)
+            # The trainer console creates modules from a modal and stays on the
+            # page afterward, so it asks for JSON instead of the usual redirect.
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'id': mid, 'title': title, 'is_published': False})
             return redirect(url_for('lms.module_manage', module_id=mid))
     return render_template('lms/module_form.html', module=None)
 
@@ -84,8 +88,11 @@ def module_publish(module_id):
     mod = lms_get_module(module_id)
     if not _owns_module(mod):
         abort(403)
+    new_state = not mod['is_published'] if mod else False
     if mod:
-        lms_toggle_publish(module_id, not mod['is_published'])
+        lms_toggle_publish(module_id, new_state)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'id': module_id, 'is_published': new_state})
     return redirect(url_for('lms.module_manage', module_id=module_id))
 
 
@@ -102,11 +109,7 @@ def module_delete(module_id):
             os.remove(fp)
     lms_delete_module(module_id)
     flash(f'"{mod["title"]}" permanently deleted.', 'success')
-    if _role() == 'admin':
-        return redirect('/admin')
-    elif _role() == 'employee':
-        return redirect('/employee')
-    return redirect(url_for('lms.modules'))
+    return _back_to_modules()
 
 
 @lms_bp.route('/lms/modules/<int:module_id>/archive', methods=['POST'])
@@ -118,11 +121,7 @@ def module_archive(module_id):
     mod = lms_get_module(module_id)
     lms_archive_module(module_id)
     flash(f'"{mod["title"]}" archived - trainees can no longer see it.', 'success')
-    if _role() == 'admin':
-        return redirect('/admin')
-    elif _role() == 'employee':
-        return redirect('/employee')
-    return redirect(url_for('lms.modules'))
+    return _back_to_modules()
 
 
 @lms_bp.route('/lms/modules/<int:module_id>/restore', methods=['POST'])
@@ -134,11 +133,7 @@ def module_restore(module_id):
     mod = lms_get_module(module_id)
     lms_restore_module(module_id)
     flash(f'"{mod["title"]}" restored - it is live for trainees again.', 'success')
-    if _role() == 'admin':
-        return redirect('/admin')
-    elif _role() == 'employee':
-        return redirect('/employee')
-    return redirect(url_for('lms.modules'))
+    return _back_to_modules()
 
 
 @lms_bp.route('/lms/modules/<int:module_id>/delete-archived', methods=['POST'])
@@ -150,11 +145,7 @@ def module_delete_archived(module_id):
     mod = lms_get_module(module_id)
     lms_delete_module(module_id)
     flash(f'"{mod["title"]}" permanently deleted.', 'success')
-    if _role() == 'admin':
-        return redirect('/admin')
-    elif _role() == 'employee':
-        return redirect('/employee')
-    return redirect(url_for('lms.modules'))
+    return _back_to_modules()
 
 
 # Files
