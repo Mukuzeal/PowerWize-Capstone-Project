@@ -231,7 +231,10 @@
         <p class="mono mono--signal">02 / Manage</p>
         <h1 id="h-modules">Training modules</h1>
       </div>
-      <p class="mono dhead__sub">{{ modules | length }} live · {{ archived_modules | length }} archived</p>
+      <div class="dhead__side">
+        <p class="mono dhead__sub">{{ modules | length }} live · {{ archived_modules | length }} archived</p>
+        <a class="act act--go" href="/lms/modules/create"><i class="fa-solid fa-plus"></i> New Module</a>
+      </div>
     </div>
 
     {% if modules %}
@@ -269,6 +272,7 @@
       <p class="mono mono--fg">No modules created yet</p>
       <p class="prose">Create a training module to get started. Modules you publish become
         visible to every trainee registered for that training type.</p>
+      <a class="act act--go" href="/lms/modules/create"><i class="fa-solid fa-plus"></i> New Module</a>
     </div>
     {% endif %}
 

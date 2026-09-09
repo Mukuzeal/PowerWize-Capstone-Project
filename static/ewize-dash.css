@@ -142,6 +142,8 @@
   color: var(--fg);
 }
 .dhead__sub { margin-top: 0.5rem; }
+.dhead__side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; }
+.dhead__side .act { width: auto; flex: 0 0 auto; }
 
 .dsub {
   margin: clamp(2rem, 3.5vw, 3rem) 0 1.25rem;
@@ -316,6 +318,7 @@
 .emptystate > i { display: block; font-size: 1.5rem; color: var(--fg-ghost); margin-bottom: 1rem; }
 .emptystate .prose { margin-inline: auto; margin-top: 0.6rem; font-size: var(--fs-sm); }
 .emptystate .prose a { color: var(--signal); }
+.emptystate .act { width: auto; margin: 1.1rem auto 0; }
 
 /* --------------------------------------------------------------------------
    11. FLASH BANNERS
