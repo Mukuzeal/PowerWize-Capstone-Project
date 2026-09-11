@@ -3,11 +3,11 @@ import psycopg2.extras
 from .core import get_db
 
 
-def lms_create_module(instructor_id, title, description, training_type="training"):
+def lms_create_module(instructor_id, title, description, training_type="training", sort_order=0):
     conn = get_db(); cur = conn.cursor()
     cur.execute(
-        "INSERT INTO lms_modules (instructor_id,title,description,training_type) VALUES (%s,%s,%s,%s) RETURNING id",
-        (instructor_id, title, description, training_type)
+        "INSERT INTO lms_modules (instructor_id,title,description,training_type,sort_order) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+        (instructor_id, title, description, training_type, sort_order)
     )
     conn.commit(); mid = cur.fetchone()[0]; cur.close(); conn.close()
     return mid
@@ -60,24 +60,30 @@ def lms_get_module(module_id):
     return dict(row) if row else None
 
 
-def get_user_training_type(user_id):
-    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT form_type, training_type FROM registrations "
-        "WHERE email=(SELECT email FROM users WHERE id=%s) ORDER BY submitted_at DESC LIMIT 1",
-        (user_id,)
-    )
-    row = cur.fetchone(); cur.close(); conn.close()
-    if not row:
-        return 'training'
+TRAINING_TYPE_CODES = {'training', 'cea_training', 'renewal', 'cea_renewal',
+                        'cem_renewal', 'gemp_lgu', 'gemp_oge'}
 
-    form_type = row.get('form_type', '') or ''
-    if form_type == 'gemp_lgu':
-        return 'gemp_lgu'
-    if form_type == 'gemp_oge':
-        return 'gemp_oge'
 
-    reg_type = (row.get('training_type') or '').lower()
+def normalize_training_type(form_type, reg_training_type):
+    """Map a registration's raw form_type/training_type text to one of the
+    fixed LMS program codes (training/cea_training/renewal/cea_renewal/
+    cem_renewal/gemp_lgu/gemp_oge). Shared by get_user_training_type() (looks
+    the registration up by user) and onboarding.py (has the registration
+    fields already, before the user row even exists), so both paths store
+    the same normalized code instead of raw free text like "Hybrid, 5 days
+    online + 2 days face to face...".
+
+    registrations.form_type already holds one of these exact codes for
+    every form built after form_type was introduced — trust it directly
+    when present. The keyword scan below is only a fallback for legacy rows
+    that predate that column (where the free-text training_type field is
+    all there is to go on).
+    """
+    form_type = (form_type or '').strip()
+    if form_type in TRAINING_TYPE_CODES:
+        return form_type
+
+    reg_type = (reg_training_type or '').lower()
     if 'cea' in reg_type and 'renewal' in reg_type:
         return 'cea_renewal'
     elif 'cem' in reg_type and 'renewal' in reg_type:
@@ -88,6 +94,19 @@ def get_user_training_type(user_id):
         return 'renewal'
     else:
         return 'training'
+
+
+def get_user_training_type(user_id):
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT form_type, training_type FROM registrations "
+        "WHERE email=(SELECT email FROM users WHERE id=%s) ORDER BY submitted_at DESC LIMIT 1",
+        (user_id,)
+    )
+    row = cur.fetchone(); cur.close(); conn.close()
+    if not row:
+        return 'training'
+    return normalize_training_type(row.get('form_type'), row.get('training_type'))
 
 
 def lms_get_modules_for_trainee(user_id, published_only=True):
@@ -106,11 +125,12 @@ def lms_get_modules_for_trainee(user_id, published_only=True):
                        LEFT JOIN lms_certificates c ON c.user_id=%s
                        WHERE m.is_published=1 AND m.training_type=%s
                          AND (c.issued_at IS NULL OR m.created_at <= c.issued_at)
-                       ORDER BY m.created_at DESC""", (user_id, training_type))
+                       ORDER BY m.sort_order ASC, m.created_at ASC""", (user_id, training_type))
     else:
         cur.execute("""SELECT m.*,u.fname,u.lname FROM lms_modules m
                        JOIN users u ON m.instructor_id=u.id
-                       WHERE m.training_type=%s ORDER BY m.created_at DESC""", (training_type,))
+                       WHERE m.training_type=%s
+                       ORDER BY m.sort_order ASC, m.created_at ASC""", (training_type,))
     rows = cur.fetchall(); cur.close(); conn.close()
     return [dict(r) for r in rows]
 
@@ -129,6 +149,35 @@ def lms_update_module(module_id, title, description, training_type=None):
 def lms_toggle_publish(module_id, published):
     conn = get_db(); cur = conn.cursor()
     cur.execute("UPDATE lms_modules SET is_published=%s WHERE id=%s", (1 if published else 0, module_id))
+    conn.commit(); cur.close(); conn.close()
+
+
+def lms_toggle_module_lock(module_id, locked):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE lms_modules SET is_locked=%s WHERE id=%s", (1 if locked else 0, module_id))
+    conn.commit(); cur.close(); conn.close()
+
+
+def lms_toggle_quiz_lock(quiz_id, locked):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE lms_quizzes SET is_locked=%s WHERE id=%s", (1 if locked else 0, quiz_id))
+    conn.commit(); cur.close(); conn.close()
+
+
+def lms_toggle_exam_lock(exam_id, locked):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE lms_practical_exams SET is_locked=%s WHERE id=%s", (1 if locked else 0, exam_id))
+    conn.commit(); cur.close(); conn.close()
+
+
+def lms_update_material_pct(user_id, module_id, pct):
+    """Ratchets upward only — a trainee re-opening earlier pages shouldn't
+    lower the highest completion percentage already recorded."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("""INSERT INTO lms_progress (user_id,module_id) VALUES (%s,%s)
+                   ON CONFLICT (user_id,module_id) DO NOTHING""", (user_id, module_id))
+    cur.execute("""UPDATE lms_progress SET material_pct=GREATEST(material_pct,%s)
+                   WHERE user_id=%s AND module_id=%s""", (pct, user_id, module_id))
     conn.commit(); cur.close(); conn.close()
 
 
@@ -359,6 +408,44 @@ def lms_get_progress(user_id, module_id=None):
         row = cur.fetchone(); cur.close(); conn.close()
         return dict(row) if row else None
     cur.execute("SELECT * FROM lms_progress WHERE user_id=%s", (user_id,))
+    rows = cur.fetchall(); cur.close(); conn.close()
+    return [dict(r) for r in rows]
+
+
+def lms_get_trainee_progress_overview():
+    """Per-trainee rollup for the admin dashboard: modules completed vs. the
+    total published for their training type, average quiz score, and
+    whether they already hold a certificate."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT u.id, u.fname, u.lname, u.email, u.training_type,
+               COALESCE(tm.total_modules, 0) AS total_modules,
+               COALESCE(pr.completed_count, 0) AS completed_count,
+               pr.avg_score,
+               EXISTS (SELECT 1 FROM lms_certificates c WHERE c.user_id = u.id) AS has_certificate
+        FROM users u
+        LEFT JOIN (
+            -- Same is_published/training_type match as lms_get_modules_for_trainee(),
+            -- so this total agrees with what the trainee's own syllabus shows.
+            SELECT training_type, COUNT(*) AS total_modules
+            FROM lms_modules
+            WHERE is_published = 1
+            GROUP BY training_type
+        ) tm ON tm.training_type = u.training_type
+        LEFT JOIN LATERAL (
+            -- Progress rows are scoped to the trainee's own training_type here:
+            -- a completion logged against a module from a different program
+            -- (stale data, or a trainee reassigned since completing it) must
+            -- not inflate completed_count past total_modules.
+            SELECT COUNT(*) FILTER (WHERE p.completed = 1) AS completed_count,
+                   AVG(p.quiz_score) AS avg_score
+            FROM lms_progress p
+            JOIN lms_modules m ON m.id = p.module_id
+            WHERE p.user_id = u.id AND m.training_type = u.training_type
+        ) pr ON true
+        WHERE u.role = 'trainee' AND u.archived_at IS NULL
+        ORDER BY u.lname, u.fname
+    """)
     rows = cur.fetchall(); cur.close(); conn.close()
     return [dict(r) for r in rows]
 
@@ -669,10 +756,12 @@ def lms_get_module_requirements(module_ids):
     cur.execute("""
         SELECT m.id AS module_id,
                EXISTS(SELECT 1 FROM lms_quizzes q         WHERE q.module_id = m.id) AS has_quiz,
-               EXISTS(SELECT 1 FROM lms_practical_exams e WHERE e.module_id = m.id) AS has_exam
+               EXISTS(SELECT 1 FROM lms_practical_exams e WHERE e.module_id = m.id) AS has_exam,
+               EXISTS(SELECT 1 FROM lms_module_files f    WHERE f.module_id = m.id AND f.file_type = 'pdf') AS has_pdf
         FROM lms_modules m
         WHERE m.id = ANY(%s)
     """, (list(module_ids),))
     rows = cur.fetchall(); cur.close(); conn.close()
     return {r["module_id"]: {"has_quiz": bool(r["has_quiz"]),
+                             "has_pdf": bool(r["has_pdf"]),
                              "has_exam": bool(r["has_exam"])} for r in rows}

@@ -176,3 +176,18 @@ def contact():
         active="site.contact",
         solar_url=url_for("solar.solar_form"),
     )
+
+
+@site_bp.route("/privacy-policy")
+def privacy_policy():
+    return render_template("site/legal.html", active="site.privacy_policy", doc=C.PRIVACY_POLICY)
+
+
+@site_bp.route("/legal-notice")
+def legal_notice():
+    return render_template("site/legal.html", active="site.legal_notice", doc=C.LEGAL_NOTICE)
+
+
+@site_bp.route("/terms-and-conditions")
+def terms_conditions():
+    return render_template("site/legal.html", active="site.terms_conditions", doc=C.TERMS_CONDITIONS)

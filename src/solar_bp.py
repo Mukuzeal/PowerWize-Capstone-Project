@@ -509,6 +509,25 @@ ACCURACY:
 
 
 def _llama_recommendations(req: dict, result: dict) -> str:
+    off_grid = result.get("grid_connection") == "off_grid"
+
+    extra_lines = ""
+    if off_grid:
+        extra_lines += (
+            f"\n- This is an OFF-GRID system — no utility connection. "
+            f"There is no monthly bill to offset (so skip savings/payback entirely) — "
+            f"instead mention it needs {result.get('battery_kwh_capacity')} kWh of battery "
+            f"storage for autonomous operation, and that the panel array is oversized "
+            f"for reliability since there's no grid to fall back on."
+        )
+    if result.get("out_of_scope"):
+        extra_lines += (
+            f"\n- OUT OF SCOPE: {result.get('out_of_scope_reason')} "
+            f"State plainly that these figures are indicative only and a full "
+            f"engineering site assessment is required before proceeding — do not "
+            f"present this as a ready-to-use quotation."
+        )
+
     prompt = f"""A Solar PV quotation has been computed for a customer. Provide a friendly, clear explanation of the results and recommendations in 3–4 short paragraphs. Do NOT restate every number — explain what it means and give actionable advice.
 
 Customer Profile:
@@ -520,13 +539,14 @@ Customer Profile:
 Computed Results:
 - System size: {result['system_size_kw']} kWp
 - Panels needed: {result['panel_count']} × 400W panels
+- Estimated annual energy yield: {result.get('estimated_annual_yield_kwh')} kWh
 - Estimated cost: ₱{result['cost_min']:,} – ₱{result['cost_max']:,}
 - Monthly savings: ₱{result['monthly_savings']:,}
 - Payback period: {result['roi_years']} years
 - Roof feasibility: {result['feasibility']}
 - Recommended system: {result['system_type']}
 - Battery storage: {'Recommended' if result['battery_recommended'] else 'Optional'}
-{result.get('phase_note','')}
+{result.get('phase_note','')}{extra_lines}
 
 Write in a helpful, professional tone suitable for a Philippine audience. Mention if battery storage is advisable and why, comment on the payback period, and note any concerns about roof space if applicable."""
 
@@ -542,6 +562,9 @@ def _process_and_save(form_data: dict, bill_path: str | None = None,
     kwh  = form_data.get("kwh_monthly") or ocr_kwh
     bill = form_data.get("monthly_bill_php") or ocr_amount
 
+    establishment_type = form_data.get("establishment_type", "residential")
+    grid_connection     = form_data.get("grid_connection", "grid_tie")
+
     result = solar_compute(
         kwh_monthly           = float(kwh)  if kwh  else None,
         bill_php              = float(bill) if bill else None,
@@ -549,6 +572,8 @@ def _process_and_save(form_data: dict, bill_path: str | None = None,
         roof_sqm              = float(form_data["roof_sqm"]) if form_data.get("roof_sqm") else None,
         time_of_use_night_pct = int(form_data["time_of_use_night_pct"]) if form_data.get("time_of_use_night_pct") else None,
         electrical_phase      = form_data.get("electrical_phase", "single"),
+        establishment_type    = establishment_type,
+        grid_connection       = grid_connection,
     )
 
     db_data = {
@@ -557,7 +582,7 @@ def _process_and_save(form_data: dict, bill_path: str | None = None,
         "address":              form_data.get("address",""),
         "email":                form_data.get("email",""),
         "contact":              form_data.get("contact",""),
-        "establishment_type":   form_data.get("establishment_type","residential"),
+        "establishment_type":   establishment_type,
         "ownership":            form_data.get("ownership","owned"),
         "electrical_phase":     form_data.get("electrical_phase","single"),
         "monthly_bill_php":     bill,
@@ -569,6 +594,7 @@ def _process_and_save(form_data: dict, bill_path: str | None = None,
         "bill_path":            bill_path,
         "ocr_kwh":              ocr_kwh,
         "ocr_bill_amount":      ocr_amount,
+        "grid_connection":      grid_connection,
     }
     req_id = save_solar_request(db_data)
 
@@ -586,6 +612,11 @@ def _process_and_save(form_data: dict, bill_path: str | None = None,
         battery_recommended= int(result["battery_recommended"]),
         ai_explanation     = ai_text,
         status             = "ai_processed",
+        estimated_monthly_yield_kwh = result["estimated_monthly_yield_kwh"],
+        estimated_annual_yield_kwh  = result["estimated_annual_yield_kwh"],
+        battery_kwh_capacity        = result["battery_kwh_capacity"],
+        out_of_scope                = int(result["out_of_scope"]),
+        out_of_scope_reason         = result["out_of_scope_reason"],
     )
     return req_id
 
@@ -853,6 +884,7 @@ def solar_submit():
         "establishment_type":    f.get("establishment_type","residential"),
         "ownership":             f.get("ownership","owned"),
         "electrical_phase":      f.get("electrical_phase","single"),
+        "grid_connection":       f.get("grid_connection","grid_tie"),
         "monthly_bill_php":      f.get("monthly_bill_php") or None,
         "kwh_monthly":           f.get("kwh_monthly") or ocr_kwh or None,
         "time_of_use_night_pct": f.get("time_of_use_night_pct") or None,
@@ -942,12 +974,15 @@ def admin_solar_review(req_id):
         return redirect("/auth")
     f = request.form
     update_solar_request(req_id,
-        final_system_kw  = f.get("final_system_kw") or None,
-        final_panel_count= f.get("final_panel_count") or None,
-        final_cost       = f.get("final_cost") or None,
-        reviewer_notes   = f.get("reviewer_notes",""),
-        reviewed_at      = datetime.now(),
-        status           = "reviewed",
+        final_system_kw      = f.get("final_system_kw") or None,
+        final_panel_count    = f.get("final_panel_count") or None,
+        final_cost           = f.get("final_cost") or None,
+        final_monthly_savings= f.get("final_monthly_savings") or None,
+        final_roi_years      = f.get("final_roi_years") or None,
+        final_system_type    = f.get("final_system_type") or None,
+        reviewer_notes       = f.get("reviewer_notes",""),
+        reviewed_at          = datetime.now(),
+        status               = "reviewed",
     )
     _send_quotation_email(req_id)
     flash("Quotation reviewed and sent to client.", "success")
@@ -960,10 +995,13 @@ def _send_quotation_email(req_id: int):
         return
     try:
         from email_utils import _send
-        system_kw  = req.get("final_system_kw") or req.get("system_size_kw")
-        panels     = req.get("final_panel_count") or req.get("panel_count")
-        cost       = req.get("final_cost")
-        cost_range = f"₱{req['cost_min']:,.0f} – ₱{req['cost_max']:,.0f}" if not cost else f"₱{cost:,.0f}"
+        system_kw      = req.get("final_system_kw") or req.get("system_size_kw")
+        panels         = req.get("final_panel_count") or req.get("panel_count")
+        cost           = req.get("final_cost")
+        cost_range     = f"₱{req['cost_min']:,.0f} – ₱{req['cost_max']:,.0f}" if not cost else f"₱{cost:,.0f}"
+        monthly_savings= req.get("final_monthly_savings") or req.get("monthly_savings")
+        roi_years      = req.get("final_roi_years") or req.get("roi_years")
+        system_type    = req.get("final_system_type") or req.get("system_type") or "grid-tie"
         html = f"""
 <div style="font-family:'DM Sans',Arial,sans-serif;max-width:600px;margin:0 auto">
   <div style="background:linear-gradient(135deg,#0D3B27,#1E7A4B);padding:28px;border-radius:12px 12px 0 0;text-align:center">
@@ -977,9 +1015,9 @@ def _send_quotation_email(req_id: int):
       <tr style="background:#F9FAFB"><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">System Size</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{system_kw} kWp</td></tr>
       <tr><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">No. of Panels</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{panels} × 400W panels</td></tr>
       <tr style="background:#F9FAFB"><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">Estimated Cost</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{cost_range}</td></tr>
-      <tr><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">Monthly Savings</td><td style="padding:8px 12px;font-weight:600;color:#16A34A;border:1px solid #E5E7EB">₱{req['monthly_savings']:,.2f}</td></tr>
-      <tr style="background:#F9FAFB"><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">System Type</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{(req.get('system_type') or 'Grid-Tie').title()}</td></tr>
-      <tr><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">Payback Period</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{req['roi_years']} years</td></tr>
+      <tr><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">Monthly Savings</td><td style="padding:8px 12px;font-weight:600;color:#16A34A;border:1px solid #E5E7EB">₱{monthly_savings:,.2f}</td></tr>
+      <tr style="background:#F9FAFB"><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">System Type</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{system_type.title()}</td></tr>
+      <tr><td style="padding:8px 12px;color:#6B7280;border:1px solid #E5E7EB">Payback Period</td><td style="padding:8px 12px;font-weight:600;border:1px solid #E5E7EB">{roi_years} years</td></tr>
     </table>
     {"<p style='font-size:13px;color:#374151;background:#F0FDF4;padding:12px;border-radius:8px;border:1px solid #86EFAC'><strong>Specialist Notes:</strong> " + req['reviewer_notes'] + "</p>" if req.get('reviewer_notes') else ""}
     <p style="font-size:13px;color:#6B7280">This is a <strong>preliminary AI-assisted estimate</strong>. Final pricing is subject to site assessment and current equipment availability.</p>

@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import render_template, redirect, url_for, abort, current_app
+from flask import render_template, redirect, url_for, abort, current_app, flash
 
 from db import (lms_get_certificates, lms_get_eligible_for_cert, lms_get_certificate,
                 lms_issue_certificate, lms_update_cert_blockchain, audit_log)
@@ -51,6 +51,39 @@ def certificate_issue(user_id):
         audit_log(_uid(), "issue_certificate", "certificate", cert_id,
                   f"Issued certificate {cert_id} to user {user_id} "
                   f"(on-chain: {'yes' if anchored else 'NO'})")
+        if anchored:
+            flash("Certificate issued and anchored on-chain.", "success")
+        else:
+            flash("Certificate issued, but the blockchain anchor failed. "
+                  "It's marked Off-chain below — use Re-anchor to retry.", "warning")
+    return redirect(url_for('lms.certificates_manage'))
+
+
+@lms_bp.route('/lms/certificates/reanchor/<cert_id>', methods=['POST'])
+def certificate_reanchor(cert_id):
+    if not _uid() or not _is_instructor():
+        abort(403)
+    cert = lms_get_certificate(cert_id=cert_id)
+    if not cert:
+        abort(404)
+    if cert.get('tx_hash'):
+        flash("This certificate is already anchored on-chain.", "success")
+        return redirect(url_for('lms.certificates_manage'))
+    try:
+        from blockchain_utils import store_certificate_hash
+        result = store_certificate_hash(cert_id, cert['user_id'])
+        if result:
+            lms_update_cert_blockchain(cert_id, result["tx_hash"], result["token_id"],
+                                       anchor_version=result.get("anchor_version", 1))
+            audit_log(_uid(), "reanchor_certificate", "certificate", cert_id,
+                      f"Re-anchored certificate {cert_id} on-chain")
+            flash("Certificate successfully anchored on-chain.", "success")
+        else:
+            flash("Re-anchor attempt failed again — still Off-chain.", "warning")
+    except Exception as e:
+        current_app.logger.warning(
+            "Certificate %s re-anchor failed: %s: %s", cert_id, type(e).__name__, e)
+        flash("Re-anchor attempt failed again — still Off-chain.", "warning")
     return redirect(url_for('lms.certificates_manage'))
 
 

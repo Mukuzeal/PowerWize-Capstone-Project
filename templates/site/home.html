@@ -22,6 +22,7 @@
         <p class="lead hero__sub" data-reveal>{{ HOME.hero_sub }}</p>
         <div class="btnrow" data-reveal>
           {{ btn('Request an energy audit', url_for('site.contact') ~ '#enquiry') }}
+          {{ btn('Get a solar PV quote', url_for('solar.solar_form'), 'btn--amber') }}
           {{ btn('2026 training schedule', url_for('registration.programs') ~ '#schedule', 'btn--ghost') }}
         </div>
       </div>

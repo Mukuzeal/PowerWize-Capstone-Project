@@ -1,6 +1,11 @@
+import math
+from datetime import datetime
+
 from flask import Blueprint, request, render_template, redirect, session, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
-from db import get_db, dict_cur, create_reset_token, get_reset_token, mark_reset_token_used, reset_user_password, get_user_by_email
+from db import (get_db, dict_cur, create_reset_token, get_reset_token, mark_reset_token_used,
+                reset_user_password, get_user_by_email, register_failed_login,
+                reset_login_attempts, MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES)
 from utils import base_url
 
 auth_bp = Blueprint("auth", __name__)
@@ -24,15 +29,32 @@ def auth_login():
         conn = get_db()
         cur  = dict_cur(conn)
         cur.execute("""
-            SELECT id, role, fname, lname, email, password_hash, payment_status, archived_at
+            SELECT id, role, fname, lname, email, password_hash, payment_status, archived_at,
+                   failed_login_attempts, locked_until
             FROM users WHERE email = %s AND archived_at IS NULL
         """, (email,))
         user = cur.fetchone()
         cur.close(); conn.close()
 
-        if not user or not check_password_hash(user["password_hash"], password):
-            errors.append("Invalid email or password.")
+        if user and user["locked_until"] and user["locked_until"] > datetime.now():
+            minutes_left = max(1, math.ceil((user["locked_until"] - datetime.now()).total_seconds() / 60))
+            errors.append(f"Too many failed attempts. Try again in {minutes_left} "
+                          f"minute{'s' if minutes_left != 1 else ''}.")
+        elif not user or not check_password_hash(user["password_hash"], password):
+            if user:
+                state = register_failed_login(user["email"])
+                attempts_left = MAX_LOGIN_ATTEMPTS - state["failed_login_attempts"]
+                if attempts_left <= 0:
+                    errors.append(f"Too many failed attempts. Your account is locked for "
+                                  f"{LOCKOUT_MINUTES} minutes.")
+                else:
+                    errors.append(f"Invalid email or password. {attempts_left} "
+                                  f"attempt{'s' if attempts_left != 1 else ''} left before "
+                                  f"your account is locked.")
+            else:
+                errors.append("Invalid email or password.")
         else:
+            reset_login_attempts(user["email"])
             session["user_id"]   = user["id"]
             session["user_role"] = user["role"]
             session["user_name"] = f"{user['fname']} {user['lname']}"

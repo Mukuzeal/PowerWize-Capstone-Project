@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, flash, session
 from werkzeug.security import generate_password_hash
-from db import get_db, get_account_token, mark_token_used
+from db import get_db, get_account_token, mark_token_used, normalize_training_type
 
 onboarding_bp = Blueprint("onboarding", __name__)
 
@@ -47,7 +47,7 @@ def create_account(token):
                     ("trainee", fname, lname, tok["email"],
                      generate_password_hash(password),
                      tok.get("contact_number", ""), tok.get("company_name", ""),
-                     "unpaid", tok.get("training_type", "training"))
+                     "unpaid", normalize_training_type(tok.get("form_type"), tok.get("training_type")))
                 )
                 conn.commit()
                 cur.close(); conn.close()

@@ -3,7 +3,7 @@ import secrets
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask
+from flask import Flask, request, session, render_template, jsonify
 from flask_wtf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from db import init_db
@@ -51,6 +51,20 @@ csrf.exempt(app.view_functions["upload_validation.validate_upload"])
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 init_db()
+
+@app.errorhandler(403)
+def forbidden(e):
+    # Real browser navigations always send an Accept header that includes
+    # text/html; a missing/empty Accept (seen from some HTTP clients, not
+    # real browsers) is treated the same way rather than defaulting to JSON.
+    accept = request.accept_mimetypes
+    wants_json = (request.headers.get("X-Requested-With") == "XMLHttpRequest"
+                 or (len(accept) > 0 and "text/html" not in accept))
+    if wants_json:
+        return jsonify(error="Forbidden"), 403
+    home_url = {"admin": "/admin", "employee": "/employee", "trainee": "/portal"}.get(
+        session.get("user_role"), "/auth")
+    return render_template("shared/access_denied.html", home_url=home_url), 403
 
 @app.after_request
 def set_charset(response):

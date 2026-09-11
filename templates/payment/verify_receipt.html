@@ -42,7 +42,11 @@
           </div>
           <div class="result-row">
             <span class="label"><i class="fa-solid fa-user"></i> Paid by</span>
-            <span class="value">{{ receipt.fname }} {{ receipt.lname }}</span>
+            <span class="value">
+              {% if full_disclosure %}{{ receipt.fname }} {{ receipt.lname }}
+              {% else %}{{ receipt.fname }} {{ receipt.lname[0] }}.
+              {% endif %}
+            </span>
           </div>
           <div class="result-row">
             <span class="label"><i class="fa-solid fa-peso-sign"></i> Amount</span>

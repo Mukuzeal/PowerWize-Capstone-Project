@@ -33,7 +33,7 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # LMStudio config
 LMSTUDIO_URL = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
-LMSTUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "Qwen/Qwen3.5-VL-8B-Instruct")
+LMSTUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-4b")
 
 # Dev-only escape hatch. Set DEV_SKIP_VALIDATION=1 in .env to make every
 # validation call pass without hitting Groq. NEVER set this in production.
@@ -415,36 +415,13 @@ def validate_file(file_bytes: bytes, filename: str, doc_type: str) -> dict:
     return result
 
 
-SELFIE_VALIDATION_PROMPT = (
-    "You are validating a SELFIE photo with a government ID for identity verification.\n\n"
-    "Check ONLY these criteria and reply with strict JSON:\n"
-    "1. 'has_id_visible': Is a government ID card clearly visible in the photo?\n"
-    "2. 'has_face': Is the person's face clearly visible?\n"
-    "3. 'both_visible': Are BOTH the person's face AND the ID card visible in the same photo?\n"
-    "4. 'is_blurry': Is the photo blurry or out of focus?\n"
-    "5. 'text_legible': Are the texts on the ID card legible and readable?\n"
-    "6. 'is_real_photo': Is this a real photo (not a screenshot, painting, or fake)?\n\n"
-    "ACCEPT (valid=true) ONLY if:\n"
-    "- Both face and ID are clearly visible in one photo\n"
-    "- Photo is NOT blurry\n"
-    "- Text on ID is clearly readable\n"
-    "- It's a real photo of a person\n\n"
-    "REJECT (valid=false) if ANY of the above fail.\n\n"
-    "Reply ONLY with strict JSON:\n"
-    "{\"valid\": true|false, \"reason\": \"short user-facing explanation\", "
-    "\"details\": {\"has_id_visible\": bool, \"has_face\": bool, \"both_visible\": bool, "
-    "\"is_blurry\": bool, \"text_legible\": bool, \"is_real_photo\": bool}}"
-)
-
-
 def face_match(selfie_bytes: bytes, selfie_filename: str) -> dict:
-    """Validate selfie with ID using AI (Qwen3.5 VL).
+    """Accept the selfie+ID photo after basic format/size checks and save it.
 
-    Checks:
-    - Real selfie (not screenshot/fake)
-    - Both face and ID visible
-    - Not blurry
-    - ID text is legible
+    No AI quality gate here — low-quality webcams produced enough blurry/
+    dim false rejections that it did more harm than good. Liveness is
+    handled client-side (center-and-hold capture); identity is confirmed
+    by an admin afterward (admin_approve_selfie / admin_reject_selfie).
     """
     from flask import current_app
     import uuid
@@ -462,34 +439,16 @@ def face_match(selfie_bytes: bytes, selfie_filename: str) -> dict:
     if len(selfie_bytes) == 0:
         return {"valid": False, "reason": "File is empty."}
 
-    # Convert to data URL for AI analysis
-    data_url = _image_to_data_url(selfie_bytes, ext)
-
-    # Validate with AI
     try:
-        result = _call_groq_vision(SELFIE_VALIDATION_PROMPT, data_url)
+        saved_filename = f"selfie_{uuid.uuid4().hex}.{ext}"
+        upload_path = os.path.join(current_app.config["UPLOAD_FOLDER"], saved_filename)
+        with open(upload_path, "wb") as f:
+            f.write(selfie_bytes)
     except Exception as e:
-        return {"valid": False, "reason": f"Verification service error: {type(e).__name__}"}
+        return {"valid": False, "reason": f"Error saving photo: {str(e)}"}
 
-    if not isinstance(result, dict) or "valid" not in result:
-        return {"valid": False, "reason": "Verification service returned unexpected response."}
-
-    result.setdefault("reason", "")
-    result.setdefault("details", {})
-
-    # If AI validation passed, save the file
-    if result.get("valid"):
-        try:
-            saved_filename = f"selfie_{uuid.uuid4().hex}.{ext}"
-            upload_path = os.path.join(current_app.config["UPLOAD_FOLDER"], saved_filename)
-            with open(upload_path, "wb") as f:
-                f.write(selfie_bytes)
-            result["filename"] = saved_filename
-            result.setdefault("reason", "Selfie verified! Your identity confirmation is complete.")
-        except Exception as e:
-            return {"valid": False, "reason": f"Error saving photo: {str(e)}"}
-
-    return result
+    return {"valid": True, "filename": saved_filename,
+            "reason": "Photo uploaded. An admin will verify your identity."}
 
 
 @validation_bp.route("/api/face-match", methods=["POST"])

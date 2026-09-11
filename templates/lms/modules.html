@@ -4,8 +4,10 @@
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 {% endblock %}
 
 {% block main %}
@@ -19,7 +21,7 @@
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       {% if session.get('user_role') == 'admin' %}
-      <a href="/admin" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+      <a href="/admin#modules" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
       {% elif session.get('user_role') == 'employee' %}
       <a href="/employee#modules" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
       {% endif %}
@@ -28,25 +30,68 @@
   </div>
 
   {% if modules %}
-  <div class="module-grid" data-reveal-group>
+  <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1.25rem">
+    <div style="position:relative;flex:1;min-width:220px">
+      <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.9rem;top:50%;transform:translateY(-50%);color:var(--fg-mute);font-size:0.8rem;pointer-events:none"></i>
+      <input type="text" id="module-search" class="form-input" style="padding-left:2.2rem" placeholder="Search by title, program, or instructor…">
+    </div>
+    <select id="module-program" class="form-input" style="max-width:200px;flex:none">
+      <option value="">All Programs</option>
+      <option value="CEA Training">CEA Training</option>
+      <option value="CEA Renewal">CEA Renewal</option>
+      <option value="CEM Training">CEM Training</option>
+      <option value="CEM Renewal">CEM Renewal</option>
+      <option value="GEMP – LGU">GEMP – LGU</option>
+      <option value="GEMP – Gov't Entity">GEMP – Gov't Entity</option>
+      <option value="Renewal">Renewal</option>
+    </select>
+    <select id="module-sort" class="form-input" style="max-width:200px;flex:none">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="title-asc">Title (A–Z)</option>
+      <option value="title-desc">Title (Z–A)</option>
+      <option value="status">Status (Published first)</option>
+      <option value="program-asc">Training Program (A–Z)</option>
+      <option value="program-desc">Training Program (Z–A)</option>
+    </select>
+  </div>
+  <div class="lms-empty" id="module-empty" data-reveal="tight" style="display:none">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <p>No modules match your search.</p>
+  </div>
+  <div class="module-grid" data-reveal-group id="module-grid">
     {% for m in modules %}
-    <div class="module-card" data-reveal="tight">
+    {% set program_label =
+        'CEM Training' if m.training_type == 'training' else
+        'CEA Training' if m.training_type == 'cea_training' else
+        'Renewal' if m.training_type == 'renewal' else
+        'CEA Renewal' if m.training_type == 'cea_renewal' else
+        'CEM Renewal' if m.training_type == 'cem_renewal' else
+        'GEMP – LGU' if m.training_type == 'gemp_lgu' else
+        "GEMP – Gov't Entity" if m.training_type == 'gemp_oge' else
+        m.training_type %}
+    <div class="module-card" data-reveal="tight"
+         data-title="{{ m.title|lower }}"
+         data-desc="{{ (m.description or '')|lower }}"
+         data-instructor="{{ (m.fname ~ ' ' ~ m.lname)|lower }}"
+         data-type="{{ m.training_type|lower }}"
+         data-program="{{ program_label|lower }}"
+         data-status="{{ 'published' if m.is_published else 'draft' }}"
+         data-created="{{ m.created_at.isoformat() if m.created_at else '' }}">
       <div class="module-card-header">
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
           <span class="module-status-badge {{ 'published' if m.is_published else 'draft'}}">
             <i class="fa-solid {{ 'fa-globe' if m.is_published else 'fa-pen-to-square'}}"></i>
             {{ 'Published' if m.is_published else 'Draft'}}
           </span>
+          {% if m.is_locked %}
+          <span class="module-status-badge" style="background:rgba(220,38,38,0.15);color:#dc2626">
+            <i class="fa-solid fa-lock"></i> Locked
+          </span>
+          {% endif %}
           <span class="module-status-badge">
             <i class="fa-solid fa-tag"></i>
-            {% if m.training_type == 'training' %}CEM Training
-            {% elif m.training_type == 'cea_training' %}CEA Training
-            {% elif m.training_type == 'renewal' %}Renewal
-            {% elif m.training_type == 'cea_renewal' %}CEA Renewal
-            {% elif m.training_type == 'cem_renewal' %}CEM Renewal
-            {% elif m.training_type == 'gemp_lgu' %}GEMP – LGU
-            {% elif m.training_type == 'gemp_oge' %}GEMP – Gov't Entity
-            {% else %}{{ m.training_type}}{% endif %}
+            {{ program_label }}
           </span>
         </div>
         <span class="module-date">{{ m.created_at.strftime('%b %d, %Y') if m.created_at else ''}}</span>
@@ -57,7 +102,13 @@
       <div class="module-card-actions">
         <a href="/lms/modules/{{ m.id}}" class="btn-sm btn-outline"><i class="fa-solid fa-gear"></i> Manage</a>
         <a href="/lms/modules/{{ m.id}}/edit" class="btn-sm btn-ghost"><i class="fa-solid fa-pen"></i> Edit</a>
-        <form action="/lms/modules/{{ m.id}}/delete" method="post" onsubmit="return confirm('Delete this module?')">
+        <form action="/lms/modules/{{ m.id}}/lock" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+          <button class="btn-sm {{ 'btn-ghost' if m.is_locked else 'btn-outline' }}" title="Locking blocks every trainee regardless of their progress">
+            <i class="fa-solid {{ 'fa-lock-open' if m.is_locked else 'fa-lock' }}"></i> {{ 'Unlock' if m.is_locked else 'Lock' }}
+          </button>
+        </form>
+        <form action="/lms/modules/{{ m.id}}/delete" method="post" onsubmit="return swalConfirmDelete(event, 'Delete this module?')">
           <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
           <button class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
         </form>
@@ -75,4 +126,68 @@
 
 </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function initModuleFilter() {
+  var grid = document.getElementById('module-grid');
+  if (!grid) return;
+  var cards      = Array.prototype.slice.call(grid.querySelectorAll('.module-card'));
+  cards.forEach(function(card) { card.classList.add('is-in'); });
+  var searchInput   = document.getElementById('module-search');
+  var sortSelect    = document.getElementById('module-sort');
+  var programSelect = document.getElementById('module-program');
+  var emptyMsg      = document.getElementById('module-empty');
+
+  function apply() {
+    var q      = (searchInput.value || '').trim().toLowerCase();
+    var prog   = programSelect.value.trim().toLowerCase();
+    var sortBy = sortSelect.value;
+
+    var matched = [], hidden = [];
+    cards.forEach(function(card) {
+      var haystack = [card.dataset.title, card.dataset.desc, card.dataset.instructor, card.dataset.type].join(' ');
+      var progMatch = !prog || (card.dataset.program || '').trim() === prog;
+      var match = (!q || haystack.indexOf(q) !== -1) && progMatch;
+      if (match) matched.push(card); else hidden.push(card);
+    });
+
+    emptyMsg.style.display = matched.length === 0 ? 'flex' : 'none';
+    grid.style.display     = matched.length === 0 ? 'none' : '';
+
+    matched.sort(function(a, b) {
+      switch (sortBy) {
+        case 'oldest':       return a.dataset.created.localeCompare(b.dataset.created);
+        case 'title-asc':    return a.dataset.title.localeCompare(b.dataset.title);
+        case 'title-desc':   return b.dataset.title.localeCompare(a.dataset.title);
+        case 'status':       return (a.dataset.status === 'published' ? 0 : 1) - (b.dataset.status === 'published' ? 0 : 1);
+        case 'program-asc':  return a.dataset.program.localeCompare(b.dataset.program);
+        case 'program-desc': return b.dataset.program.localeCompare(a.dataset.program);
+        default:             return b.dataset.created.localeCompare(a.dataset.created);
+      }
+    });
+
+    matched.forEach(function(card) { card.style.display = ''; card.classList.add('is-in'); grid.appendChild(card); });
+    hidden.forEach(function(card)  { card.style.display = 'none'; grid.appendChild(card); });
+  }
+
+  searchInput.addEventListener('input', apply);
+  sortSelect.addEventListener('change', apply);
+  programSelect.addEventListener('change', apply);
+}
+document.addEventListener('DOMContentLoaded', function() { setTimeout(initModuleFilter, 0); });
+
+function swalConfirmDelete(event, message) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  Swal.fire({
+    title: 'Confirm', text: message, icon: 'warning',
+    showCancelButton: true, confirmButtonColor: '#DC2626', cancelButtonColor: '#6B7280',
+    confirmButtonText: 'Delete', cancelButtonText: 'Cancel',
+    reverseButtons: true, focusCancel: true, customClass: { popup: 'swal-font' }
+  }).then(function (result) { if (result.isConfirmed) form.submit(); });
+  return false;
+}
+</script>
 {% endblock %}

@@ -1,10 +1,10 @@
 import io
 
-from flask import session, redirect, send_file
+from flask import session, send_file
 
 from db import get_registrations, get_users, get_solar_requests, audit_log, get_db, dict_cur
 
-from . import admin_bp
+from . import admin_bp, require_admin
 
 
 def _xl_response(wb, filename):
@@ -32,8 +32,9 @@ def _xl_header(ws, headers):
 
 @admin_bp.route("/admin/export/registrations")
 def export_registrations():
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     from openpyxl import Workbook
     regs = get_registrations()
     wb = Workbook(); ws = wb.active; ws.title = "Registrations"
@@ -50,8 +51,9 @@ def export_registrations():
 
 @admin_bp.route("/admin/export/users")
 def export_users():
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     from openpyxl import Workbook
     users = get_users()
     wb = Workbook(); ws = wb.active; ws.title = "Users"
@@ -68,8 +70,9 @@ def export_users():
 
 @admin_bp.route("/admin/export/payments")
 def export_payments():
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     from openpyxl import Workbook
     conn = get_db(); cur = dict_cur(conn)
     cur.execute("""
@@ -93,8 +96,9 @@ def export_payments():
 
 @admin_bp.route("/admin/export/lms-progress")
 def export_lms_progress():
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     from openpyxl import Workbook
     conn = get_db(); cur = dict_cur(conn)
     cur.execute("""
@@ -124,8 +128,9 @@ def export_lms_progress():
 
 @admin_bp.route("/admin/export/solar-requests")
 def export_solar_requests():
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     from openpyxl import Workbook
     reqs = get_solar_requests()
     wb = Workbook(); ws = wb.active; ws.title = "Solar Requests"

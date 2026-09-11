@@ -17,6 +17,7 @@ from content import (
     SITE, REGISTRATIONS, CREDENTIALS, NAV,
     CAPABILITIES, PROGRAMS, SCHEDULES,
     HOME, ABOUT, CONTACT,
+    PRIVACY_POLICY, LEGAL_NOTICE, TERMS_CONDITIONS,
 )
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -280,9 +281,9 @@ def footer_html():
     <div class="foot__legal">
       <p class="mono">© 2026 {e(SITE["legal"])} · All rights reserved</p>
       <nav aria-label="Legal">
-        <a class="mono" href="contact.html">Legal notice</a>
-        <a class="mono" href="contact.html">Privacy policy</a>
-        <a class="mono" href="contact.html">Terms &amp; conditions</a>
+        <a class="mono" href="legal-notice.html">Legal notice</a>
+        <a class="mono" href="privacy-policy.html">Privacy policy</a>
+        <a class="mono" href="terms-and-conditions.html">Terms &amp; conditions</a>
       </nav>
     </div>
   </div>
@@ -400,6 +401,7 @@ def build_home():
         <p class="lead hero__sub" data-reveal>{e(HOME["hero_sub"])}</p>
         <div class="btnrow" data-reveal>
           {btn("Request an energy audit", "contact.html#enquiry")}
+          {btn("Get a solar PV quote", "contact.html#enquiry", "btn--amber")}
           {btn("2026 training schedule", "programs.html#schedule", "btn--ghost")}
         </div>
       </div>
@@ -1079,12 +1081,59 @@ def build_contact():
     )
 
 
+def build_legal(doc, filename):
+    """Generic renderer for the legal pages (Privacy Policy, Legal Notice,
+    Terms & Conditions) — same {heading, paragraphs, list, closing} section
+    shape as src/site_content.py's LEGAL_* dicts, so both builds stay in
+    sync off the one set of mirrored text."""
+    sub = f"Effective {doc['effective_date']}"
+    if doc.get("version"):
+        sub += f" · {doc['version']}"
+
+    sections = ""
+    for s in doc["sections"]:
+        paras = "".join(f'<p class="prose" style="margin-bottom:1rem;white-space:pre-line">{e(p)}</p>'
+                         for p in s.get("paragraphs", []))
+        items = ""
+        if s.get("list"):
+            items = '<ul class="prose" style="margin:0 0 1rem 1.25rem;padding:0">' + "".join(
+                f'<li style="margin-bottom:.5rem">{e(item)}</li>' for item in s["list"]
+            ) + "</ul>"
+        closing = "".join(f'<p class="prose" style="margin-bottom:1rem;white-space:pre-line">{e(p)}</p>'
+                           for p in s.get("closing", []))
+        sections += f"""<div style="margin-bottom:2.5rem" data-reveal>
+      <h2 class="d3" style="margin-bottom:1.1rem">{e(s["heading"])}</h2>
+      {paras}{items}{closing}
+    </div>"""
+
+    body = masthead([("Home", "index.html")], "Legal", [doc["title"]], sub)
+    body += f"""<section class="band band--tight">
+  <div class="shell">
+    <div class="grid">
+      <div class="c8 start2" data-reveal-group>{sections}</div>
+    </div>
+  </div>
+</section>"""
+
+    return render(
+        filename,
+        f"{doc['title']} — EnergyWize Solutions",
+        f"{doc['title']} for EnergyWize Solutions Inc.",
+        body,
+    )
+
+
 # ===========================================================================
 def main():
     written = [build_home(), build_capabilities(), build_programs(),
                build_about(), build_contact()]
     written += [build_capability(c) for c in CAPABILITIES]
     written += [build_program(p) for p in PROGRAMS]
+    written += [
+        build_legal(PRIVACY_POLICY, "privacy-policy.html"),
+        build_legal(LEGAL_NOTICE, "legal-notice.html"),
+        build_legal(TERMS_CONDITIONS, "terms-and-conditions.html"),
+    ]
 
     urls = "".join(
         f"<url><loc>{SITE['url']}/{f}</loc></url>" for f in written

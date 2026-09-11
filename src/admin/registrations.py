@@ -3,17 +3,19 @@ from datetime import date
 from flask import request, redirect, flash, session, current_app, send_from_directory, abort
 
 from db import (get_db, dict_cur, set_registration_status, build_batch_label,
-                TYPE_OFFSETS, create_account_token, audit_log, get_pending_selfies)
+                build_label_from_dates, expand_offsets, TYPE_OFFSETS,
+                create_account_token, audit_log, get_pending_selfies)
 from email_utils import send_acceptance_email
 from utils import base_url
 
-from . import admin_bp
+from . import admin_bp, require_admin
 
 
 @admin_bp.route("/admin/registration/<reg_id>/status/<status>", methods=["POST"])
 def admin_registration_status(reg_id, status):
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     if status not in ("accepted", "rejected", "pending"):
         return redirect("/admin#registrations")
 
@@ -49,8 +51,9 @@ def admin_registration_status(reg_id, status):
 
 @admin_bp.route("/admin/schedule/delete/<int:schedule_id>", methods=["POST"])
 def admin_delete_schedule(schedule_id):
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT name FROM batches WHERE id = %s", (schedule_id,))
@@ -64,20 +67,61 @@ def admin_delete_schedule(schedule_id):
     return redirect("/admin#schedules")
 
 
+@admin_bp.route("/admin/schedule/edit/<int:schedule_id>", methods=["POST"])
+def admin_edit_schedule(schedule_id):
+    """Update a batch's name and/or its individual run days. `dates` arrives
+    as one repeated form field per day (in whatever order the admin's edit
+    dialog rendered them) — exactly as many as the batch already has, since
+    this only lets you move a day, not add or remove one."""
+    resp = require_admin()
+    if resp:
+        return resp
+    conn = get_db()
+    cur  = dict_cur(conn)
+    cur.execute("SELECT name, type, start_date, dates FROM batches WHERE id = %s", (schedule_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        conn.close()
+        flash("Batch not found.", "error")
+        return redirect("/admin#schedules")
+
+    name = request.form.get("name", "").strip() or row["name"]
+    date_strs = [d for d in request.form.getlist("dates") if d.strip()]
+    if date_strs:
+        dates = sorted(date.fromisoformat(d) for d in date_strs)
+    else:
+        dates = sorted(row["dates"]) if row["dates"] else [row["start_date"]]
+    start_date = dates[0]
+
+    cur.execute("UPDATE batches SET name = %s, start_date = %s, dates = %s WHERE id = %s",
+                (name, start_date, dates, schedule_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    label = build_label_from_dates(name, dates)
+    flash(f'"{label}" has been updated.', "success")
+    return redirect("/admin#schedules")
+
+
 @admin_bp.route("/admin/schedule/add", methods=["POST"])
 def admin_add_schedule():
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     name      = request.form.get("name",       "").strip()
     start_str = request.form.get("start_date", "").strip()
     btype = request.form.get("btype", "").strip()
     if name and btype in ("training", "renewal") and start_str:
         start_date = date.fromisoformat(start_str)
         offsets    = TYPE_OFFSETS["training"] if btype == "training" else TYPE_OFFSETS["renewal"]
+        dates      = expand_offsets(offsets, start_date)
         label      = build_batch_label(name, offsets, start_date)
         conn = get_db()
         cur  = conn.cursor()
-        cur.execute("INSERT INTO batches (name, type, start_date) VALUES (%s, %s, %s)", (name, btype, start_date))
+        cur.execute("INSERT INTO batches (name, type, start_date, dates) VALUES (%s, %s, %s, %s)",
+                    (name, btype, start_date, dates))
         conn.commit()
         cur.close()
         conn.close()
@@ -87,8 +131,9 @@ def admin_add_schedule():
 
 @admin_bp.route("/admin/registration/<reg_id>/selfie")
 def admin_registration_selfie(reg_id):
-    if session.get("user_role") != "admin":
-        abort(403)
+    resp = require_admin()
+    if resp:
+        return resp
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT selfie_with_id FROM registrations WHERE id = %s", (reg_id,))
@@ -103,8 +148,9 @@ def admin_registration_selfie(reg_id):
 
 @admin_bp.route("/admin/selfie/<reg_id>/approve", methods=["POST"])
 def admin_approve_selfie(reg_id):
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     conn = get_db()
     cur  = dict_cur(conn)
     cur.execute("SELECT email, full_name FROM registrations WHERE id = %s", (reg_id,))
@@ -129,8 +175,9 @@ def admin_approve_selfie(reg_id):
 
 @admin_bp.route("/admin/selfie/<reg_id>/reject", methods=["POST"])
 def admin_reject_selfie(reg_id):
-    if session.get("user_role") != "admin":
-        return redirect("/auth")
+    resp = require_admin()
+    if resp:
+        return resp
     reason = request.form.get("reason", "").strip()
     conn = get_db()
     cur  = conn.cursor()

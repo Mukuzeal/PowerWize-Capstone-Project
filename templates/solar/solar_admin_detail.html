@@ -139,6 +139,13 @@
     {% endif %}
   </div>
 
+  {% if request.out_of_scope %}
+  <div class="detail-card" style="border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08)">
+    <h2 style="color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> Out of Scope</h2>
+    <p style="margin:0;color:var(--fg-dim)">{{ request.out_of_scope_reason }} These figures are indicative only — route to a full site assessment before quoting.</p>
+  </div>
+  {% endif %}
+
   <!-- Client Information -->
   <div class="detail-card">
     <h2><i class="fa-solid fa-user"></i> Client Information</h2>
@@ -187,6 +194,16 @@
         <div class="detail-value">{{ "{:,.0f}".format(request.cost_min) if request.cost_min else "—" }} – {{ "{:,.0f}".format(request.cost_max) if request.cost_max else "—" }}</div>
       </div>
       <div>
+        <div class="detail-label">Energy Yield (kWh)</div>
+        <div class="detail-value">{{ request.estimated_monthly_yield_kwh or "—" }}/mo · {{ request.estimated_annual_yield_kwh or "—" }}/yr</div>
+      </div>
+      {% if request.system_type == 'off-grid' %}
+      <div>
+        <div class="detail-label">Battery Capacity (kWh)</div>
+        <div class="detail-value highlight">{{ request.battery_kwh_capacity or "—" }}</div>
+      </div>
+      {% else %}
+      <div>
         <div class="detail-label">Monthly Savings (₱)</div>
         <div class="detail-value highlight">{{ "{:,.2f}".format(request.monthly_savings) if request.monthly_savings else "—" }}</div>
       </div>
@@ -194,6 +211,7 @@
         <div class="detail-label">ROI Period</div>
         <div class="detail-value">{{ request.roi_years or "—" }} years</div>
       </div>
+      {% endif %}
       <div>
         <div class="detail-label">System Type</div>
         <div class="detail-value">{{ (request.system_type or "Grid-Tie").title() }}</div>
@@ -221,6 +239,18 @@
       <div>
         <div class="detail-label">Final Cost (₱)</div>
         <div class="detail-value highlight">{{ "{:,.0f}".format(request.final_cost) if request.final_cost else "—" }}</div>
+      </div>
+      <div>
+        <div class="detail-label">Final Monthly Savings (₱)</div>
+        <div class="detail-value highlight">{{ "{:,.2f}".format(request.final_monthly_savings) if request.final_monthly_savings else ("{:,.2f}".format(request.monthly_savings) if request.monthly_savings else "—") }}</div>
+      </div>
+      <div>
+        <div class="detail-label">Final Payback Period</div>
+        <div class="detail-value">{{ request.final_roi_years or request.roi_years or "—" }} years</div>
+      </div>
+      <div>
+        <div class="detail-label">Final System Type</div>
+        <div class="detail-value">{{ (request.final_system_type or request.system_type or "Grid-Tie").title() }}</div>
       </div>
     </div>
     {% if request.reviewer_notes %}
@@ -257,8 +287,30 @@
       </div>
 
       <div class="form-group">
+        <label class="form-label">Final Monthly Savings (₱)</label>
+        <input type="number" step="0.01" name="final_monthly_savings" class="form-input" placeholder="{{ request.monthly_savings or '0' }}" value="{{ request.final_monthly_savings or '' }}">
+        <div class="form-hint">Leave blank to use AI estimate: ₱{{ "{:,.2f}".format(request.monthly_savings) if request.monthly_savings else "0" }}</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Final Payback Period (years)</label>
+        <input type="number" step="0.1" name="final_roi_years" class="form-input" placeholder="{{ request.roi_years or '0' }}" value="{{ request.final_roi_years or '' }}">
+        <div class="form-hint">Leave blank to use AI estimate: {{ request.roi_years or "N/A" }} years</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Final System Type</label>
+        <select name="final_system_type" class="form-input">
+          <option value="" {{ "selected" if not request.final_system_type }}>Use AI estimate ({{ (request.system_type or "grid-tie").title() }})</option>
+          <option value="grid-tie" {{ "selected" if request.final_system_type == "grid-tie" }}>Grid-Tie</option>
+          <option value="hybrid" {{ "selected" if request.final_system_type == "hybrid" }}>Hybrid</option>
+          <option value="off-grid" {{ "selected" if request.final_system_type == "off-grid" }}>Off-Grid</option>
+        </select>
+      </div>
+
+      <div class="form-group">
         <label class="form-label">Specialist Notes (Optional)</label>
-        <textarea name="reviewer_notes" class="form-input form-textarea" placeholder="Add any notes or recommendations for the client…">{{ request.reviewer_notes or '' }}</textarea>
+        <textarea name="reviewer_notes" class="form-input form-textarea" placeholder="Add any notes or recommendations for the client…">{{ request.reviewer_notes or "Please note that prices of PV system parts are not fixed and may go up or down depending on market conditions. This quotation is a starting point; final pricing will be confirmed after a full site assessment." }}</textarea>
       </div>
 
       <div class="form-actions">

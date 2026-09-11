@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/logo.png">
+    <title>Access Denied – EnergyWize</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --gold: #D4A72A;
+            --green-dk: #0D3B27;
+            --green-pr: #16583C;
+            --red: #DC2626;
+            --red-slt: #FEE2E2;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--green-dk);
+            color: #1F2937;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23fff' fill-opacity='0.04'/%3E%3C/svg%3E");
+            background-size: 24px 24px;
+            pointer-events: none;
+        }
+
+        .site-header {
+            position: relative;
+            background: var(--green-dk);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            height: 68px;
+            border-bottom: 1px solid rgba(212, 167, 42, 0.25);
+        }
+
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .logo-img { height: 54px; width: auto; display: block; }
+
+        .page {
+            position: relative;
+            max-width: 480px;
+            margin: auto;
+            padding: 2rem 1.5rem 4rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .denied-badge {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            background: var(--red-slt);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.22);
+        }
+
+        .page h1 {
+            font-family: 'DM Serif Display', serif;
+            font-weight: 400;
+            font-size: 2.1rem;
+            color: #fff;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.01em;
+        }
+
+        .page p {
+            color: rgba(255, 255, 255, 0.65);
+            margin-bottom: 2rem;
+            font-size: 14.5px;
+            line-height: 1.6;
+        }
+
+        .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+        .btn {
+            padding: 11px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            font-family: 'DM Sans', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+
+        .btn:active { transform: scale(0.97); }
+        .btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+        .btn-primary {
+            background: var(--gold);
+            color: var(--green-dk);
+            box-shadow: 0 4px 14px rgba(212, 167, 42, 0.3);
+        }
+        .btn-primary:hover { background: #e6b730; transform: translateY(-2px); }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.16); transform: translateY(-2px); }
+
+        .site-footer {
+            position: relative;
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="site-header">
+        <a href="/" class="logo">
+            <img src="/static/logo.png" alt="PowerWize" class="logo-img">
+        </a>
+    </header>
+
+    <div class="page">
+        <div class="denied-badge"><i class="fa-solid fa-lock" style="color:var(--red)"></i></div>
+        <h1>You don't have access to this page</h1>
+        <p>Your account doesn't have permission to view this section. If you think this is a mistake, contact an administrator.</p>
+
+        <div class="actions">
+            <a href="{{ home_url }}" class="btn btn-primary"><i class="fa-solid fa-house"></i> Go to my dashboard</a>
+            <a href="/auth/logout" class="btn btn-secondary"><i class="fa-solid fa-right-from-bracket"></i> Log out</a>
+        </div>
+    </div>
+
+    <footer class="site-footer">© 2026 EnergyWize · PowerWize</footer>
+</body>
+
+</html>

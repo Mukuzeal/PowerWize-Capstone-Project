@@ -1,20 +1,20 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
 {% block title %}Quiz – {{ mod.title}}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 {% endblock %}
 
 {% block main %}
-{{ header("Training Modules")}}
 <div class="page-body">
         <div class="lms-wrap">
 
-            <div class="lms-page-header">
+            <div class="lms-page-header" data-reveal="tight">
                 <div>
                     <h2 class="lms-page-title"><i class="fa-solid fa-circle-question"></i> Quiz Manager</h2>
                     <p class="lms-page-sub">{{ mod.title}}</p>
@@ -23,7 +23,7 @@
             </div>
 
             <!-- Quiz settings -->
-            <div class="lms-card">
+            <div class="lms-card" data-reveal="tight">
                 <h3 class="card-inner-title">Quiz Settings</h3>
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
@@ -59,7 +59,13 @@
                         <button form="unpublish-form" class="btn-ghost"><i class="fa-solid fa-eye-slash"></i> Unpublish</button> {% else %}
                         <button form="publish-form" class="btn-primary" {% if not questions %}disabled title="Add questions first" {% endif %}>
           <i class="fa-solid fa-globe"></i> Publish Quiz
-        </button> {% endif %} {% endif %}
+        </button> {% endif %}
+                        {% if quiz.is_locked %}
+                        <button form="unlock-form" class="btn-outline" title="Locking blocks every trainee regardless of their progress"><i class="fa-solid fa-lock-open"></i> Unlock Quiz</button>
+                        {% else %}
+                        <button form="lock-form" class="btn-danger" title="Locking blocks every trainee regardless of their progress"><i class="fa-solid fa-lock"></i> Lock Quiz</button>
+                        {% endif %}
+                        {% endif %}
                     </div>
                 </form>
                 {% if quiz %}
@@ -71,12 +77,20 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
                     <input type="hidden" name="action" value="unpublish">
                 </form>
+                <form id="lock-form" action="/lms/modules/{{ mod.id}}/quiz" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+                    <input type="hidden" name="action" value="lock">
+                </form>
+                <form id="unlock-form" action="/lms/modules/{{ mod.id}}/quiz" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+                    <input type="hidden" name="action" value="unlock">
+                </form>
                 {% endif %}
             </div>
 
             {% if quiz %}
             <!-- Questions -->
-            <div class="lms-card">
+            <div class="lms-card" data-reveal="tight">
                 <div class="card-section-header">
                     <h3 class="card-inner-title">Questions <span class="badge badge-gray">{{ questions|length}}</span></h3>
                     <button type="button" class="btn-sm btn-outline" onclick="addQuestion()">
@@ -256,7 +270,7 @@ async function generateWithAI() {
     });
     const data = await res.json();
     loading.style.display = 'none';
-    if (data.error) { alert('Error: ' + data.error); btn.disabled = false; return; }
+    if (data.error) { Swal.fire({icon:'error', title:'Error', text: data.error, customClass:{popup:'swal-font'}}); btn.disabled = false; return; }
     const container = document.getElementById('questions-container');
     container.innerHTML = '';
     qCount = 0;
@@ -304,7 +318,7 @@ async function generateWithAI() {
       '<div class="form-actions" style="margin-top:16px"><button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save AI Questions</button></div>');
   } catch(e) {
     loading.style.display = 'none';
-    alert('AI generation failed: ' + e.message);
+    Swal.fire({icon:'error', title:'AI generation failed', text: e.message, customClass:{popup:'swal-font'}});
   }
   btn.disabled = false;
 }

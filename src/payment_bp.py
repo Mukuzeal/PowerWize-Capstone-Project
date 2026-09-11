@@ -354,5 +354,17 @@ def verify_receipt():
                 result = verify_hash_on_chain(tx_hash, receipt["receipt_hash"])
                 result["legacy"] = True
 
-    return render_template("payment/verify_receipt.html", result=result, receipt=receipt)
+    # This page is public — no login required, so anyone with a receipt ID can
+    # land here. The payer's full name only goes to the payer themselves or
+    # staff; everyone else sees an initial-masked name. The amount stays
+    # visible either way since it's just the published training/consultation
+    # fee, not a secret.
+    full_disclosure = False
+    if receipt:
+        uid = session.get("user_id")
+        role = session.get("user_role")
+        full_disclosure = role in ("admin", "employee") or (uid is not None and uid == receipt.get("user_id"))
+
+    return render_template("payment/verify_receipt.html", result=result, receipt=receipt,
+                           full_disclosure=full_disclosure)
 

@@ -4,7 +4,7 @@
 
 {%- block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css')}}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css')}}">
 <link rel="stylesheet" href="{{ url_for('static', filename='lms-quiz.css')}}">
 <meta name="csrf-token" content="{{ csrf_token()}}">
 {%- endblock %}
@@ -68,6 +68,23 @@
             </div>
         </form>
 
+    </div>
+
+    <!-- Submit confirmation modal -->
+    <div id="quiz-confirm-modal" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-paper-plane"></i> Submit Quiz</h3>
+                <button type="button" class="modal-close" onclick="quizConfirmGoBack()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="quiz-confirm-body" class="modal-sub"></div>
+            <div class="form-actions" style="margin-top:1rem">
+                <button type="button" class="btn-ghost" onclick="quizConfirmGoBack()">Go Back</button>
+                <button type="button" class="btn-primary" onclick="quizConfirmSubmitAnyway()">
+                    <i class="fa-solid fa-check"></i> Submit
+                </button>
+            </div>
+        </div>
     </div>
 
 {%- endblock %}

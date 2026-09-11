@@ -1,0 +1,159 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead, tlink with context %}
+{% from "shared/macros.html" import errors_block %}
+
+{% block title %}{{ 'Edit' if user else 'Add' }} User – EnergyWize Admin{% endblock %}
+{% block description %}{{ 'Update a user account.' if user else 'Create a new user account.' }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+{% set fd = form_data or user or {} %}
+
+<section class="formpage">
+  <div class="shell" style="max-width:48rem">
+
+    {{ fhead(
+      [('Dashboard', '/admin')],
+      'Users',
+      ('Edit<br><em>' ~ user.fname ~ ' ' ~ user.lname ~ '</em>') if user else 'Add a<br><em>new user</em>',
+      ('Update this account\'s details. Role and training type changes take effect immediately.' if user
+       else 'Create a user account directly, without going through the registration + approval flow.')
+    ) }}
+
+    {% if user %}
+    <div class="info-card">
+      <div class="ic-label"><i class="fa-solid fa-user"></i> Editing account</div>
+      <div class="ic-value">{{ user.fname }} {{ user.lname }}</div>
+      <div class="ic-sub">
+        ID {{ user.id }} · {{ user.email }}
+        {% if user.created_at %} · Joined {{ user.created_at.strftime('%b %d, %Y') }}{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {{ errors_block(errors) }}
+
+    <form class="form-card" method="post" id="user-form" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="section-header">
+        <div class="section-icon"><i class="fa-solid {{ 'fa-pen-to-square' if user else 'fa-user-plus' }}"></i></div>
+        <div>
+          <h2>Account Details</h2>
+          <p>{{ 'Update and save' if user else 'Fields marked' ~ ' * are required' }}</p>
+        </div>
+      </div>
+
+      <div class="form-body">
+
+        <div class="field">
+          <label for="role-input">Role <span class="req">*</span></label>
+          <select name="role" id="role-input" required>
+            <option value="">— Select role —</option>
+            <option value="admin"    {% if fd.role == 'admin' %}selected{% endif %}>Admin</option>
+            <option value="employee" {% if fd.role == 'employee' %}selected{% endif %}>Employee / Trainer</option>
+            <option value="trainee"  {% if fd.role == 'trainee' %}selected{% endif %}>Trainee</option>
+          </select>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <div class="field">
+          <label for="fname-input">First Name <span class="req">*</span></label>
+          <input type="text" name="fname" id="fname-input" value="{{ fd.fname or '' }}" required autofocus>
+        </div>
+
+        <div class="field">
+          <label for="lname-input">Last Name <span class="req">*</span></label>
+          <input type="text" name="lname" id="lname-input" value="{{ fd.lname or '' }}" required>
+        </div>
+
+        <div class="field">
+          <label for="email-input">Email <span class="req">*</span></label>
+          <input type="email" name="email" id="email-input" value="{{ fd.email or '' }}" required>
+        </div>
+
+        {% if not user %}
+        <div class="field">
+          <label for="password-input">Temporary Password <span class="req">*</span></label>
+          <input type="text" name="password" id="password-input" minlength="8" required
+                 placeholder="At least 8 characters">
+          <p class="form-hint">Share this with the user directly — it isn't emailed automatically.</p>
+        </div>
+        {% endif %}
+
+        <div class="form-divider"></div>
+
+        <div class="field">
+          <label for="contact-input">Contact Number</label>
+          <input type="text" name="contact_number" id="contact-input" value="{{ fd.contact_number or '' }}">
+        </div>
+
+        <div class="field">
+          <label for="company-input">Company</label>
+          <input type="text" name="company_name" id="company-input" value="{{ fd.company_name or '' }}">
+        </div>
+
+        <div class="form-divider"></div>
+
+        <div class="field" id="trainee-fields" style="display:none">
+          <label for="type-input">Training Type <span class="req">*</span></label>
+          <select name="training_type" id="type-input">
+            <option value="">— Select training type —</option>
+            <option value="training"     {% if fd.training_type == 'training' %}selected{% endif %}>CEM Training</option>
+            <option value="cea_training" {% if fd.training_type == 'cea_training' %}selected{% endif %}>CEA Training</option>
+            <option value="renewal"      {% if fd.training_type == 'renewal' %}selected{% endif %}>Renewal</option>
+            <option value="cea_renewal"  {% if fd.training_type == 'cea_renewal' %}selected{% endif %}>CEA Renewal</option>
+            <option value="cem_renewal"  {% if fd.training_type == 'cem_renewal' %}selected{% endif %}>CEM Renewal</option>
+            <option value="gemp_lgu"     {% if fd.training_type == 'gemp_lgu' %}selected{% endif %}>GEMP Training – LGU</option>
+            <option value="gemp_oge"     {% if fd.training_type == 'gemp_oge' %}selected{% endif %}>GEMP Training – Gov't Entity</option>
+          </select>
+          <p class="form-hint">Determines which LMS modules this trainee can see.</p>
+
+          <label for="payment-input" style="margin-top:1rem;display:block">Payment Status</label>
+          <select name="payment_status" id="payment-input">
+            <option value="unpaid" {% if (fd.payment_status or 'unpaid') == 'unpaid' %}selected{% endif %}>Unpaid</option>
+            <option value="paid"   {% if fd.payment_status == 'paid' %}selected{% endif %}>Paid</option>
+          </select>
+          <p class="form-hint">Unpaid trainees are sent to the payment page on login.</p>
+        </div>
+
+      </div>
+
+      <div class="form-footer">
+        <p>Fields marked <strong class="req-key">*</strong> are required.</p>
+        <button type="submit" class="btn-submit">
+          {{ 'Save Changes' if user else 'Create User' }} <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+
+    <p style="margin-top:2rem">
+      {{ tlink('Back to dashboard', '/admin#users') }}
+    </p>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var roleSel = document.getElementById('role-input');
+  var traineeFields = document.getElementById('trainee-fields');
+  var typeInput = document.getElementById('type-input');
+  function sync(){
+    var isTrainee = roleSel.value === 'trainee';
+    traineeFields.style.display = isTrainee ? 'block' : 'none';
+    typeInput.required = isTrainee;
+  }
+  roleSel.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

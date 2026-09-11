@@ -30,9 +30,14 @@
     {% for m in modules %}
     {% set p = prog_map.get(m.id, {}) %}
     {% set st = steps_map.get(m.id) %}
-    <a href="/lms/learn/{{ m.id}}" class="module-card module-card-link" data-reveal="tight">
+    {% set unlocked = unlocked_map.get(m.id, true) %}
+    <a href="{{ '/lms/learn/' ~ m.id if unlocked else '#' }}"
+       class="module-card module-card-link{{ ' module-card-locked' if not unlocked }}" data-reveal="tight"
+       {% if not unlocked %}onclick="return false" tabindex="-1" aria-disabled="true"{% endif %}>
       <div class="module-card-header">
-        {% if p.get('completed') %}
+        {% if not unlocked %}
+        <span class="module-status-badge draft"><i class="fa-solid fa-lock"></i> {{ 'Locked by your trainer' if m.is_locked else 'Locked' }}</span>
+        {% elif p.get('completed') %}
         <span class="module-status-badge published"><i class="fa-solid fa-circle-check"></i> Completed</span>
         {% elif p %}
         <span class="module-status-badge in-progress"><i class="fa-solid fa-spinner"></i> In Progress</span>
@@ -43,6 +48,7 @@
       <h3 class="module-card-title">{{ m.title}}</h3>
       <p class="module-card-desc">{{ (m.description or 'No description.')[:120]}}{% if m.description and m.description|length > 120 %}…{% endif %}</p>
       <div class="module-card-instructor"><i class="fa-solid fa-user-tie"></i> {{ m.fname}} {{ m.lname}}</div>
+      {% if unlocked %}
       <div class="learn-progress-row">
         <div class="mini-progress-bar">
           <div class="mini-progress-fill" style="width:{{ st.pct}}%"></div>
@@ -54,6 +60,9 @@
         {%- if next_step %}<i class="fa-solid fa-arrow-right"></i> Next: {{ next_step.label}}
         {%- else %}<i class="fa-solid fa-circle-check"></i> All steps done{% endif -%}
       </p>
+      {% else %}
+      <p class="module-next-step">{{ 'Ask your trainer to unlock this module.' if m.is_locked else 'Complete the previous module to unlock this one.' }}</p>
+      {% endif %}
     </a>
     {% endfor %}
   </div>

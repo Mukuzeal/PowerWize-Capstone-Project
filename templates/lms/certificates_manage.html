@@ -154,6 +154,14 @@
                  class="btn-xs btn-outline" style="white-space:nowrap">
                 <i class="fa-solid fa-qrcode"></i> Verify
               </a>
+              {% if not c.tx_hash %}
+              <form action="/lms/certificates/reanchor/{{ c.cert_id}}" method="post" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+                <button class="btn-xs btn-outline" type="submit" style="white-space:nowrap">
+                  <i class="fa-solid fa-link"></i> Re-anchor
+                </button>
+              </form>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

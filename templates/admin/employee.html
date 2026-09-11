@@ -22,6 +22,7 @@
       href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@300;400;500&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=JetBrains+Mono:wght@300;400;500&display=swap"></noscript>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-dash.css') }}">
@@ -630,6 +631,7 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 </form>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -808,7 +810,7 @@
       document.getElementById("mm-step-form").hidden = true;
       document.getElementById("mm-step-manage").hidden = false;
     }).catch(function () {
-      alert("Could not create the module. Please try again.");
+      Swal.fire({icon:'error', title:'Could not create the module', text:'Please try again.', confirmButtonColor:'#16583C'});
     }).finally(function () {
       mmSubmit.disabled = false;
       mmSubmit.textContent = "Create Module";
@@ -830,7 +832,7 @@
       headers: { "X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrfToken }
     }).then(function (r) { return r.json(); })
       .then(function (data) { setPublishBtn(data.is_published); })
-      .catch(function () { alert("Could not update the module's publish state."); });
+      .catch(function () { Swal.fire({icon:'error', title:"Could not update the module's publish state.", confirmButtonColor:'#16583C'}); });
   });
 
   document.getElementById("mm-upload").addEventListener("change", function () {
@@ -843,7 +845,7 @@
       headers: { "X-CSRFToken": csrfToken },
       body: fd
     }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.error) { alert(data.error); return; }
+      if (data.error) { Swal.fire({icon:'error', title:'Error', text: data.error, confirmButtonColor:'#16583C'}); return; }
       var noFiles = document.getElementById("mm-no-files");
       if (noFiles) noFiles.remove();
       var row = document.createElement("div");
@@ -854,7 +856,7 @@
       row.querySelector(".file-size").textContent = (data.size / 1024).toFixed(1) + " KB";
       document.getElementById("mm-file-list").appendChild(row);
     }).catch(function () {
-      alert("Upload failed. Please try again.");
+      Swal.fire({icon:'error', title:'Upload failed', text:'Please try again.', confirmButtonColor:'#16583C'});
     }).finally(function () { this.value = ""; }.bind(this));
   });
 

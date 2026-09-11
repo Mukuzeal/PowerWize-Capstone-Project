@@ -17,6 +17,12 @@
 
       <div class="prelim-badge"><i class="fa-solid fa-triangle-exclamation"></i> Preliminary AI-Generated Estimate — Not a Final Quotation</div>
 
+      {% if req.out_of_scope %}
+      <div class="prelim-badge" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5">
+        <i class="fa-solid fa-circle-exclamation"></i> Out of Scope — {{ req.out_of_scope_reason }}
+      </div>
+      {% endif %}
+
       <div class="status-line">
         Status:
         <span class="status-pill st-{{ status }}">
@@ -47,6 +53,7 @@
         </div>
 
         <!-- Key specs grid -->
+        {% set off_grid = req.system_type == 'off-grid' %}
         <div class="specs-grid">
           <div class="spec-item">
             <div class="spec-label">System Size</div>
@@ -58,6 +65,18 @@
             <div class="spec-value">{{ req.final_panel_count or req.panel_count }}</div>
             <div class="spec-unit">× 400W panels</div>
           </div>
+          {% if off_grid %}
+          <div class="spec-item">
+            <div class="spec-label">Battery Capacity</div>
+            <div class="spec-value is-signal">{{ req.battery_kwh_capacity or "–" }}</div>
+            <div class="spec-unit">kWh</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Energy Yield</div>
+            <div class="spec-value">{{ req.estimated_monthly_yield_kwh or "–" }}</div>
+            <div class="spec-unit">kWh / month</div>
+          </div>
+          {% else %}
           <div class="spec-item">
             <div class="spec-label">Monthly Savings</div>
             <div class="spec-value is-signal">₱{{ "{:,.0f}".format(req.monthly_savings) }}</div>
@@ -68,6 +87,7 @@
             <div class="spec-value">{{ req.roi_years or "–" }}</div>
             <div class="spec-unit">years</div>
           </div>
+          {% endif %}
         </div>
 
         <div class="result-body">
@@ -80,6 +100,13 @@
           <div class="result-row">
             <span class="label"><i class="fa-solid fa-bolt"></i> Monthly Consumption</span>
             <span class="value">{{ req.kwh_monthly }} kWh</span>
+          </div>
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-solar-panel"></i> Estimated Energy Yield</span>
+            <span class="value">
+              {{ req.estimated_monthly_yield_kwh or "–" }} kWh/month
+              <span style="color:var(--fg-mute);font-size:.85em">({{ req.estimated_annual_yield_kwh or "–" }} kWh/year)</span>
+            </span>
           </div>
           <div class="result-row">
             <span class="label"><i class="fa-solid fa-roof"></i> Roof Feasibility</span>
@@ -96,17 +123,24 @@
           <div class="result-row">
             <span class="label"><i class="fa-solid fa-network-wired"></i> Recommended System</span>
             <span class="value">
-              <span class="sys-badge {{ 'sys-hybrid' if req.system_type == 'hybrid' else 'sys-grid' }}">
-                <i class="fa-solid fa-{{ 'battery-half' if req.system_type == 'hybrid' else 'plug-circle-bolt' }}"></i>
+              <span class="sys-badge {{ 'sys-hybrid' if req.system_type in ('hybrid', 'off-grid') else 'sys-grid' }}">
+                <i class="fa-solid fa-{{ 'battery-full' if req.system_type == 'off-grid' else 'battery-half' if req.system_type == 'hybrid' else 'plug-circle-bolt' }}"></i>
                 {{ req.system_type|title if req.system_type else 'Grid-Tie' }}
               </span>
-              {% if req.battery_recommended %}<span class="battery-note"><i class="fa-solid fa-battery-three-quarters"></i> Battery storage recommended</span>{% endif %}
+              {% if req.battery_recommended %}<span class="battery-note"><i class="fa-solid fa-battery-three-quarters"></i> Battery storage {{ 'required' if off_grid else 'recommended' }}</span>{% endif %}
             </span>
           </div>
+          {% if not off_grid %}
           <div class="result-row">
             <span class="label"><i class="fa-solid fa-calendar-check"></i> Annual Savings</span>
             <span class="value is-signal">₱{{ "{:,.2f}".format(req.monthly_savings * 12) }}</span>
           </div>
+          {% else %}
+          <div class="result-row">
+            <span class="label"><i class="fa-solid fa-calendar-check"></i> Utility Savings</span>
+            <span class="value" style="color:var(--fg-mute)">N/A — off-grid, no utility bill to offset</span>
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -115,7 +149,7 @@
       <div class="ai-card">
         <div class="ai-card-head">
           <div class="ai-ico"><i class="fa-solid fa-robot"></i></div>
-          <h3>AI Recommendations <span>(Claude by Anthropic)</span></h3>
+          <h3>AI Recommendations</h3>
         </div>
         <div class="ai-text">{{ req.ai_explanation }}</div>
       </div>
@@ -202,8 +236,9 @@ function _submitDecision(decision, email, contact) {
 }
 
 function requestContact(decision) {
-  // If contact details already captured (manual form), submit immediately.
-  if (_savedEmail && _savedContact) {
+  // Email is the one required field (the specialist sends the finalized
+  // quote to it) — if it's already captured, skip straight to submitting.
+  if (_savedEmail) {
     _submitDecision(decision, _savedEmail, _savedContact);
     return;
   }
@@ -212,13 +247,17 @@ function requestContact(decision) {
     expert_review: 'Request Expert Review',
     consult:       'Schedule a Consultation',
   };
+  var subtitles = {
+    expert_review: "One of our solar specialists will review your numbers and send the finalized quote straight to your inbox.",
+    consult:       "We'll use these details to schedule your site visit and send the confirmation to your inbox.",
+  };
   Swal.fire({
     title: titles[decision],
     html:
-      '<p style="font-size:13px;color:#6B7280;margin-bottom:16px">So our specialist can reach you, please share your contact details.</p>' +
-      '<input id="swal-email"   class="swal2-input" type="email" placeholder="Email address" value="' + _savedEmail + '" style="font-size:13px">' +
-      '<input id="swal-contact" class="swal2-input" type="tel"   placeholder="Phone / mobile number" value="' + _savedContact + '" style="font-size:13px">',
-    confirmButtonText: 'Submit Request',
+      '<p style="font-size:13px;color:#6B7280;margin-bottom:16px">' + subtitles[decision] + '</p>' +
+      '<input id="swal-email"   class="swal2-input" type="email" placeholder="Email address *" value="' + _savedEmail + '" style="font-size:13px">' +
+      '<input id="swal-contact" class="swal2-input" type="tel"   placeholder="Phone / mobile number (optional)" value="' + _savedContact + '" style="font-size:13px">',
+    confirmButtonText: "Yes, Send It",
     confirmButtonColor: '#16583C',
     showCancelButton: true,
     cancelButtonColor: '#6B7280',
@@ -226,8 +265,13 @@ function requestContact(decision) {
     preConfirm: function() {
       var email   = document.getElementById('swal-email').value.trim();
       var contact = document.getElementById('swal-contact').value.trim();
-      if (!email && !contact) {
-        Swal.showValidationMessage('Please enter at least an email or phone number.');
+      var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!email) {
+        Swal.showValidationMessage('An email address is required so we can send you the quote.');
+        return false;
+      }
+      if (!emailOk) {
+        Swal.showValidationMessage('Please enter a valid email address.');
         return false;
       }
       return { email: email, contact: contact };

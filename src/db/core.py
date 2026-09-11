@@ -20,9 +20,16 @@ TYPE_OFFSETS = {
 }
 
 
-def build_batch_dates(offsets, start_date):
-    """Human-readable run dates for a batch, e.g. 'January 29, 30, 31 & February 5'."""
-    dates = [start_date + timedelta(days=d) for d in offsets]
+def expand_offsets(offsets, start_date):
+    """A batch's individual run days, before any of them have been nudged for
+    a holiday: `start_date` plus each offset."""
+    return [start_date + timedelta(days=d) for d in offsets]
+
+
+def format_dates(dates):
+    """Human-readable label for an explicit, ascending list of dates, e.g.
+    'January 29, 30, 31 & February 5'. Used for both the offset-computed case
+    (new batches) and an admin's individually-edited day list (existing ones)."""
     parts = []
     current_month = None
     for d in dates:
@@ -35,8 +42,20 @@ def build_batch_dates(offsets, start_date):
     return date_str, dates[0].year
 
 
+def build_batch_dates(offsets, start_date):
+    """Human-readable run dates for a batch, e.g. 'January 29, 30, 31 & February 5'."""
+    return format_dates(expand_offsets(offsets, start_date))
+
+
 def build_batch_label(name, offsets, start_date):
     date_str, year = build_batch_dates(offsets, start_date)
+    return f"{name} - {date_str}, {year}"
+
+
+def build_label_from_dates(name, dates):
+    """Same label as build_batch_label, but from an explicit list of dates
+    (e.g. after an admin has edited individual days) instead of offsets."""
+    date_str, year = format_dates(sorted(dates))
     return f"{name} - {date_str}, {year}"
 
 
@@ -58,8 +77,23 @@ def init_db():
             name       VARCHAR(100) NOT NULL,
             type       VARCHAR(30)  NOT NULL,
             start_date DATE         NOT NULL,
+            dates      DATE[]       NULL,
             created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
         )
+    """)
+    cur.execute("ALTER TABLE batches ADD COLUMN IF NOT EXISTS dates DATE[] NULL")
+    # Backfill rows created before `dates` existed by expanding their single
+    # start_date through the same TYPE_OFFSETS pattern used everywhere else,
+    # so every batch has an explicit per-day list to edit individually.
+    cur.execute("""
+        UPDATE batches SET dates = CASE type
+            WHEN 'training' THEN ARRAY[start_date, start_date+1, start_date+2,
+                                        start_date+6, start_date+7, start_date+8, start_date+9]
+            WHEN 'renewal' THEN ARRAY[start_date, start_date+1]
+            WHEN 'gemp_training' THEN ARRAY[start_date, start_date+1, start_date+2]
+            ELSE ARRAY[start_date]
+        END
+        WHERE dates IS NULL
     """)
 
     cur.execute("""
@@ -106,10 +140,16 @@ def init_db():
             company_name   VARCHAR(150),
             payment_status VARCHAR(10)  NOT NULL DEFAULT 'unpaid',
             training_type  VARCHAR(250) NULL,
+            failed_login_attempts SMALLINT  NOT NULL DEFAULT 0,
+            locked_until           TIMESTAMP NULL DEFAULT NULL,
             created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             archived_at    TIMESTAMP    NULL DEFAULT NULL
         )
     """)
+    # Same drift as payments.anchor_version below — backfill for tables that
+    # already existed before these columns were added.
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT NOT NULL DEFAULT 0")
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP NULL DEFAULT NULL")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS payments (
@@ -185,10 +225,30 @@ def init_db():
             final_system_kw     DECIMAL(6,2) NULL,
             final_panel_count   INT          NULL,
             final_cost          DECIMAL(12,2) NULL,
+            final_monthly_savings DECIMAL(10,2) NULL,
+            final_roi_years     DECIMAL(5,1) NULL,
+            final_system_type   VARCHAR(30)  NULL,
+            grid_connection             VARCHAR(10)   NOT NULL DEFAULT 'grid_tie',
+            battery_kwh_capacity        DECIMAL(8,2)  NULL,
+            estimated_monthly_yield_kwh DECIMAL(10,2) NULL,
+            estimated_annual_yield_kwh  DECIMAL(10,2) NULL,
+            out_of_scope                SMALLINT      NOT NULL DEFAULT 0,
+            out_of_scope_reason         TEXT          NULL,
             created_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
         )
     """)
+    # Same drift as payments.anchor_version above — backfill for tables that
+    # already existed before these columns were added.
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS grid_connection VARCHAR(10) NOT NULL DEFAULT 'grid_tie'")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS battery_kwh_capacity DECIMAL(8,2) NULL")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS estimated_monthly_yield_kwh DECIMAL(10,2) NULL")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS estimated_annual_yield_kwh DECIMAL(10,2) NULL")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS final_monthly_savings DECIMAL(10,2) NULL")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS final_roi_years DECIMAL(5,1) NULL")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS final_system_type VARCHAR(30) NULL")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS out_of_scope SMALLINT NOT NULL DEFAULT 0")
+    cur.execute("ALTER TABLE solar_requests ADD COLUMN IF NOT EXISTS out_of_scope_reason TEXT NULL")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_modules (
@@ -198,11 +258,17 @@ def init_db():
             instructor_id INT          NOT NULL,
             training_type VARCHAR(250) NOT NULL DEFAULT 'training',
             is_published  SMALLINT     NOT NULL DEFAULT 0,
+            sort_order    INT          NOT NULL DEFAULT 0,
+            is_locked     SMALLINT     NOT NULL DEFAULT 0,
             created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             archived_at   TIMESTAMP    NULL DEFAULT NULL,
             FOREIGN KEY (instructor_id) REFERENCES users(id) ON DELETE CASCADE
         )
     """)
+    # Same drift as payments.anchor_version above — backfill for tables that
+    # already existed before these columns were added.
+    cur.execute("ALTER TABLE lms_modules ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0")
+    cur.execute("ALTER TABLE lms_modules ADD COLUMN IF NOT EXISTS is_locked SMALLINT NOT NULL DEFAULT 0")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_module_files (
@@ -227,10 +293,12 @@ def init_db():
             passing_score   INT          NOT NULL DEFAULT 70,
             is_ai_generated SMALLINT     NOT NULL DEFAULT 0,
             is_published    SMALLINT     NOT NULL DEFAULT 0,
+            is_locked       SMALLINT     NOT NULL DEFAULT 0,
             created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (module_id) REFERENCES lms_modules(id) ON DELETE CASCADE
         )
     """)
+    cur.execute("ALTER TABLE lms_quizzes ADD COLUMN IF NOT EXISTS is_locked SMALLINT NOT NULL DEFAULT 0")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_quiz_questions (
@@ -263,10 +331,12 @@ def init_db():
             instructions        TEXT         NOT NULL,
             evaluation_criteria TEXT,
             requires_camera     SMALLINT     NOT NULL DEFAULT 0,
+            is_locked           SMALLINT     NOT NULL DEFAULT 0,
             created_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (module_id) REFERENCES lms_modules(id) ON DELETE CASCADE
         )
     """)
+    cur.execute("ALTER TABLE lms_practical_exams ADD COLUMN IF NOT EXISTS is_locked SMALLINT NOT NULL DEFAULT 0")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_quiz_attempts (
@@ -324,6 +394,7 @@ def init_db():
             quiz_passed  SMALLINT     NOT NULL DEFAULT 0,
             exam_graded  SMALLINT     NOT NULL DEFAULT 0,
             exam_grade   INT          NULL,
+            material_pct SMALLINT     NOT NULL DEFAULT 0,
             completed    SMALLINT     NOT NULL DEFAULT 0,
             completed_at TIMESTAMP    NULL DEFAULT NULL,
             CONSTRAINT uq_user_module UNIQUE (user_id, module_id),
@@ -331,6 +402,7 @@ def init_db():
             FOREIGN KEY (module_id) REFERENCES lms_modules(id) ON DELETE CASCADE
         )
     """)
+    cur.execute("ALTER TABLE lms_progress ADD COLUMN IF NOT EXISTS material_pct SMALLINT NOT NULL DEFAULT 0")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_certificates (

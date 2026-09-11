@@ -1,20 +1,20 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
 {% block title %}Practical Exam – {{ mod.title}}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 {% endblock %}
 
 {% block main %}
-{{ header("My Learning")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
-  <div class="lms-page-header">
+  <div class="lms-page-header" data-reveal="tight">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h2>
       <p class="lms-page-sub">{{ mod.title}}</p>
@@ -54,11 +54,11 @@
     <form method="post" enctype="multipart/form-data" id="exam-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
       {% if exam_questions %}
-      <div style="margin-top:24px;padding:16px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;margin-bottom:20px">
-        <h4 style="margin:0 0 12px;color:#166534"><i class="fa-solid fa-circle-info"></i> Answer All Questions Below</h4>
+      <div class="exam-qa-container-box">
+        <h4><i class="fa-solid fa-circle-info"></i> Answer All Questions Below</h4>
         <div id="exam-qa-container">
           {% for q in exam_questions %}
-          <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #DCFCE7">
+          <div class="exam-qa-item">
             <label class="form-label" style="font-weight:600">{{ loop.index}}. {{ q.question_text}}</label>
             {% if q.question_type == 'essay' %}
             <textarea name="eq_{{ q.id}}" class="form-input form-textarea" rows="5"
@@ -105,6 +105,19 @@
 
 {% block scripts %}
 <script>
+// Same deterrents as the quiz screen (static/lms-quiz.js) — right-click,
+// copy, and devtools/print shortcuts blocked while taking the exam.
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+document.addEventListener('copy',  function(e) { e.preventDefault(); });
+document.addEventListener('keydown', function(e) {
+  var blocked = (
+    (e.ctrlKey && ['u','s','p'].includes(e.key.toLowerCase())) ||
+    e.key === 'F12' ||
+    (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key))
+  );
+  if (blocked) e.preventDefault();
+});
+
 function fileChosen(input) {
   var zone = document.getElementById('sub-zone');
   var name = document.getElementById('sub-name');
@@ -129,7 +142,7 @@ async function requestCamera() {
     document.getElementById('submit-btn').disabled = false;
     cameraGranted = true;
   } catch(e) {
-    alert('Camera access denied. You must allow camera access to submit this exam.');
+    Swal.fire({icon:'error', title:'Camera access denied', text:'You must allow camera access to submit this exam.', confirmButtonColor:'#16583C', customClass:{popup:'swal-font'}});
   }
 }
 {% endif %}

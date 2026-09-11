@@ -95,18 +95,46 @@ function initQuiz(opts) {
   var timerInterval = setInterval(updateTimer, 1000);
 
   // ── Confirm before submit ─────────────────────────────────────────────────
+  // Always intercepts the click (returns false) and shows a custom modal
+  // instead of the native confirm() — it lists exactly which question
+  // numbers are still blank (radio groups AND text/textarea types, unlike
+  // the old count-only check) and requires an explicit "Submit" either way.
   window.confirmSubmit = function() {
-    var questions = document.querySelectorAll('.quiz-question-block');
-    var answered  = 0;
-    questions.forEach(function(qBlock) {
-      var checked = qBlock.querySelector('input[type=radio]:checked');
-      if (checked) answered++;
+    var questions   = document.querySelectorAll('.quiz-question-block');
+    var unanswered  = [];
+    questions.forEach(function(qBlock, idx) {
+      var radios = qBlock.querySelectorAll('input[type=radio]');
+      if (radios.length) {
+        if (!qBlock.querySelector('input[type=radio]:checked')) unanswered.push(idx + 1);
+        return;
+      }
+      var field = qBlock.querySelector('input[type=text], textarea');
+      if (field && !field.value.trim()) unanswered.push(idx + 1);
     });
-    var unanswered = questions.length - answered;
-    if (unanswered > 0) {
-      return confirm(unanswered + ' question(s) unanswered. Submit anyway?');
+
+    var modal = document.getElementById('quiz-confirm-modal');
+    var body  = document.getElementById('quiz-confirm-body');
+    if (unanswered.length) {
+      body.innerHTML =
+        '<p><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b"></i> ' +
+        'You have <strong>' + unanswered.length + '</strong> unanswered question' +
+        (unanswered.length > 1 ? 's' : '') + ': <strong>#' + unanswered.join(', #') + '</strong>.</p>' +
+        '<p>Are you sure you want to submit?</p>';
+    } else {
+      body.innerHTML = '<p>Submit your quiz now? <strong>This cannot be undone</strong> and you will not be able to retake it.</p>';
     }
-    return confirm('Submit your quiz? This cannot be undone.');
+    modal.style.display = 'flex';
+    return false;
+  };
+
+  window.quizConfirmGoBack = function() {
+    document.getElementById('quiz-confirm-modal').style.display = 'none';
+  };
+
+  window.quizConfirmSubmitAnyway = function() {
+    document.getElementById('quiz-confirm-modal').style.display = 'none';
+    submitted = true;
+    document.getElementById('quiz-form').submit();
   };
 
   // ── Prevent page unload during quiz ──────────────────────────────────────

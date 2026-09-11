@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 {% endblock %}
 
 {% block main %}
@@ -29,12 +30,13 @@
       {% if files %}
       <div class="file-list-trainee">
         {% for f in files %}
-        <a href="/lms/files/{{ f.filename}}" target="_blank" class="file-row-link">
+        <a href="#" class="file-row-link"
+           onclick='openDocModal("/lms/files/{{ f.filename}}", {{ f.original_name|tojson }}, {moduleId: {{ mod.id }}, watermark: {{ (session.get('user_name','') ~ ' · #' ~ session.get('user_id','')) | tojson }}}); return false'>
           <i class="fa-solid {{ {'pdf':'fa-file-pdf','docx':'fa-file-word','pptx':'fa-file-powerpoint',
             'mp4':'fa-file-video','mkv':'fa-file-video','txt':'fa-file-lines'}.get(f.file_type,'fa-file')}}"></i>
           <span class="file-name">{{ f.original_name}}</span>
           <span class="file-size">{{ (f.file_size / 1024)|round(1)}} KB</span>
-          <i class="fa-solid fa-arrow-down-to-line file-dl"></i>
+          <i class="fa-solid fa-eye file-dl"></i>
         </a>
         {% endfor %}
       </div>
@@ -48,13 +50,19 @@
       <div class="card-section-header">
         <h3 class="card-inner-title"><i class="fa-solid fa-circle-question"></i> Quiz</h3>
         {% if quiz and quiz.is_published %}
+          {% if quiz.is_locked %}
+          <span class="badge badge-red"><i class="fa-solid fa-lock"></i> Locked by your trainer</span>
+          {% elif quiz_needs_material %}
+          <span class="badge badge-gray"><i class="fa-solid fa-lock"></i> View material to unlock ({{ material_pct}}%)</span>
+          {% else %}
           {% if quiz_attempt %}
           <span class="badge {{ 'badge-green' if quiz_attempt.score >= quiz.passing_score else 'badge-red'}}">
-            <i class="fa-solid fa-check"></i> Completed – {{ quiz_attempt.score}}%
+            <i class="fa-solid fa-check"></i> {{ quiz_attempt.score}}%
           </span>
-          {% else %}
+          {% endif %}
           <a href="/lms/learn/{{ mod.id}}/quiz" class="btn-sm btn-primary">
-            <i class="fa-solid fa-play"></i> Start Quiz
+            <i class="fa-solid {{ 'fa-rotate-right' if quiz_attempt else 'fa-play' }}"></i>
+            {{ 'Retake Quiz' if quiz_attempt else 'Start Quiz' }}
           </a>
           {% endif %}
         {% elif quiz %}
@@ -108,6 +116,8 @@
             <i class="fa-solid fa-clock"></i> Submitted – Awaiting Grade
             {% endif %}
           </span>
+          {% elif exam.is_locked %}
+          <span class="badge badge-red"><i class="fa-solid fa-lock"></i> Locked by your trainer</span>
           {% else %}
           <a href="/lms/learn/{{ mod.id}}/exam" class="btn-sm btn-primary">
             <i class="fa-solid fa-upload"></i> Submit Exam
@@ -133,7 +143,11 @@
         <strong>Module Completed!</strong>
         <p>You finished this module on {{ progress.completed_at.strftime('%B %d, %Y') if progress.completed_at else 'N/A'}}.</p>
       </div>
+      {% if all_mods_done %}
       <a href="/lms/certificates" class="btn-sm btn-primary"><i class="fa-solid fa-certificate"></i> View Certificate</a>
+      {% elif mods_total %}
+      <span class="badge badge-gray">{{ mods_done }}/{{ mods_total }} modules complete</span>
+      {% endif %}
     </div>
 
     <!-- Feedback widget (shows after completion) -->
@@ -186,7 +200,7 @@
       <div class="chat-panel-body" id="chat-box">
         <div class="chat-notice">
           <i class="fa-solid fa-circle-info"></i>
-          This assistant helps you understand module content. It will not answer quiz or exam questions.
+          This assistant helps you understand module content. It will not answer quiz/exam questions or anything outside this module's material.
         </div>
       </div>
       <div class="chat-panel-input">
@@ -200,6 +214,32 @@
 
 </div>
 </div>
+
+<!-- Secure document viewer modal -->
+<div id="docviewer-overlay" class="docviewer-overlay">
+  <div class="docviewer-box">
+    <div class="docviewer-header">
+      <h3 id="docviewer-title"><i class="fa-solid fa-file-pdf"></i></h3>
+      <button class="modal-close" onclick="closeDocModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="docviewer-body">
+      <div id="docviewer-pdf-area" style="display:none;position:relative">
+        <canvas id="docviewer-canvas"></canvas>
+        <div id="docviewer-watermark" class="docviewer-watermark"></div>
+      </div>
+      <div id="docviewer-fallback" class="docviewer-fallback" style="display:none"></div>
+    </div>
+    <div class="docviewer-footer">
+      <div style="display:flex;gap:8px">
+        <button class="btn-sm btn-ghost" onclick="docViewerPrev()"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+        <button class="btn-sm btn-ghost" onclick="docViewerNext()">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <span id="docviewer-page-label" class="docviewer-page-label"></span>
+      <span id="docviewer-progress-label" class="docviewer-progress-label"></span>
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='lms-viewer.js') }}"></script>
 {% endblock %}
 
 {% block scripts %}

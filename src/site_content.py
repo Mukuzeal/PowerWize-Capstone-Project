@@ -627,3 +627,309 @@ CONTACT = {
         "Something else",
     ],
 }
+
+# ---------------------------------------------------------------------------
+# LEGAL — Privacy Policy, Legal Notice, Terms & Conditions.
+# Mirrored verbatim from e-wizesolutions.com so the content lives on-site
+# instead of linking out. Each section is {"heading": ..., "paragraphs": [...],
+# "list": [...] (optional)} rendered in order by site/legal.html.
+# ---------------------------------------------------------------------------
+PRIVACY_POLICY = {
+    "title": "Privacy Policy",
+    "effective_date": "February 22, 2025",
+    "sections": [
+        {"heading": "1. Introduction", "paragraphs": [
+            "Welcome to EnergyWize Solutions Inc. (\"Company\", \"we\", \"our\", \"us\"). We are committed to "
+            "protecting your personal information and your right to privacy. This privacy policy explains how "
+            "we collect, use, disclose, and safeguard your information when you visit our website, use our "
+            "services, or otherwise interact with us. If you have any questions or concerns about our policy "
+            "or our practices with regard to your personal information, please contact us at "
+            "energywizesolutions@gmail.com.",
+        ]},
+        {"heading": "2. Information We Collect", "paragraphs": [
+            "We collect personal information that you voluntarily provide to us when you register on our "
+            "website, express an interest in obtaining information about us or our products and services, "
+            "participate in activities on our website, or otherwise contact us.",
+            "The personal information that we collect depends on the context of your interactions with us and "
+            "the website, the choices you make, and the products and features you use. The personal "
+            "information we collect may include the following:",
+        ], "list": [
+            "Personal Information Provided by You: Names, phone numbers, email addresses, mailing addresses, "
+            "job titles, and other similar information.",
+            "Payment Data: Data necessary to process payments if you make purchases, such as your payment "
+            "instrument number (e.g., credit card number) and the security code associated with your payment "
+            "instrument.",
+            "Log and Usage Data: IP addresses, browser types, operating systems, and access times to improve "
+            "our website and services.",
+        ]},
+        {"heading": "3. Legal Basis for Processing Personal Data", "paragraphs": [
+            "We process your personal data based on one or more of the following legal grounds:",
+        ], "list": [
+            "Legitimate Business Interest: When processing is necessary for our business operations, such as "
+            "improving services, preventing fraud, or marketing.",
+            "Contractual Necessity: When processing is required to fulfill a contract with you.",
+            "Legal Compliance: When required by law to retain or disclose information.",
+            "Consent: When you provide explicit consent for specific data uses.",
+        ]},
+        {"heading": "4. How We Use Your Information", "paragraphs": [
+            "We use personal information collected via our website for a variety of business purposes described "
+            "below. We process your personal information for these purposes based on our legitimate business "
+            "interests, contractual obligations, legal requirements, and/or your consent:",
+        ], "list": [
+            "To send administrative information to you: This includes product, service, and feature updates, "
+            "as well as changes to our terms, conditions, and policies.",
+            "To protect our services: Ensuring the security of our website and preventing fraudulent activities.",
+            "To enforce our terms, conditions, and policies: Compliance with legal and regulatory requirements.",
+            "To respond to legal requests and prevent harm: In case of subpoenas or legal requests, we may need "
+            "to inspect our data.",
+            "To fulfill and manage orders: Processing purchases, payments, returns, and exchanges.",
+            "To administer prize draws and competitions: If you participate in promotional events.",
+            "To deliver and facilitate the delivery of services: Ensuring that requested services are provided "
+            "efficiently.",
+            "To respond to user inquiries and offer support: Addressing your concerns and troubleshooting issues.",
+        ]},
+        {"heading": "5. Will Your Information Be Shared with Anyone?", "paragraphs": [
+            "We only share information with your consent, to comply with laws, to provide you with services, "
+            "to protect your rights, or to fulfill business obligations. Specifically, we may need to share "
+            "your data with:",
+        ], "list": [
+            "Service Providers: Third-party vendors, service providers, contractors, or agents who assist in "
+            "service delivery.",
+            "Business Transfers: In case of a merger, sale, or acquisition of our company.",
+            "Legal Obligations: If required to comply with laws, court orders, or governmental requests.",
+            "International Data Transfers: If data is transferred outside the Philippines, we ensure that "
+            "necessary safeguards are in place to protect your privacy.",
+        ]},
+        {"heading": "6. Data Retention Policy", "paragraphs": [
+            "We retain personal information for as long as necessary to fulfill the purposes outlined in this "
+            "policy unless a longer retention period is required by law. Specifically:",
+        ], "list": [
+            "Customer information related to transactions is retained for at least five (5) years as required "
+            "by financial regulations.",
+            "Data collected for marketing purposes is retained until you opt out or withdraw consent.",
+        ]},
+        {"heading": "7. How Do We Keep Your Information Safe?", "paragraphs": [
+            "We have implemented appropriate technical and organizational security measures to protect your "
+            "personal information. These measures include encryption, secure servers, and access controls. "
+            "However, no method of transmission over the Internet or electronic storage is 100% secure, and we "
+            "cannot guarantee absolute security.",
+        ]},
+        {"heading": "8. Breach Notification", "paragraphs": [
+            "In case of a data breach that may affect your personal information, we will notify you and "
+            "relevant authorities as required by the Data Privacy Act of 2012. We will take immediate action "
+            "to mitigate risks and secure affected data.",
+        ]},
+        {"heading": "9. Third-Party Links", "paragraphs": [
+            "Our website may contain links to third-party websites. We are not responsible for the privacy "
+            "policies or practices of these external sites. We encourage you to review their policies before "
+            "providing any personal data.",
+        ]},
+        {"heading": "10. Do We Collect Information from Minors?", "paragraphs": [
+            "We do not knowingly collect or solicit data from children under 18 years of age. If we become "
+            "aware of such data collection, we will take steps to delete it promptly.",
+        ]},
+        {"heading": "11. Your Privacy Rights", "paragraphs": [
+            "Under the Data Privacy Act of 2012, you have the right to:",
+        ], "list": [
+            "Access your personal data.",
+            "Request correction or deletion of your data.",
+            "Object to or restrict data processing.",
+            "Withdraw consent at any time.",
+            "Data portability (request your data in a commonly used format).",
+            "File a complaint with the National Privacy Commission (NPC) if your data privacy rights are "
+            "violated.",
+        ], "closing": [
+            "To exercise your rights, please contact us at energywizesolutions@gmail.com.",
+        ]},
+        {"heading": "12. Cookies and Tracking Technologies", "paragraphs": [
+            "Our website may use cookies and similar tracking technologies to enhance user experience. Users "
+            "can manage cookie preferences through their browser settings.",
+        ]},
+        {"heading": "13. Controls for Do-Not-Track Features", "paragraphs": [
+            "Our website currently does not respond to \"Do-Not-Track\" (DNT) signals from web browsers. If "
+            "such a standard is adopted in the future, we will update our privacy policy accordingly.",
+        ]},
+        {"heading": "14. Updates to This Policy", "paragraphs": [
+            "We may update this privacy policy from time to time. Changes will be posted on our website, and "
+            "we encourage you to review the policy periodically.",
+        ]},
+        {"heading": "15. Contact Us", "paragraphs": [
+            "If you have questions or comments about this policy, you may contact us:",
+            "EnergyWize Solutions Inc.\n"
+            "10F Tower 1 Paseo De Roces, Chino Roces Ave., Pio del Pilar, City of Makati, Metro Manila 1230\n"
+            "Phone: 0927 5151817 | +632 8661 5909\n"
+            "Email: energywizesolutions@gmail.com",
+        ]},
+    ],
+}
+
+LEGAL_NOTICE = {
+    "title": "Legal Notice",
+    "effective_date": "March 1, 2025",
+    "sections": [
+        {"heading": "Introduction", "paragraphs": [
+            "Welcome to the EnergyWize Solutions Inc. website. This legal notice applies to the entire contents "
+            "of this website under the domain name www.e-wizesolutions.com and to any correspondence by e-mail "
+            "between us and you. Please read these terms carefully before using this website.",
+        ]},
+        {"heading": "Website Operator", "paragraphs": [
+            "This website is operated by EnergyWize Solutions Inc., located at 10F Tower 1 Paseo De Roces, "
+            "Chino Roces Ave., Pio Del Pilar, City of Makati, Metro Manila 1230, registered in the Philippines.",
+        ]},
+        {"heading": "Intellectual Property Rights", "paragraphs": [
+            "All content on this website, including but not limited to text, graphics, logos, icons, images, "
+            "audio clips, digital downloads, data compilations, and software, is the property of EnergyWize "
+            "Solutions Inc. or its content suppliers and is protected by international copyright laws. "
+            "Unauthorized use, reproduction, or distribution of any content is prohibited.",
+        ]},
+        {"heading": "Use of Website", "paragraphs": [
+            "You are permitted to use our website for your own purposes and to print and download material "
+            "from this website, provided that you do not modify any content without our consent. Material on "
+            "this website must not be republished online or offline without our permission.",
+        ]},
+        {"heading": "Visitor Conduct", "paragraphs": [
+            "With the exception of personally identifiable information, the use of which is covered under our "
+            "Privacy Policy, any material you send or post to this website shall be considered non-proprietary "
+            "and not confidential. We shall be free to copy, disclose, distribute, incorporate, and otherwise "
+            "use such material for any and all purposes.",
+            "When using this website, you shall not post or send to or from this website any material:",
+        ], "list": [
+            "For which you have not obtained all necessary consents;",
+            "That is discriminatory, obscene, pornographic, defamatory, liable to incite racial hatred, in "
+            "breach of confidentiality or privacy, which may cause annoyance or inconvenience to others, which "
+            "encourages or constitutes conduct that would be deemed a criminal offense, give rise to a civil "
+            "liability, or otherwise be contrary to the law in the Philippines;",
+            "Which is harmful in nature, including but not limited to, computer viruses, Trojan horses, "
+            "corrupted data, or other potentially harmful software or data.",
+        ]},
+        {"heading": "Links to and from Other Websites", "paragraphs": [
+            "This website may contain links to third-party websites. These links are provided for convenience "
+            "only, and we do not endorse or assume responsibility for the content or privacy practices of any "
+            "third-party sites.",
+        ]},
+        {"heading": "Disclaimer", "paragraphs": [
+            "We take all reasonable steps to ensure that the information on this website is correct and strive "
+            "to review and update content periodically to maintain accuracy. However, we do not guarantee the "
+            "correctness or completeness of the material on this website. We may make changes to the material "
+            "on this website at any time and without notice. The material on this website may be out of date "
+            "or, on rare occasions, incorrect, and we make no commitment to ensure that such material is "
+            "correct or up to date.",
+            "The material on this website is provided without any conditions or warranties of any kind. To the "
+            "maximum extent permitted by law, we provide access and use of this website on the basis that we "
+            "exclude all representations, warranties, and conditions that might otherwise apply.",
+        ]},
+        {"heading": "Limitation of Liability", "paragraphs": [
+            "To the fullest extent permitted by law, EnergyWize Solutions Inc. shall not be liable for any "
+            "direct, indirect, incidental, consequential, or punitive damages arising from your use of this "
+            "Website or any linked sites. This exclusion shall include servicing or repair costs and, without "
+            "limitation, any other direct, indirect, or consequential loss.",
+        ]},
+        {"heading": "Governing Law & Jurisdiction", "paragraphs": [
+            "This Legal Notice and any disputes related to this Website shall be governed by and interpreted "
+            "under the laws of the Philippines. Any legal actions must be brought in the courts of the "
+            "Philippines.",
+        ]},
+        {"heading": "Changes to this Legal Notice", "paragraphs": [
+            "We reserve the right to update this Legal Notice at any time. Any changes will be posted on this "
+            "page, and your continued use of the Website constitutes acceptance of the updated terms.",
+        ]},
+        {"heading": "Contact Information", "paragraphs": [
+            "For any questions or concerns regarding this Legal Notice, please contact us at:",
+            "EnergyWize Solutions Inc.\n"
+            "Address: 10F Tower 1 Paseo De Roces, Chino Roces Ave., Pio Del Pilar, City of Makati, Metro "
+            "Manila 1230\n"
+            "Email: energywizesolutions@gmail.com\n"
+            "Phone: 0927 5151817 | +632-86615909",
+            "By using this Website, you agree to abide by the terms outlined in this Legal Notice. Continued "
+            "use of the Website after any updates or modifications constitutes your acceptance of the revised "
+            "terms.",
+        ]},
+    ],
+}
+
+TERMS_CONDITIONS = {
+    "title": "Terms and Conditions for Training Courses",
+    "effective_date": "April 14, 2025",
+    "version": "Version 1.0",
+    "sections": [
+        {"heading": "1. Applicability", "paragraphs": [
+            "1.1 These Terms and Conditions apply to the provision of Certified Energy Manager (CEM), "
+            "Certified Energy Auditor (CEA), and Government Energy Management Program (GEMP) training courses "
+            "by EnergyWize Solutions, Inc. (\"E-Wize Solutions\") to individuals and organizations.",
+        ]},
+        {"heading": "2. Definitions", "list": [
+            "Customer – the individual or entity registering for the training.",
+            "Participant – a person attending the training course.",
+            "Training – includes CEM, CEA, and GEMP courses, delivered either online or in person.",
+            "Training Materials – printed or digital resources provided during the training.",
+        ]},
+        {"heading": "3. Registration and Agreement", "paragraphs": [
+            "3.1 Completion of registration online or via email, and clicking the \"Register Now\" button or "
+            "downloading this document, constitutes agreement to these Terms and Conditions.",
+            "3.2 These Terms shall be binding from the moment of registration.",
+        ]},
+        {"heading": "4. Training Provision", "paragraphs": [
+            "4.1 E-Wize Solutions will deliver training as per advertised schedules and content, subject to "
+            "change without prior notice.",
+            "4.2 In the event of emergencies or unforeseen circumstances (e.g., natural calamities or "
+            "unavailability of a trainer), E-Wize reserves the right to reschedule or cancel the training.",
+            "4.3 Customers will be notified via email, SMS, or phone.",
+        ]},
+        {"heading": "5. Customer Responsibilities", "paragraphs": [
+            "5.1 Customers must:",
+        ], "list": [
+            "Cooperate fully during the training.",
+            "Provide complete and accurate information during registration.",
+        ]},
+        {"heading": "6. Payment Terms", "paragraphs": [
+            "6.1 Training fees are charged per participant or per group/company and are exclusive of VAT.",
+            "6.2 Payments must be made within seven (7) calendar days from invoice issuance and before the "
+            "start of the training.",
+            "6.3 Non-payment may result in:",
+        ], "list": [
+            "Loss of training slot,",
+            "Suspension of access,",
+            "Withholding of certificates.",
+        ], "closing": [
+            "6.4 Payments must be made in full with no deductions, unless required by law.",
+        ]},
+        {"heading": "7. Cancellation and Rescheduling", "paragraphs": [
+            "7.1 Requests to reschedule training less than ten (10) days prior will incur a 15% rescheduling "
+            "fee.",
+            "7.2 Non-classroom-based training is non-refundable and cannot be rescheduled.",
+            "7.3 Failure to attend the training without notice will not entitle the participant to a refund, "
+            "but rejoining on the next available date is allowed without extra charge.",
+            "7.4 E-Wize Solutions may cancel or reschedule training. Affected participants will be informed "
+            "and offered an alternative schedule.",
+            "7.5 Refunds, when applicable, will be processed through the original mode of payment.",
+            "7.6 In cases of force majeure, refund or rescheduling will be considered on a case-by-case basis.",
+        ]},
+        {"heading": "8. Intellectual Property Rights", "paragraphs": [
+            "8.1 All intellectual property rights related to training materials remain with E-Wize Solutions.",
+            "8.2 Materials may not be copied, scanned, or distributed without written permission.",
+            "8.3 Participants may use the materials for internal reference only. Commercial use is prohibited.",
+        ]},
+        {"heading": "9. Data Privacy and Confidentiality", "paragraphs": [
+            "9.1 Customer data will be used solely for training purposes and will be stored securely in "
+            "accordance with the Data Privacy Act of 2012.",
+            "9.2 Data will not be shared with third parties except as required by law.",
+            "9.3 Confidential information shared during training must not be disclosed to others.",
+            "9.4 Customers may request access, correction, or deletion of their data by contacting: "
+            "energywizesolutions@gmail.com",
+        ]},
+        {"heading": "10. Termination", "paragraphs": [
+            "10.1 E-Wize Solutions may terminate a registration if payments are not received on time.",
+            "10.2 Unpaid materials or documents must be returned or withheld as applicable.",
+        ]},
+        {"heading": "11. Force Majeure", "paragraphs": [
+            "E-Wize Solutions shall not be liable for non-performance caused by events beyond its control, "
+            "including but not limited to acts of God, government actions, pandemic disruptions, or technical "
+            "failures.",
+        ]},
+        {"heading": "12. Agreement Acknowledgment", "paragraphs": [
+            "By registering for or participating in the training, I confirm that I have read, understood, and "
+            "agreed to be bound by the Terms and Conditions of EnergyWize Solutions, Inc., including its Data "
+            "Privacy Policy.",
+        ]},
+    ],
+}

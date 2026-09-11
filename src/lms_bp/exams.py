@@ -1,17 +1,18 @@
 import os
 import secrets
 
-from flask import render_template, request, redirect, url_for, jsonify, abort
+from flask import render_template, request, redirect, url_for, jsonify, abort, flash
 
 from db import (lms_get_module, lms_get_exam, lms_get_exam_questions,
-                lms_save_exam, lms_save_exam_questions,
+                lms_save_exam, lms_save_exam_questions, lms_toggle_exam_lock,
                 lms_get_all_submissions, lms_get_exam_submission_detail,
                 lms_grade_submission, lms_get_submission_user_module,
                 lms_update_progress, lms_get_user_exam_submission,
                 lms_submit_exam, lms_submit_exam_answers)
 
 from . import lms_bp
-from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, EXAM_UPLOAD_DIR, ALLOWED_SUBMISSION, _check_completion
+from ._shared import (_uid, _role, _is_instructor, _is_trainee, _allowed, _owns_module,
+                      EXAM_UPLOAD_DIR, ALLOWED_SUBMISSION, _check_completion, _module_access)
 
 
 # Practical exam management
@@ -54,6 +55,12 @@ def exam_manage(module_id):
                 })
             lms_save_exam_questions(exam['id'], qs)
             exam_questions = lms_get_exam_questions(exam['id'])
+        elif action == 'lock' and exam:
+            lms_toggle_exam_lock(exam['id'], True)
+            exam = lms_get_exam(module_id=module_id)
+        elif action == 'unlock' and exam:
+            lms_toggle_exam_lock(exam['id'], False)
+            exam = lms_get_exam(module_id=module_id)
         return redirect(url_for('lms.exam_manage', module_id=module_id))
     return render_template('lms/exam_manage.html', mod=mod, exam=exam, exam_questions=exam_questions)
 
@@ -107,7 +114,12 @@ def exam_submit_route(module_id):
     exam = lms_get_exam(module_id=module_id)
     if not exam:
         abort(404)
-    uid      = _uid()
+    uid = _uid()
+    if _is_trainee():
+        unlocked, _mods, _pm, _idx = _module_access(uid, module_id)
+        if not unlocked or exam.get('is_locked'):
+            flash('This practical exam is locked. Ask your trainer to unlock it.', 'warning')
+            return redirect(url_for('lms.learn_module', module_id=module_id))
     existing = lms_get_user_exam_submission(uid, exam['id'])
     if existing:
         return redirect(url_for('lms.learn_module', module_id=module_id))

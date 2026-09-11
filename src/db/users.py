@@ -31,7 +31,8 @@ def get_account_token(token):
     conn = get_db()
     cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
-        SELECT t.*, r.full_name, r.title, r.contact_number, r.company_name, r.training_type
+        SELECT t.*, r.full_name, r.title, r.contact_number, r.company_name,
+               r.training_type, r.form_type
         FROM account_tokens t
         JOIN registrations r ON t.reg_id = r.id
         WHERE t.token = %s
@@ -111,10 +112,43 @@ def get_user_basic_info(user_id):
     return dict(row) if row else None
 
 
+# ── Login lockout ─────────────────────────────────────────────────────────────
+
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_MINUTES     = 5
+
+
+def register_failed_login(email):
+    """Increments the failed-attempt counter; locks the account once it hits
+    MAX_LOGIN_ATTEMPTS. Returns {'failed_login_attempts', 'locked_until'}."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        UPDATE users
+        SET failed_login_attempts = failed_login_attempts + 1,
+            locked_until = CASE WHEN failed_login_attempts + 1 >= %s
+                                 THEN NOW() + (%s * INTERVAL '1 minute')
+                                 ELSE locked_until END
+        WHERE email = %s
+        RETURNING failed_login_attempts, locked_until
+    """, (MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES, email.lower()))
+    row = cur.fetchone()
+    conn.commit(); cur.close(); conn.close()
+    return dict(row)
+
+
+def reset_login_attempts(email):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute(
+        "UPDATE users SET failed_login_attempts=0, locked_until=NULL WHERE email=%s",
+        (email.lower(),)
+    )
+    conn.commit(); cur.close(); conn.close()
+
+
 def get_users():
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT id, role, fname, lname, email, contact_number, company_name, created_at, archived_at FROM users ORDER BY id DESC")
+    cur.execute("SELECT id, role, fname, lname, email, contact_number, company_name, training_type, payment_status, created_at, archived_at FROM users ORDER BY id DESC")
     rows = cur.fetchall()
     cur.close()
     conn.close()

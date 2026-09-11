@@ -150,9 +150,12 @@
       var noFaceFrames = 0;
       var centerSince = null;  // timestamp centering began; null while not centered
       var lastShown = null;    // last countdown integer drawn, avoids redundant DOM writes
-      var detectorOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-      var CENTER_TOL = 0.12;   // face center within 12% of frame center
-      var MIN_SIZE = 0.22, MAX_SIZE = 0.58; // face width as a fraction of frame width
+      // Thresholds kept loose on purpose: low-quality/low-light webcams produce
+      // noisier, lower-confidence detections, and this is a UX centering aid,
+      // not a security check — identity is still confirmed by an admin.
+      var detectorOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
+      var CENTER_TOL = 0.18;   // face center within 18% of frame center
+      var MIN_SIZE = 0.16, MAX_SIZE = 0.66; // face width as a fraction of frame width
       var HOLD_MS = 3000;      // how long to hold centered before it auto-captures
 
       setCentered(false);

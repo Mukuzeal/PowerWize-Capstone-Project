@@ -10,6 +10,16 @@ COST_MIN_PER_KWP       = 45_000   # client quotes ~P50k/kWp installed; range bra
 COST_MAX_PER_KWP       = 55_000
 MAINTENANCE_ANNUAL_PCT = 0.005
 
+# ── Off-grid (no utility connection) ────────────────────────────
+OFFGRID_DESIGN_MARGIN    = 1.3     # oversize panels — no grid to fall back on for shortfalls
+AUTONOMY_DAYS            = 1       # days the battery must cover alone
+BATTERY_DOD              = 0.8     # usable fraction of rated battery capacity
+BATTERY_COST_MIN_PER_KWH = 20_000  # PHP/kWh, LiFePO4 bracket
+BATTERY_COST_MAX_PER_KWH = 28_000
+
+# ── Scope limit ──────────────────────────────────────────────────
+INDUSTRIAL_SCALE_KW_THRESHOLD = 100  # above this, needs a full engineering assessment
+
 
 def _target_ratio(target_savings: str) -> float:
     return {
@@ -26,13 +36,18 @@ def compute(
     roof_sqm: float | None,
     time_of_use_night_pct: int | None,
     electrical_phase: str,
+    establishment_type: str = "residential",
+    grid_connection: str = "grid_tie",
 ) -> dict:
+
+    off_grid = grid_connection == "off_grid"
 
     bill_php = float(bill_php or 0)
     kwh_monthly = float(kwh_monthly or 0)
 
-    # derive from bill if kWh missing or suspiciously low
-    if bill_php > 0:
+    # An off-grid site has no utility bill to derive consumption from —
+    # only the entered kWh figure is meaningful.
+    if not off_grid and bill_php > 0:
         estimated_kwh = bill_php / ELECTRICITY_RATE
 
         if kwh_monthly <= 0 or kwh_monthly < 50:
@@ -45,13 +60,15 @@ def compute(
     if kwh_monthly <= 0:
         raise ValueError("Monthly consumption or bill is required.")
 
-    ratio = _target_ratio(target_savings)
+    # Off-grid must cover the full load — there's no grid to draw the rest from.
+    ratio = 1.0 if off_grid else _target_ratio(target_savings)
 
     daily_kwh = kwh_monthly / 30
     target_daily_kwh = daily_kwh * ratio
 
     # system size
-    system_kw = target_daily_kwh / (PEAK_SUN_HOURS * SYSTEM_EFFICIENCY)
+    design_margin = OFFGRID_DESIGN_MARGIN if off_grid else 1.0
+    system_kw = (target_daily_kwh * design_margin) / (PEAK_SUN_HOURS * SYSTEM_EFFICIENCY)
     system_kw = max(round(system_kw, 2), 1.0)
 
     # panel count (always round up)
@@ -73,40 +90,75 @@ def compute(
     else:
         feasibility = "unknown"
 
+    # energy yield — what the actual sized system generates (post rounding/
+    # margin), not just the raw consumption target it was sized against
+    daily_yield_kwh = round(system_kw * PEAK_SUN_HOURS * SYSTEM_EFFICIENCY, 2)
+    estimated_monthly_yield_kwh = round(daily_yield_kwh * 30, 1)
+    estimated_annual_yield_kwh  = round(daily_yield_kwh * 365, 1)
+
     # cost
     cost_min = round(system_kw * COST_MIN_PER_KWP)
     cost_max = round(system_kw * COST_MAX_PER_KWP)
+
+    battery_kwh_capacity = None
+    if off_grid:
+        battery_kwh_capacity = round((target_daily_kwh * AUTONOMY_DAYS) / BATTERY_DOD, 1)
+        cost_min += round(battery_kwh_capacity * BATTERY_COST_MIN_PER_KWH)
+        cost_max += round(battery_kwh_capacity * BATTERY_COST_MAX_PER_KWH)
+
     cost_avg = (cost_min + cost_max) / 2
 
-    # savings
-    monthly_savings = round(kwh_monthly * ratio * ELECTRICITY_RATE, 2)
-    annual_savings = monthly_savings * 12
+    # savings — meaningless off-grid, since there's no utility bill to offset
+    if off_grid:
+        monthly_savings = 0.0
+        annual_savings  = 0.0
+        roi_years       = None
+    else:
+        monthly_savings = round(kwh_monthly * ratio * ELECTRICITY_RATE, 2)
+        annual_savings  = monthly_savings * 12
 
-    # roi
-    annual_maintenance = cost_avg * MAINTENANCE_ANNUAL_PCT
-
-    roi_years = None
-    if annual_savings > annual_maintenance:
-        roi_years = round(
-            cost_avg / (annual_savings - annual_maintenance),
-            1
-        )
+        annual_maintenance = cost_avg * MAINTENANCE_ANNUAL_PCT
+        roi_years = None
+        if annual_savings > annual_maintenance:
+            roi_years = round(
+                cost_avg / (annual_savings - annual_maintenance),
+                1
+            )
 
     # system type
     night_pct = int(time_of_use_night_pct or 20)
 
     battery_recommended = (
+        off_grid or
         night_pct > 25 or
         target_savings == "100"
     )
 
-    system_type = "hybrid" if battery_recommended else "grid-tie"
+    system_type = "off-grid" if off_grid else ("hybrid" if battery_recommended else "grid-tie")
 
     phase_note = ""
     if electrical_phase == "three":
         phase_note = (
             "Three-phase supply detected — "
             "three-phase inverter recommended."
+        )
+
+    # out-of-scope — industrial sites and any system beyond the residential/
+    # commercial scale this tool is calibrated for need a full site
+    # assessment, not this simplified formula. Still computed and returned
+    # (indicative only) rather than blocked outright, but clearly flagged.
+    out_of_scope = establishment_type == "industrial" or system_kw > INDUSTRIAL_SCALE_KW_THRESHOLD
+    out_of_scope_reason = None
+    if establishment_type == "industrial":
+        out_of_scope_reason = (
+            "Industrial sites need a full engineering site assessment — "
+            "this figure is indicative only, not a substitute for one."
+        )
+    elif out_of_scope:
+        out_of_scope_reason = (
+            f"A {system_kw:g} kWp system exceeds this tool's supported scale "
+            f"(residential/commercial, up to {INDUSTRIAL_SCALE_KW_THRESHOLD} kWp) "
+            "and needs advanced BESS engineering beyond this estimate."
         )
 
     return {
@@ -123,4 +175,10 @@ def compute(
         "system_type": system_type,
         "battery_recommended": battery_recommended,
         "phase_note": phase_note,
+        "estimated_monthly_yield_kwh": estimated_monthly_yield_kwh,
+        "estimated_annual_yield_kwh": estimated_annual_yield_kwh,
+        "grid_connection": grid_connection,
+        "battery_kwh_capacity": battery_kwh_capacity,
+        "out_of_scope": out_of_scope,
+        "out_of_scope_reason": out_of_scope_reason,
     }

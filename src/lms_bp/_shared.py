@@ -5,7 +5,8 @@ from datetime import datetime
 from flask import session, request, redirect, url_for
 import requests as _http
 
-from db import lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms_update_progress
+from db import (lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms_update_progress,
+               lms_get_modules_for_trainee)
 
 _PROJECT_ROOT    = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 LMS_UPLOAD_DIR   = os.path.join(_PROJECT_ROOT, 'uploads', 'lms')
@@ -68,30 +69,65 @@ def _back_to_modules():
 
 # ── AI helpers ────────────────────────────────────────────────────────────────
 
+def _extract_pdf_text(filepath):
+    """PyMuPDF first — it's already a hard dependency (see upload_validation.py's
+    ID-render path), so this works with zero extra installs. pdfplumber/PyPDF2
+    are only used if someone happens to have them; neither is in requirements.txt."""
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(filepath)
+        text = '\n'.join(doc[i].get_text() for i in range(min(10, doc.page_count)))
+        doc.close()
+        return text
+    except ImportError:
+        pass
+    try:
+        import pdfplumber
+        with pdfplumber.open(filepath) as pdf:
+            return '\n'.join(p.extract_text() or '' for p in pdf.pages[:10])
+    except ImportError:
+        pass
+    try:
+        import PyPDF2
+        with open(filepath, 'rb') as f:
+            reader = PyPDF2.PdfReader(f)
+            return '\n'.join(pg.extract_text() or '' for pg in reader.pages[:10])
+    except ImportError:
+        return ''
+
+
+def _extract_docx_text(filepath):
+    """python-docx isn't in requirements.txt either, so fall back to reading
+    word/document.xml directly — a .docx is just a zip, no extra package needed."""
+    try:
+        import docx
+        doc = docx.Document(filepath)
+        return '\n'.join(p.text for p in doc.paragraphs)
+    except ImportError:
+        pass
+    try:
+        import zipfile
+        import xml.etree.ElementTree as ET
+        W_NS = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        with zipfile.ZipFile(filepath) as z:
+            tree = ET.fromstring(z.read('word/document.xml'))
+        paragraphs = [
+            ''.join(node.text or '' for node in p.iter(f'{W_NS}t'))
+            for p in tree.iter(f'{W_NS}p')
+        ]
+        return '\n'.join(paragraphs)
+    except Exception:
+        return ''
+
+
 def _extract_text(filepath, original_name):
     ext = original_name.rsplit('.', 1)[-1].lower() if '.' in original_name else ''
     text = ''
     try:
         if ext == 'pdf':
-            try:
-                import pdfplumber
-                with pdfplumber.open(filepath) as pdf:
-                    text = '\n'.join(p.extract_text() or '' for p in pdf.pages[:10])
-            except ImportError:
-                try:
-                    import PyPDF2
-                    with open(filepath, 'rb') as f:
-                        reader = PyPDF2.PdfReader(f)
-                        text = '\n'.join(pg.extract_text() or '' for pg in reader.pages[:10])
-                except ImportError:
-                    pass
+            text = _extract_pdf_text(filepath)
         elif ext == 'docx':
-            try:
-                import docx
-                doc = docx.Document(filepath)
-                text = '\n'.join(p.text for p in doc.paragraphs)
-            except ImportError:
-                pass
+            text = _extract_docx_text(filepath)
         elif ext == 'txt':
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 text = f.read(8000)
@@ -145,6 +181,11 @@ def _ai_module_chat(messages, module_title, module_content):
         '- Solve or hint at practical exam tasks\n'
         '- Provide answers to any assessment questions\n\n'
         'If asked about quizzes or exams, politely decline and redirect to the materials.\n\n'
+        'STRICT TOPIC RULE: You only discuss this module\'s training content. If asked '
+        'about anything unrelated to it (politics, cooking, general tech, homework for '
+        'other subjects, other companies\' products, etc.), say: "That\'s outside what I '
+        'can help with here — I\'m here for questions about this module\'s material." '
+        'Do not answer the off-topic part even partially, even as a joke or a one-liner.\n\n'
         f'Module content summary:\n{module_content[:2500] if module_content else "No content available."}'
     )
     resp = _http.post(
@@ -177,9 +218,10 @@ def _check_completion(user_id, module_id):
         return
     quiz = lms_get_quiz(module_id=module_id)
     exam = lms_get_exam(module_id=module_id)
-    quiz_ok = (not quiz) or bool(p.get('quiz_passed'))
-    exam_ok = (not exam) or bool(p.get('exam_graded'))
-    if quiz_ok and exam_ok and not p.get('completed'):
+    quiz_ok     = (not quiz) or bool(p.get('quiz_passed'))
+    exam_ok     = (not exam) or bool(p.get('exam_graded'))
+    material_ok = _material_complete(module_id, p)
+    if material_ok and quiz_ok and exam_ok and not p.get('completed'):
         lms_update_progress(user_id, module_id, completed=True, completed_at=datetime.now())
 
 
@@ -192,7 +234,8 @@ def _progress_steps(prog, req):
     """
     prog  = prog or {}
     req   = req or {}
-    steps = [{'key': 'study', 'label': 'Open the material', 'done': bool(prog)}]
+    study_done = (prog.get('material_pct') or 0) >= 100 if req.get('has_pdf') else bool(prog)
+    steps = [{'key': 'study', 'label': 'Open the material', 'done': study_done}]
     if req.get('has_quiz'):
         steps.append({'key': 'quiz', 'label': 'Pass the quiz',
                       'done': bool(prog.get('quiz_passed'))})
@@ -210,3 +253,50 @@ def _progress_steps(prog, req):
     done  = sum(1 for s in steps if s['done'])
     return {'steps': steps, 'done': done, 'total': total,
             'pct': round(done / total * 100) if total else 0}
+
+
+# ── Module locking / sequential unlock ───────────────────────────────────────
+#
+# One admin/trainer-controlled `is_locked` flag per module (and separately per
+# quiz/exam) always wins — a locked module is inaccessible to every trainee no
+# matter their progress. Below that, a module is unlocked for a given trainee
+# once the module before it (by sort_order within their training_type) has
+# been completed; the first module in the program is always open.
+
+def _module_access(user_id, module_id):
+    """(unlocked, mods, prog_map, index) for one trainee's view of module_id.
+
+    `mods` is the trainee's full syllabus in program order — callers that
+    already need the list (e.g. learn()) can reuse it instead of re-querying.
+    `index` is None if module_id isn't in the trainee's published syllabus.
+    """
+    mods = lms_get_modules_for_trainee(user_id, published_only=True)
+    prog_map = {p['module_id']: p for p in lms_get_progress(user_id)}
+    ids = [m['id'] for m in mods]
+    if module_id not in ids:
+        return False, mods, prog_map, None
+    index = ids.index(module_id)
+    unlocked = _module_unlocked(mods, prog_map, index)
+    return unlocked, mods, prog_map, index
+
+
+def _module_unlocked(mods, prog_map, index):
+    mod = mods[index]
+    if mod.get('is_locked'):
+        return False
+    if index == 0:
+        return True
+    prev_prog = prog_map.get(mods[index - 1]['id'])
+    return bool(prev_prog and prev_prog.get('completed'))
+
+
+def _material_complete(module_id, prog):
+    """True once a module's PDF material has been fully viewed (100% of
+    pages, tracked by the in-modal viewer), or immediately true if the
+    module has no PDF to page through (other file types, or none at all) —
+    page-percentage tracking only exists for the PDF viewer."""
+    files = lms_get_files(module_id)
+    has_pdf = any(f.get('file_type') == 'pdf' for f in files)
+    if not has_pdf:
+        return True
+    return bool(prog and (prog.get('material_pct') or 0) >= 100)

@@ -1073,6 +1073,28 @@
             color: #DC2626!important
         }
 
+        .btn-edit-sched {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            line-height: 1;
+            transition: all 0.15s;
+            flex-shrink: 0
+        }
+
+        .sched-list li:hover .btn-edit-sched {
+            color: var(--green-pr)
+        }
+
+        .btn-edit-sched:hover {
+            background: #DCFCE7!important;
+            color: #16583C!important
+        }
+
         .sched-empty {
             padding: 2rem;
             text-align: center;
@@ -1557,8 +1579,11 @@
         <!-- ═══ USERS ═══ -->
         <div id="section-users" class="section">
             <div class="page-head">
-                <h1>Users</h1>
-                <span class="count-badge">{{ users|length }} total</span>
+                <div>
+                    <h1>Users</h1>
+                    <span class="count-badge">{{ users|length }} total</span>
+                </div>
+                <button type="button" class="btn-add" onclick="openUserModal('create', null)"><i class="fa-solid fa-user-plus"></i> Add User</button>
             </div>
 
             <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
@@ -1610,8 +1635,8 @@
                             <td>
                                 {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'employee' %}<span class="badge b-employee">Employee</span> {% else %}<span class="badge b-trainee">Trainee</span>{% endif %}
                             </td>
-                            <td>{{ u.company_name or '"”' }}</td>
-                            <td>{{ u.contact_number or '"”' }}</td>
+                            <td>{{ u.company_name or '—' }}</td>
+                            <td>{{ u.contact_number or '—' }}</td>
                             <td style="font-size:12px">
                                 {% if u.role == 'trainee' and u.training_type %}
                                     {% set tt = u.training_type %}
@@ -1624,10 +1649,18 @@
                                     {% elif tt == 'gemp_oge' %}<span class="badge" style="background:#A7F3D0;color:#064E3B">GEMP (Gov't)</span>
                                     {% else %}<span style="color:var(--text-secondary)">{{ tt }}</span>
                                     {% endif %}
-                                {% else %}<span style="color:var(--text-tertiary)">"”</span>{% endif %}
+                                {% else %}<span style="color:var(--text-tertiary)">—</span>{% endif %}
                             </td>
                             <td style="color:var(--gray);font-size:12px">{{ u.created_at.strftime('%b %d, %Y') }}</td>
-                            <td>
+                            <td style="white-space:nowrap;display:flex;gap:6px">
+                                <button type="button" class="btn-action btn-restore" onclick='openUserModal("edit", {{ {
+                                    "id": u.id, "fname": u.fname, "lname": u.lname, "email": u.email,
+                                    "role": u.role, "contact_number": u.contact_number or "",
+                                    "company_name": u.company_name or "", "training_type": u.training_type or "",
+                                    "payment_status": u.payment_status or "unpaid"
+                                } | tojson }})'>
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                                </button>
                                 {% if u.role != 'admin' %}
                                 <form method="POST" action="/admin/user/archive/{{ u.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Archive {{ u.fname }} {{ u.lname }}?','Archive','#DC2626')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -1751,10 +1784,16 @@
                                 <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-laptop" style="color:#5B21B6;width:13px"></i> Online &amp; Hybrid · {{ s.start_date.strftime('%b %d, %Y') }} · 7 days</span>
                                 <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-chalkboard-user" style="color:#92400E;width:13px"></i> Self-paced · {{ s.start_date.strftime('%b %d, %Y') }} · 3 days</span>
                             </div>
-                            <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
-                            </form>
+                            <div style="display:flex;gap:2px">
+                                <button type="button" class="btn-edit-sched" title="Edit date"
+                                        onclick='openEditSchedule({{ s.id }}, {{ s.name|tojson }}, {{ s.dates|map("string")|list|tojson }})'>
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
+                                </form>
+                            </div>
                         </li>
                         {% else %}
                         <li class="sched-empty">No training batches yet</li>
@@ -1775,10 +1814,16 @@
                                 <span style="font-weight:700;font-size:13px;color:var(--green-pr)">{{ s.name }}</span>
                                 <span style="font-size:11px;color:var(--text-secondary)"><i class="fa-solid fa-rotate" style="color:#9D174D;width:13px"></i> CEA &amp; CEM Renewal · {{ s.start_date.strftime('%b %d, %Y') }} · 2 days (Fri"“Sat)</span>
                             </div>
-                            <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
-                            </form>
+                            <div style="display:flex;gap:2px">
+                                <button type="button" class="btn-edit-sched" title="Edit date"
+                                        onclick='openEditSchedule({{ s.id }}, {{ s.name|tojson }}, {{ s.dates|map("string")|list|tojson }})'>
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-del-sched"><i class="fa-solid fa-trash-can"></i></button>
+                                </form>
+                            </div>
                         </li>
                         {% else %}
                         <li class="sched-empty">No recertification batches yet</li>
@@ -1823,6 +1868,7 @@
                                 <td style="font-size:12px;color:var(--gray)">{{ s.end_date.strftime('%b %d, %Y') }}</td>
                                 <td>
                                     <form method="POST" action="/admin/schedule/delete/{{ s.id }}" style="margin:0" onsubmit="return swalConfirm(event,'Delete {{ s.name }}?','Delete','#DC2626')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn-del-sched" style="color:var(--text-tertiary)"><i class="fa-solid fa-trash-can"></i></button>
                                     </form>
                                 </td>
@@ -2029,7 +2075,7 @@
         <div id="section-modules" class="section">
             <div class="page-head">
                 <h1>Training Modules (LMS)</h1>
-                <a href="/lms/modules" target="_blank"
+                <a href="/lms/modules"
                    style="display:inline-flex;align-items:center;gap:10px;padding:8px 16px 8px 8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;text-decoration:none;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s"
                    onmouseover="this.style.borderColor='#1E7A4B';this.style.boxShadow='0 4px 14px rgba(0,0,0,.12)'"
                    onmouseout="this.style.borderColor='var(--border-color)';this.style.boxShadow='var(--shadow-sm)'">
@@ -2042,21 +2088,21 @@
                 </a>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:20px">
-                <a href="/lms/modules/create" target="_blank" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
+                <a href="/lms/modules/create" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#16583C,#1E7A4B);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0"><i class="fa-solid fa-plus"></i></span>
                     <div>
                         <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Create Module</div>
                         <div style="font-size:11px;color:var(--text-secondary)">New training module</div>
                     </div>
                 </a>
-                <a href="/lms/submissions" target="_blank" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
+                <a href="/lms/submissions" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#1D4ED8,#2563EB);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0"><i class="fa-solid fa-inbox"></i></span>
                     <div>
                         <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Submissions</div>
                         <div style="font-size:11px;color:var(--text-secondary)">Grade practical exams</div>
                     </div>
                 </a>
-                <a href="/lms/certificates/manage" target="_blank" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
+                <a href="/lms/certificates/manage" class="panel-card" style="display:flex;align-items:center;gap:14px;text-decoration:none;padding:18px 20px;transition:box-shadow .2s" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
                     <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#854D0E,#A16207);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0"><i class="fa-solid fa-certificate"></i></span>
                     <div>
                         <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Certificates</div>
@@ -2135,6 +2181,69 @@
                             </td>
                             <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">{{ m.quiz_count or 0 }}</td>
                             <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">{{ m.exam_count or 0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Trainee Progress -->
+            {% if trainee_progress %}
+            <div class="panel-card" style="padding:20px 24px">
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+                    <i class="fa-solid fa-chart-line" style="color:#1E7A4B"></i> Trainee Progress ({{ trainee_progress|length }})
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                    <thead>
+                        <tr style="border-bottom:1px solid #E5E7EB">
+                            <th style="text-align:left;padding:8px 0;font-weight:600;color:var(--text-secondary)">Trainee</th>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary)">Program</th>
+                            <th style="text-align:left;padding:8px 0;font-weight:600;color:var(--text-secondary)">Modules Completed</th>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary)">Avg. Quiz Score</th>
+                            <th style="text-align:center;padding:8px 0;font-weight:600;color:var(--text-secondary)">Certificate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in trainee_progress %}
+                        {% set pct = ((t.completed_count / t.total_modules * 100) | round | int) if t.total_modules else 0 %}
+                        <tr style="border-bottom:1px solid #F3F4F6">
+                            <td style="padding:12px 0">
+                                <div style="font-weight:500;color:var(--text-primary)">{{ t.fname }} {{ t.lname }}</div>
+                                <div style="font-size:11px;color:var(--text-tertiary)">{{ t.email }}</div>
+                            </td>
+                            <td style="padding:12px 0;text-align:center">
+                                {% set tt = t.training_type %}
+                                {% if tt == 'training' %}<span style="font-size:11px;background:#E0E7FF;color:#3730A3;padding:3px 8px;border-radius:4px">CEM</span>
+                                {% elif tt == 'cea_training' %}<span style="font-size:11px;background:#FEE2E2;color:#991B1B;padding:3px 8px;border-radius:4px">CEA</span>
+                                {% elif tt == 'renewal' %}<span style="font-size:11px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px">REN</span>
+                                {% elif tt == 'cea_renewal' %}<span style="font-size:11px;background:#FDF2F8;color:#831843;padding:3px 8px;border-radius:4px">CEA-REN</span>
+                                {% elif tt == 'cem_renewal' %}<span style="font-size:11px;background:#FEF3C7;color:#92400E;padding:3px 8px;border-radius:4px">CEM-REN</span>
+                                {% elif tt == 'gemp_lgu' %}<span style="font-size:11px;background:#D1FAE5;color:#064E3B;padding:3px 8px;border-radius:4px">GEMP-LGU</span>
+                                {% elif tt == 'gemp_oge' %}<span style="font-size:11px;background:#A7F3D0;color:#064E3B;padding:3px 8px;border-radius:4px">GEMP-OGE</span>
+                                {% else %}<span style="font-size:11px;color:var(--text-tertiary)">"”</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding:12px 0;min-width:160px">
+                                {% if t.total_modules %}
+                                <div style="display:flex;align-items:center;gap:8px">
+                                    <div style="flex:1;height:6px;border-radius:4px;background:#F3F4F6;overflow:hidden">
+                                        <div style="height:100%;border-radius:4px;background:{{ '#16A34A' if pct == 100 else '#1E7A4B' }};width:{{ pct }}%"></div>
+                                    </div>
+                                    <span style="font-size:11px;color:var(--text-secondary);white-space:nowrap">{{ t.completed_count }}/{{ t.total_modules }} ({{ pct }}%)</span>
+                                </div>
+                                {% else %}
+                                <span style="font-size:11px;color:var(--text-tertiary)">No modules for this program</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding:12px 0;text-align:center;color:var(--text-secondary)">
+                                {{ (t.avg_score | round(1)) if t.avg_score is not none else '—' }}
+                            </td>
+                            <td style="padding:12px 0;text-align:center">
+                                {% if t.has_certificate %}<span style="font-size:11px;background:#D1FAE5;color:#065F46;padding:3px 8px;border-radius:4px"><i class="fa-solid fa-certificate"></i> Issued</span>
+                                {% else %}<span style="font-size:11px;background:#F3F4F6;color:#6B7280;padding:3px 8px;border-radius:4px">"”</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -2525,6 +2634,95 @@
                 if (result.isConfirmed) form.submit();
             });
             return false;
+        }
+
+        // Edit-batch dates — one picker per individual run day, none of them
+        // locked to Fridays: the whole point is to nudge a single day off a
+        // holiday without shifting the rest of the run.
+        function openEditSchedule(id, name, dates) {
+            const dayFields = dates.map(function(d, i) {
+                return '<label style="display:block;font-size:12px;font-weight:600;margin:' +
+                    (i === 0 ? '0' : '10px') + ' 0 4px;color:#374151">Day ' + (i + 1) + '</label>' +
+                    '<input id="swal-edit-date-' + i + '" class="swal2-input swal-edit-date" ' +
+                    'style="margin:0" readonly placeholder="Select a date">';
+            }).join('');
+
+            Swal.fire({
+                title: 'Edit Batch',
+                width: 460,
+                html:
+                    '<div style="text-align:left;max-height:60vh;overflow-y:auto;padding-right:4px">' +
+                        '<label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#374151">Batch Name</label>' +
+                        '<input id="swal-edit-name" class="swal2-input" style="margin:0 0 14px">' +
+                        dayFields +
+                    '</div>',
+                showCancelButton: true,
+                confirmButtonText: 'Save Changes',
+                confirmButtonColor: '#16583C',
+                cancelButtonColor: '#6B7280',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                focusCancel: true,
+                customClass: { popup: 'swal-font' },
+                didOpen: function() {
+                    document.getElementById('swal-edit-name').value = name;
+                    // Every day is boxed in by its neighbors on both sides — Day 2
+                    // can't go before Day 1 or after Day 3, and so on down the line.
+                    // Those floors/ceilings shift live as a neighboring day is changed.
+                    const pickers = dates.map(function(d, i) {
+                        return flatpickr('#swal-edit-date-' + i, {
+                            dateFormat: 'Y-m-d',
+                            defaultDate: d,
+                            disableMobile: true,
+                            minDate: i > 0 ? dates[i - 1] : null,
+                            maxDate: i < dates.length - 1 ? dates[i + 1] : null,
+                        });
+                    });
+                    pickers.forEach(function(fp, i) {
+                        fp.config.onChange.push(function(selectedDates) {
+                            if (!selectedDates[0]) return;
+                            if (pickers[i + 1]) pickers[i + 1].set('minDate', selectedDates[0]);
+                            if (pickers[i - 1]) pickers[i - 1].set('maxDate', selectedDates[0]);
+                        });
+                    });
+                },
+                preConfirm: function() {
+                    const newName = document.getElementById('swal-edit-name').value.trim();
+                    const newDates = dates.map(function(d, i) {
+                        return document.getElementById('swal-edit-date-' + i).value;
+                    });
+                    if (!newName || newDates.some(function(d) { return !d; })) {
+                        Swal.showValidationMessage('Please enter a name and pick every day.');
+                        return false;
+                    }
+                    for (let i = 1; i < newDates.length; i++) {
+                        if (newDates[i] < newDates[i - 1]) {
+                            Swal.showValidationMessage('Day ' + (i + 1) + ' can\'t be before Day ' + i + '.');
+                            return false;
+                        }
+                    }
+                    return { name: newName, dates: newDates };
+                }
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/admin/schedule/edit/' + id;
+                const csrfInp = document.createElement('input');
+                csrfInp.type = 'hidden'; csrfInp.name = 'csrf_token';
+                csrfInp.value = document.querySelector('meta[name="csrf-token"]').content;
+                form.appendChild(csrfInp);
+                const nameInp = document.createElement('input');
+                nameInp.type = 'hidden'; nameInp.name = 'name'; nameInp.value = result.value.name;
+                form.appendChild(nameInp);
+                result.value.dates.forEach(function(d) {
+                    const dateInp = document.createElement('input');
+                    dateInp.type = 'hidden'; dateInp.name = 'dates'; dateInp.value = d;
+                    form.appendChild(dateInp);
+                });
+                document.body.appendChild(form);
+                form.submit();
+            });
         }
 
         // ── Analytics charts (Dashboard) ───────────────────────────────────────────
@@ -2967,12 +3165,24 @@
                         '<input type="hidden" name="csrf_token" value="' + document.querySelector('meta[name="csrf-token"]').content + '">' +
                         '<div style="margin-bottom:12px">' +
                             lbl('Specialist Notes') +
-                            '<textarea name="reviewer_notes" rows="3" style="' + inputStyle + ';resize:vertical">' + (r.reviewer_notes || '') + '</textarea>' +
+                            '<textarea name="reviewer_notes" rows="3" style="' + inputStyle + ';resize:vertical">' + (r.reviewer_notes || 'Please note that prices of PV system parts are not fixed and may go up or down depending on market conditions. This quotation is a starting point; final pricing will be confirmed after a full site assessment.') + '</textarea>' +
                         '</div>' +
-                        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">' +
                             '<div>' + lbl('Adj. System (kWp)') + '<input type="number" step="0.01" name="final_system_kw" value="' + (r.final_system_kw || r.system_size_kw || '') + '" placeholder="' + (r.system_size_kw || '') + '" style="' + inputStyle + '"></div>' +
                             '<div>' + lbl('Adj. Panels') + '<input type="number" name="final_panel_count" value="' + (r.final_panel_count || r.panel_count || '') + '" placeholder="' + (r.panel_count || '') + '" style="' + inputStyle + '"></div>' +
                             '<div>' + lbl('Final Cost (₱)') + '<input type="number" step="0.01" name="final_cost" value="' + (r.final_cost || '') + '" placeholder="Optional" style="' + inputStyle + '"></div>' +
+                        '</div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">' +
+                            '<div>' + lbl('Final Monthly Savings (₱)') + '<input type="number" step="0.01" name="final_monthly_savings" value="' + (r.final_monthly_savings || '') + '" placeholder="' + (r.monthly_savings || '') + '" style="' + inputStyle + '"></div>' +
+                            '<div>' + lbl('Final Payback (yrs)') + '<input type="number" step="0.1" name="final_roi_years" value="' + (r.final_roi_years || '') + '" placeholder="' + (r.roi_years || '') + '" style="' + inputStyle + '"></div>' +
+                            '<div>' + lbl('Final System Type') +
+                                '<select name="final_system_type" style="' + inputStyle + '">' +
+                                    '<option value="">Use AI (' + (r.system_type || 'grid-tie') + ')</option>' +
+                                    '<option value="grid-tie"' + (r.final_system_type === 'grid-tie' ? ' selected' : '') + '>Grid-Tie</option>' +
+                                    '<option value="hybrid"' + (r.final_system_type === 'hybrid' ? ' selected' : '') + '>Hybrid</option>' +
+                                    '<option value="off-grid"' + (r.final_system_type === 'off-grid' ? ' selected' : '') + '>Off-Grid</option>' +
+                                '</select>' +
+                            '</div>' +
                         '</div>' +
                         '<button type="submit" class="btn-add" style="width:100%;justify-content:center"><i class="fa-solid fa-paper-plane"></i> Finalize &amp; Send Quotation Email</button>' +
                     '</form>';
@@ -3047,10 +3257,10 @@
                 `;
             } else {
                 buttonsDiv.innerHTML = `
-                    <a href="/lms/modules/${id}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#16583C;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;transition:background .2s;flex:1" onmouseover="this.style.background='#0D3B27'" onmouseout="this.style.background='#16583C'">
+                    <a href="/lms/modules/${id}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#16583C;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;transition:background .2s;flex:1" onmouseover="this.style.background='#0D3B27'" onmouseout="this.style.background='#16583C'">
                         <i class="fa-solid fa-sliders"></i> Manage
                     </a>
-                    <a href="/lms/modules/${id}/edit" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#6B7280;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;transition:background .2s;flex:1" onmouseover="this.style.background='#4B5563'" onmouseout="this.style.background='#6B7280'">
+                    <a href="/lms/modules/${id}/edit" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#6B7280;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;transition:background .2s;flex:1" onmouseover="this.style.background='#4B5563'" onmouseout="this.style.background='#6B7280'">
                         <i class="fa-solid fa-pen"></i> Edit
                     </a>
                     <button onclick="moduleAction(${id}, 'archive')" style="flex:1;padding:10px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s" onmouseover="this.style.background='#B91C1C'" onmouseout="this.style.background='#DC2626'">
@@ -3172,10 +3382,10 @@
                     // Reload the admin page to refresh module lists
                     location.reload();
                 } else {
-                    alert('Action failed: ' + response.statusText);
+                    Swal.fire({icon:'error', title:'Action failed', text: response.statusText, customClass:{popup:'swal-font'}});
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                Swal.fire({icon:'error', title:'Error', text: error.message, customClass:{popup:'swal-font'}});
             }
         }
     </script>
@@ -3216,6 +3426,164 @@
             </div>
         </div>
     </div>
+
+    <!-- Add / Edit User Modal -->
+    <div id="user-form-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:16px">
+        <div style="position:relative;background:#fff;border-radius:14px;padding:32px;max-width:480px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,0.2);max-height:92vh;overflow-y:auto">
+            <button type="button" onclick="closeUserModal()" aria-label="Close" style="position:absolute;top:12px;right:12px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;border-radius:8px;background:#FEE2E2;font-size:20px;line-height:1;cursor:pointer;color:#DC2626;transition:background .15s" onmouseover="this.style.background='#FECACA'" onmouseout="this.style.background='#FEE2E2'">&times;</button>
+
+            <h2 id="user-modal-title" style="margin:0 40px 4px 0;font-size:20px;font-weight:700;color:#0F1419">Add User</h2>
+            <p id="user-modal-sub" style="margin:0 0 20px;font-size:13px;color:#6B7280">Create a user account directly, without going through the registration + approval flow.</p>
+
+            <div id="user-form-errors" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px"></div>
+
+            <form id="user-form" onsubmit="return submitUserForm(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div style="display:flex;flex-direction:column;gap:14px">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Role *</label>
+                        <select name="role" id="um-role" required style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px" onchange="umSyncTraineeFields()">
+                            <option value="">— Select role —</option>
+                            <option value="admin">Admin</option>
+                            <option value="employee">Employee / Trainer</option>
+                            <option value="trainee">Trainee</option>
+                        </select>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">First Name *</label>
+                            <input type="text" name="fname" id="um-fname" required style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Last Name *</label>
+                            <input type="text" name="lname" id="um-lname" required style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Email *</label>
+                        <input type="email" name="email" id="um-email" required style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                    </div>
+                    <div id="um-password-field">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Temporary Password *</label>
+                        <input type="text" name="password" id="um-password" minlength="8" placeholder="At least 8 characters" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                        <p style="margin:4px 0 0;font-size:11px;color:#9CA3AF">Share this with the user directly — it isn't emailed automatically.</p>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Contact Number</label>
+                            <input type="text" name="contact_number" id="um-contact" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Company</label>
+                            <input type="text" name="company_name" id="um-company" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                        </div>
+                    </div>
+                    <div id="um-trainee-fields" style="display:none;padding:14px;background:#F9FAFB;border-radius:10px">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Training Type *</label>
+                        <select name="training_type" id="um-training-type" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px;margin-bottom:10px">
+                            <option value="">— Select training type —</option>
+                            <option value="training">CEM Training</option>
+                            <option value="cea_training">CEA Training</option>
+                            <option value="renewal">Renewal</option>
+                            <option value="cea_renewal">CEA Renewal</option>
+                            <option value="cem_renewal">CEM Renewal</option>
+                            <option value="gemp_lgu">GEMP Training – LGU</option>
+                            <option value="gemp_oge">GEMP Training – Gov't Entity</option>
+                        </select>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Payment Status</label>
+                        <select name="payment_status" id="um-payment-status" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
+                            <option value="unpaid">Unpaid</option>
+                            <option value="paid">Paid</option>
+                        </select>
+                        <p style="margin:8px 0 0;font-size:11px;color:#9CA3AF">Determines which LMS modules this trainee can see. Unpaid trainees are sent to the payment page on login.</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px">
+                    <button type="button" class="btn-ghost" onclick="closeUserModal()">Cancel</button>
+                    <button type="submit" id="um-submit-btn" class="btn-add"><i class="fa-solid fa-check"></i> <span id="um-submit-label">Create User</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<script>
+// ── Add / Edit User modal ────────────────────────────────────────────────────
+
+function umSyncTraineeFields() {
+    var isTrainee = document.getElementById('um-role').value === 'trainee';
+    var fields = document.getElementById('um-trainee-fields');
+    fields.style.display = isTrainee ? 'block' : 'none';
+    document.getElementById('um-training-type').required = isTrainee;
+}
+
+function openUserModal(mode, user) {
+    var form = document.getElementById('user-form');
+    form.reset();
+    document.getElementById('user-form-errors').style.display = 'none';
+
+    if (mode === 'edit') {
+        document.getElementById('user-modal-title').textContent = 'Edit ' + user.fname + ' ' + user.lname;
+        document.getElementById('user-modal-sub').textContent = "Update this account's details. Role and training type changes take effect immediately.";
+        form.action = '/admin/user/edit/' + user.id;
+        document.getElementById('um-password-field').style.display = 'none';
+        document.getElementById('um-password').required = false;
+        document.getElementById('um-role').value = user.role;
+        document.getElementById('um-fname').value = user.fname;
+        document.getElementById('um-lname').value = user.lname;
+        document.getElementById('um-email').value = user.email;
+        document.getElementById('um-contact').value = user.contact_number || '';
+        document.getElementById('um-company').value = user.company_name || '';
+        document.getElementById('um-training-type').value = user.training_type || '';
+        document.getElementById('um-payment-status').value = user.payment_status || 'unpaid';
+        document.getElementById('um-submit-label').textContent = 'Save Changes';
+    } else {
+        document.getElementById('user-modal-title').textContent = 'Add User';
+        document.getElementById('user-modal-sub').textContent = 'Create a user account directly, without going through the registration + approval flow.';
+        form.action = '/admin/user/create';
+        document.getElementById('um-password-field').style.display = 'block';
+        document.getElementById('um-password').required = true;
+        document.getElementById('um-submit-label').textContent = 'Create User';
+    }
+    umSyncTraineeFields();
+    document.getElementById('user-form-modal').style.display = 'flex';
+}
+
+function closeUserModal() {
+    document.getElementById('user-form-modal').style.display = 'none';
+}
+
+async function submitUserForm(e) {
+    e.preventDefault();
+    var form = document.getElementById('user-form');
+    var btn  = document.getElementById('um-submit-btn');
+    var errBox = document.getElementById('user-form-errors');
+    btn.disabled = true;
+    errBox.style.display = 'none';
+    try {
+        var res = await fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form)
+        });
+        var data = await res.json();
+        if (!res.ok || data.errors) {
+            errBox.innerHTML = (data.errors || ['Something went wrong. Please try again.']).map(function(x){ return '<div>' + x + '</div>'; }).join('');
+            errBox.style.display = 'block';
+            btn.disabled = false;
+            return false;
+        }
+        closeUserModal();
+        location.reload();
+    } catch (err) {
+        errBox.textContent = 'Connection error. Please try again.';
+        errBox.style.display = 'block';
+        btn.disabled = false;
+    }
+    return false;
+}
+</script>
 
 <script>
 // ── Analytics charts ─────────────────────────────────────────────────────────

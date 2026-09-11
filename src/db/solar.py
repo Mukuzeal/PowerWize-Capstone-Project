@@ -12,8 +12,8 @@ def save_solar_request(data: dict) -> int:
             establishment_type, ownership, electrical_phase,
             monthly_bill_php, kwh_monthly, time_of_use_night_pct,
             target_savings, roof_sqm, notes, bill_path,
-            ocr_kwh, ocr_bill_amount
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ocr_kwh, ocr_bill_amount, grid_connection
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
     """, (
         data.get("user_id"), data.get("name"), data.get("address"),
@@ -24,6 +24,7 @@ def save_solar_request(data: dict) -> int:
         data.get("time_of_use_night_pct"), data.get("target_savings"),
         data.get("roof_sqm"), data.get("notes"), data.get("bill_path"),
         data.get("ocr_kwh"), data.get("ocr_bill_amount"),
+        data.get("grid_connection", "grid_tie"),
     ))
     conn.commit()
     req_id = cur.fetchone()[0]
@@ -40,6 +41,9 @@ def update_solar_request(req_id: int, **fields):
         "battery_recommended", "ai_explanation", "status",
         "reviewer_notes", "reviewed_at", "email", "contact",
         "final_system_kw", "final_panel_count", "final_cost",
+        "final_monthly_savings", "final_roi_years", "final_system_type",
+        "estimated_monthly_yield_kwh", "estimated_annual_yield_kwh",
+        "battery_kwh_capacity", "out_of_scope", "out_of_scope_reason",
     }
     safe = {k: v for k, v in fields.items() if k in allowed}
     if not safe:

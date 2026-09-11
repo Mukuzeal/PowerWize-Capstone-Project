@@ -5,7 +5,7 @@ from flask import render_template, request, redirect, url_for, jsonify, send_fil
 
 from db import (lms_create_module, lms_get_modules, lms_get_module,
                 lms_update_module, lms_toggle_publish, lms_delete_module,
-                lms_archive_module, lms_restore_module,
+                lms_archive_module, lms_restore_module, lms_toggle_module_lock,
                 lms_add_file, lms_get_files, lms_get_file, lms_delete_file,
                 lms_get_quiz, lms_get_exam, lms_get_questions)
 
@@ -15,6 +15,16 @@ from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, _back_
 
 # ── INSTRUCTOR ROUTES ─────────────────────────────────────────────────────────
 
+_PROGRAM_LABELS = {
+    'training':    'CEM Training',
+    'cea_training':'CEA Training',
+    'renewal':     'Renewal',
+    'cea_renewal': 'CEA Renewal',
+    'cem_renewal': 'CEM Renewal',
+    'gemp_lgu':    'GEMP LGU',
+    'gemp_oge':    'GEMP Gov Entity',
+}
+
 @lms_bp.route('/lms/')
 @lms_bp.route('/lms/modules')
 def modules():
@@ -23,6 +33,8 @@ def modules():
     if _is_instructor():
         inst_id = _uid() if _role() != 'admin' else None
         mods = lms_get_modules(instructor_id=inst_id)
+        for m in mods:
+            m['program_label'] = _PROGRAM_LABELS.get(m['training_type'], m['training_type'])
         return render_template('lms/modules.html', modules=mods)
     return redirect(url_for('lms.learn'))
 
@@ -93,6 +105,21 @@ def module_publish(module_id):
         lms_toggle_publish(module_id, new_state)
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'id': module_id, 'is_published': new_state})
+    return redirect(url_for('lms.module_manage', module_id=module_id))
+
+
+@lms_bp.route('/lms/modules/<int:module_id>/lock', methods=['POST'])
+def module_lock(module_id):
+    if not _uid() or not _is_instructor():
+        abort(403)
+    mod = lms_get_module(module_id)
+    if not _owns_module(mod):
+        abort(403)
+    new_state = not mod['is_locked'] if mod else False
+    if mod:
+        lms_toggle_module_lock(module_id, new_state)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'id': module_id, 'is_locked': new_state})
     return redirect(url_for('lms.module_manage', module_id=module_id))
 
 

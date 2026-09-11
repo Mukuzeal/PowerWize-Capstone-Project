@@ -19,7 +19,7 @@ GROQ_URL        = "https://api.groq.com/openai/v1/chat/completions"
 # vision model was never given the one job it was configured for.
 VISION_PROVIDER = os.getenv("VISION_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
 LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
-LM_STUDIO_VISION_MODEL = os.getenv("LM_STUDIO_MODEL", "Qwen/Qwen3.5-VL-8B-Instruct")
+LM_STUDIO_VISION_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-4b")
 
 _BILL_PROMPT = (
     "You are reading a Philippine electric bill photo or scan. "
@@ -107,11 +107,16 @@ def _groq_extract(img_bytes: bytes, mime: str) -> dict | None:
             model   = LM_STUDIO_VISION_MODEL
             headers = {}
             timeout = 120          # a local model on CPU is not a hosted one
+            # LM Studio's server rejects json_object ("must be 'json_schema' or
+            # 'text'"); fall back to plain text and let _parse_json() regex the
+            # JSON out of it.
+            fmt = {"type": "text"}
         else:
             url     = GROQ_URL
             model   = GROQ_VISION_MODEL
             headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
             timeout = 30
+            fmt = {"type": "json_object"}
 
         payload = {
             "model": model,
@@ -124,7 +129,7 @@ def _groq_extract(img_bytes: bytes, mime: str) -> dict | None:
             }],
             "temperature": 0,
             "max_tokens": 100,
-            "response_format": {"type": "json_object"},
+            "response_format": fmt,
         }
         r = _http.post(url, json=payload, headers=headers, timeout=timeout)
         r.raise_for_status()

@@ -129,6 +129,25 @@
           </div>
         </div>
 
+        <div class="form-divider"></div>
+
+        <div class="field">
+          <label>Grid Connection <span class="req">*</span></label>
+          <div class="radio-group" style="flex-direction:row;flex-wrap:wrap">
+            <label class="radio-opt">
+              <input type="radio" name="grid_connection" value="grid_tie" checked onchange="syncRadio(this)">
+              <i class="fa-solid fa-plug-circle-bolt"></i> Grid-Tied
+            </label>
+            <label class="radio-opt">
+              <input type="radio" name="grid_connection" value="off_grid" onchange="syncRadio(this)">
+              <i class="fa-solid fa-solar-panel"></i> Off-Grid
+            </label>
+          </div>
+          <p class="form-hint" id="offgrid-hint" style="display:none">
+            Off-grid systems are oversized with battery storage since there's no utility connection to fall back on. There's no monthly bill to offset, so savings/payback figures don't apply — cost includes the battery bank.
+          </p>
+        </div>
+
       </div>
 
       <!-- Section 3: Energy Consumption -->
@@ -257,4 +276,16 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="{{ url_for('static', filename='wizard.js') }}"></script>
 <script src="{{ url_for('static', filename='solar-request.js') }}"></script>
+<script>
+(function(){
+  var radios = document.querySelectorAll('input[name="grid_connection"]');
+  var hint = document.getElementById('offgrid-hint');
+  function sync(){
+    var checked = document.querySelector('input[name="grid_connection"]:checked');
+    hint.style.display = (checked && checked.value === 'off_grid') ? 'block' : 'none';
+  }
+  radios.forEach(function(r){ r.addEventListener('change', sync); });
+  sync();
+})();
+</script>
 {% endblock %}

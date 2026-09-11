@@ -1,20 +1,18 @@
 {%- extends "site/base.html" -%}
-{% from "shared/macros.html" import header %}
 
 {% block title %}Practical Exam – {{ mod.title}}{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='lms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='lms-admin.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 {% endblock %}
 
 {% block main %}
-{{ header("Training Modules")}}
 <div class="page-body">
 <div class="lms-wrap lms-wrap-narrow">
 
-  <div class="lms-page-header">
+  <div class="lms-page-header" data-reveal="tight">
     <div>
       <h2 class="lms-page-title"><i class="fa-solid fa-clipboard-list"></i> Practical Exam</h2>
       <p class="lms-page-sub">{{ mod.title}}</p>
@@ -22,7 +20,7 @@
     <a href="/lms/modules/{{ mod.id}}" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back</a>
   </div>
 
-  <div class="lms-card">
+  <div class="lms-card" data-reveal="tight">
     <form method="post" id="exam-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
       <input type="hidden" name="action" value="save_meta">
@@ -50,15 +48,32 @@
       </div>
       <div class="form-actions">
         <a href="/lms/modules/{{ mod.id}}" class="btn-ghost">Cancel</a>
+        {% if exam %}
+        {% if exam.is_locked %}
+        <button type="button" class="btn-outline" title="Locking blocks every trainee regardless of their progress" onclick="document.getElementById('unlock-exam-form').submit()"><i class="fa-solid fa-lock-open"></i> Unlock Exam</button>
+        {% else %}
+        <button type="button" class="btn-danger" title="Locking blocks every trainee regardless of their progress" onclick="document.getElementById('lock-exam-form').submit()"><i class="fa-solid fa-lock"></i> Lock Exam</button>
+        {% endif %}
+        {% endif %}
         <button type="submit" class="btn-primary">
           <i class="fa-solid fa-floppy-disk"></i> {{ 'Update Exam' if exam else 'Create Exam'}}
         </button>
       </div>
     </form>
+    {% if exam %}
+    <form id="lock-exam-form" action="/lms/modules/{{ mod.id}}/exam" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+      <input type="hidden" name="action" value="lock">
+    </form>
+    <form id="unlock-exam-form" action="/lms/modules/{{ mod.id}}/exam" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+      <input type="hidden" name="action" value="unlock">
+    </form>
+    {% endif %}
   </div>
 
   {% if exam %}
-  <div class="lms-card" style="margin-top:16px">
+  <div class="lms-card" style="margin-top:16px" data-reveal="tight">
     <h3 class="card-inner-title"><i class="fa-solid fa-list"></i> Exam Questions</h3>
     <form method="post" id="questions-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
@@ -109,7 +124,7 @@
   {% endif %}
 
   {% if exam %}
-  <div class="lms-card" style="margin-top:16px">
+  <div class="lms-card" style="margin-top:16px" data-reveal="tight">
     <h3 class="card-inner-title">Trainee Submissions</h3>
     <a href="/lms/submissions" class="btn-outline"><i class="fa-solid fa-inbox"></i> View All Submissions</a>
   </div>

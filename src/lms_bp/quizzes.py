@@ -1,8 +1,9 @@
-from flask import render_template, request, redirect, url_for, jsonify, abort
+from flask import render_template, request, redirect, url_for, jsonify, abort, flash
 import requests as _http
 
 from db import (lms_get_module, lms_get_quiz, lms_get_questions,
                 lms_save_quiz, lms_save_quiz_questions, lms_publish_quiz,
+                lms_toggle_quiz_lock, lms_get_progress,
                 lms_get_files, lms_start_attempt, lms_record_tab_switch,
                 lms_submit_quiz, lms_get_attempt, lms_get_user_attempt,
                 lms_get_wrong_questions, lms_update_progress)
@@ -10,6 +11,7 @@ from db import (lms_get_module, lms_get_quiz, lms_get_questions,
 from . import lms_bp
 from ._shared import (_uid, _role, _is_instructor, _is_trainee, _module_content_text,
                        _ai_generate_quiz, _check_completion, _owns_module,
+                       _module_access, _material_complete,
                        AI_PROVIDER, GROQ_API_KEY, GROQ_MODEL, LM_STUDIO_URL, LM_STUDIO_MODEL)
 
 
@@ -71,6 +73,14 @@ def quiz_manage(module_id):
             lms_publish_quiz(quiz['id'], False)
             quiz = lms_get_quiz(module_id=module_id)
 
+        elif action == 'lock' and quiz:
+            lms_toggle_quiz_lock(quiz['id'], True)
+            quiz = lms_get_quiz(module_id=module_id)
+
+        elif action == 'unlock' and quiz:
+            lms_toggle_quiz_lock(quiz['id'], False)
+            quiz = lms_get_quiz(module_id=module_id)
+
         return redirect(url_for('lms.quiz_manage', module_id=module_id))
 
     return render_template('lms/quiz_manage.html', mod=mod, quiz=quiz, questions=questions)
@@ -96,7 +106,7 @@ def quiz_generate(module_id):
 
     content_text = _module_content_text(module_id)
     if not content_text.strip():
-        return jsonify(error="Could not extract text from the uploaded files. Make sure the PDF or DOCX is not a scanned image. Required packages: pdfplumber or PyPDF2 (for PDF), python-docx (for DOCX)."), 400
+        return jsonify(error="Could not extract text from the uploaded files. Make sure the PDF or DOCX has selectable text — scanned image pages (photos or picture-only PDFs) can't be read."), 400
 
     try:
         data = request.get_json() or {}
@@ -108,6 +118,21 @@ def quiz_generate(module_id):
         return jsonify(error=f"AI generation failed: {e}"), 500
 
 
+def _quiz_locked_reason(uid, module_id, quiz):
+    """None if the trainee may take this quiz, otherwise a flash message
+    explaining why not (module locked/not yet reached, quiz locked by the
+    trainer, or the module's PDF material isn't 100% viewed yet)."""
+    unlocked, _mods, _pm, _idx = _module_access(uid, module_id)
+    if not unlocked:
+        return 'This module is locked. Complete the previous module, or ask your trainer to unlock it.'
+    if quiz.get('is_locked'):
+        return 'This quiz has been locked by your trainer.'
+    prog = lms_get_progress(uid, module_id)
+    if not _material_complete(module_id, prog):
+        return 'Finish viewing the module material before starting the quiz.'
+    return None
+
+
 @lms_bp.route('/lms/learn/<int:module_id>/quiz')
 def quiz_take(module_id):
     if not _uid():
@@ -117,9 +142,11 @@ def quiz_take(module_id):
     if not quiz or not quiz['is_published']:
         abort(404)
     uid     = _uid()
-    existing = lms_get_user_attempt(uid, quiz['id'])
-    if existing:
-        return redirect(url_for('lms.learn_module', module_id=module_id))
+    if _is_trainee():
+        reason = _quiz_locked_reason(uid, module_id, quiz)
+        if reason:
+            flash(reason, 'warning')
+            return redirect(url_for('lms.learn_module', module_id=module_id))
     attempt_id = lms_start_attempt(uid, quiz['id'])
     questions  = lms_get_questions(quiz['id'])
     return render_template('lms/quiz_take.html', mod=mod, quiz=quiz,
@@ -134,6 +161,10 @@ def quiz_submit(module_id):
     attempt    = lms_get_attempt(attempt_id)
     if not attempt or attempt['user_id'] != _uid():
         abort(403)
+    if _is_trainee():
+        quiz_row = lms_get_quiz(quiz_id=attempt['quiz_id'])
+        if quiz_row and _quiz_locked_reason(_uid(), module_id, quiz_row):
+            abort(403)
     answers = {k[2:]: v for k, v in request.form.items() if k.startswith('q_')}
     score   = lms_submit_quiz(attempt_id, answers)
     quiz    = lms_get_quiz(module_id=module_id)
