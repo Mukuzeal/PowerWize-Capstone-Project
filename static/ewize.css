@@ -742,6 +742,15 @@ section { position: relative; }
   background: radial-gradient(circle, color-mix(in oklab, var(--amber) 11%, transparent) 0%, transparent 62%);
   animation-duration: 34s; animation-direction: alternate-reverse;
 }
+/* On the light substrate the same 9–11% mixes barely register — the dark-mode
+   glow relies on the ink-black background for contrast, which paper doesn't
+   have. Richer mix, same soft radial falloff, so the hero doesn't go flat. */
+:root[data-theme="light"] .hero__glow {
+  background: radial-gradient(circle, color-mix(in oklab, var(--signal) 22%, transparent) 0%, transparent 66%);
+}
+:root[data-theme="light"] .hero__glow--b {
+  background: radial-gradient(circle, color-mix(in oklab, var(--amber) 26%, transparent) 0%, transparent 62%);
+}
 @keyframes drift {
   from { transform: translate3d(0, 0, 0) scale(1); }
   to   { transform: translate3d(-6%, 5%, 0) scale(1.14); }
@@ -916,9 +925,18 @@ section { position: relative; }
   transition: opacity 700ms var(--e-out), transform 900ms var(--e-out);
 }
 .door:hover::before { opacity: 1; transform: translateY(0); }
+.door__ico {
+  position: absolute; top: clamp(2rem, 3.6vw, 3.75rem); right: clamp(2rem, 3.6vw, 3.75rem);
+  width: 2.1rem; height: 2.1rem;
+  color: color-mix(in oklab, var(--door-hue, var(--signal)) 55%, var(--fg-ghost));
+  transition: color 620ms var(--e-out);
+}
+.door__ico svg { width: 100%; height: 100%; }
+.door:hover .door__ico { color: var(--door-hue, var(--signal)); }
 .door__no {
   font-family: var(--mono); font-size: clamp(3rem, 6vw, 5rem);
-  font-weight: 200; color: var(--fg-ghost); line-height: 1;
+  font-weight: 200; color: color-mix(in oklab, var(--door-hue, var(--signal)) 12%, var(--fg-ghost));
+  line-height: 1;
   letter-spacing: -0.04em;
   transition: color 620ms var(--e-out);
 }
@@ -1075,6 +1093,12 @@ section { position: relative; }
   .spec__v { grid-column: 2; }
 }
 
+/* Registration list ("On the record") — a small verified-check mark ahead of
+   each DOE code, reinforcing the section's whole point: these are checkable. */
+#credentials .cred__code { display: inline-flex; align-items: center; gap: 0.45rem; }
+#credentials .cred__check { width: 0.85rem; height: 0.85rem; flex-shrink: 0; color: var(--signal); }
+#credentials .cred__check svg { width: 100%; height: 100%; }
+
 /* --------------------------------------------------------------------------
    16. SCHEDULE TABLE
    -------------------------------------------------------------------------- */
@@ -1105,7 +1129,12 @@ section { position: relative; }
   text-align: right; padding-right: 0;
 }
 .sched--meta th:last-child { text-align: right; padding-right: 0; }
-.sched__wrap { overflow-x: auto; }
+.sched__wrap {
+  overflow-x: auto;
+  border: var(--rule) solid var(--line-mid);
+  padding: 0.25rem clamp(1.25rem, 2.4vw, 2rem);
+}
+.sched caption { padding-top: 0.25rem; }
 @media (max-width: 700px) { .sched { min-width: 34rem; } }
 
 /* --------------------------------------------------------------------------
@@ -1222,10 +1251,11 @@ section { position: relative; }
   font-size: min(11vw, 12.5rem);
   font-variation-settings: "wdth" 112, "wght" 700;
   letter-spacing: -0.055em; line-height: 0.82;
-  color: transparent;
-  -webkit-text-stroke: 1px var(--line-mid);
+  color: color-mix(in oklab, var(--signal) 8%, transparent);
+  -webkit-text-stroke: 1.5px var(--line-strong);
   user-select: none;
   white-space: nowrap;
+  text-align: center;
 }
 .foot__legal {
   margin-top: 2.5rem; padding-top: 1.35rem;

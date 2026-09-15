@@ -494,6 +494,7 @@ HOME = {
         {
             "no": "01",
             "hue": "var(--signal)",
+            "icon": "ems",
             "kicker": "For organisations",
             "title": "Cut the bill, then keep it cut",
             "body": "Audit, management system, renewables, and building services — delivered by one registered "
@@ -509,6 +510,7 @@ HOME = {
         {
             "no": "02",
             "hue": "var(--amber)",
+            "icon": "training",
             "kicker": "For professionals",
             "title": "Get certified. Stay certified.",
             "body": "DOE-recognised certification and recertification programs, taught by people who audit "

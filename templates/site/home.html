@@ -1,5 +1,5 @@
 {% extends "site/base.html" %}
-{% from "site/_ui.html" import lines, btn, tlink, shead, cap_card, sched, cta, marquee with context %}
+{% from "site/_ui.html" import lines, btn, tlink, shead, sched, cta, marquee with context %}
 
 {% block title %}EnergyWize Solutions — Energy audits, management systems & DOE certification{% endblock %}
 {% block description %}DOE-Recognized Training Institution and registered ESCO in Makati. Level 1–3 energy audits, ISO 50001 energy management systems, solar PV, MEPF, and CEM / CEA / GEMP certification training.{% endblock %}
@@ -69,6 +69,7 @@
     <div class="doors" data-reveal>
       {%- for d in HOME.doors %}
       <article class="door" style="--door-hue:{{ d.hue }}">
+        <span class="door__ico">{{ icon(d.icon) }}</span>
         <p class="door__no">{{ d.no }}</p>
         <p class="mono mono--fg" style="margin-top:1.5rem">{{ d.kicker }}</p>
         <h3 class="d2">{{ d.title }}</h3>
@@ -87,40 +88,9 @@
   </div>
 </section>
 
-<section class="band band--edge" id="capabilities">
-  <div class="shell">
-    {{ shead('03', 'Capabilities',
-             '<h2 class="d1">Everything between<br>the meter and the roof.</h2>'|safe,
-             'Five service lines under one DOE registration, so accountability does not change hands halfway through a project.') }}
-    <div class="bento" data-reveal-group>
-      {%- for c in CAPABILITIES %}
-      {{ cap_card(c, wide=loop.last, side=PROGRAMS) }}
-      {%- endfor %}
-    </div>
-  </div>
-</section>
-
-<section class="band band--edge" id="method">
-  <div class="shell">
-    {{ shead('04', 'Method',
-             '<h2 class="d1">Assess. Model.<br>Implement. Verify.</h2>'|safe,
-             HOME.commitment) }}
-    <div class="method" data-reveal-group>
-      {%- for no, name, desc, out in HOME.method %}
-      <div class="step" data-reveal>
-        <p class="step__no">{{ no }}</p>
-        <h3 class="d3">{{ name }}</h3>
-        <p>{{ desc }}</p>
-        <p class="step__out">{{ out }}</p>
-      </div>
-      {%- endfor %}
-    </div>
-  </div>
-</section>
-
 <section class="band band--paper band--edge" id="schedule">
   <div class="shell">
-    {{ shead('05', 'Training calendar',
+    {{ shead('03', 'Training calendar',
              '<h2 class="d1">Printed once.<br>Booked quickly.</h2>'|safe,
              'Batch dates come straight from our registration system, so what you read here is what the enrolment form offers. Batches close when the room is full.') }}
     {{ sched(schedule.training, 'Certified Energy Manager / Certified Energy Auditor.') }}
@@ -132,7 +102,7 @@
 
 <section class="band band--edge" id="credentials">
   <div class="shell">
-    {{ shead('06', 'On the record',
+    {{ shead('04', 'On the record',
              '<h2 class="d1">Five registrations,<br>printed on the seal.</h2>'|safe,
              'Every program we run is recognised by the Department of Energy under its own registration number. Verify any of them before you enrol.') }}
     <div class="spec">
@@ -140,7 +110,9 @@
       <div class="spec__row" data-reveal>
         <div class="spec__n">R-0{{ loop.index }}</div>
         <div class="spec__k">{{ name }}</div>
-        <div class="spec__v"><span class="mono mono--signal">{{ code }}</span><br>{{ kind }}</div>
+        <div class="spec__v">
+          <span class="mono mono--signal cred__code"><span class="cred__check">{{ icon('check') }}</span>{{ code }}</span><br>{{ kind }}
+        </div>
       </div>
       {%- endfor %}
     </div>

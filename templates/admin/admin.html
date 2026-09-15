@@ -427,12 +427,34 @@
         }
         
         .stat-card {
+            position: relative;
             background: var(--bg-secondary);
             border-radius: 12px;
             padding: 1.1rem 1.25rem;
             box-shadow: var(--shadow-sm);
             border-left: 4px solid var(--border);
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
             animation: spring-scale-in 0.4s ease-out backwards
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px)
+        }
+
+        .stat-card .s-icon {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: color-mix(in srgb, var(--accent, var(--green-md)) 14%, transparent);
+            color: var(--accent, var(--green-md))
         }
 
         .stats-grid .stat-card:nth-child(1) { animation-delay: 0ms }
@@ -443,25 +465,30 @@
         .stats-grid .stat-card:nth-child(6) { animation-delay: 400ms }
         
         .stat-card.c-gold {
-            border-left-color: var(--gold)
+            border-left-color: var(--gold);
+            --accent: var(--gold)
         }
-        
+
         .stat-card.c-green {
-            border-left-color: var(--green-md)
+            border-left-color: var(--green-md);
+            --accent: var(--green-md)
         }
-        
+
         .stat-card.c-blue {
-            border-left-color: #3B82F6
+            border-left-color: #3B82F6;
+            --accent: #3B82F6
         }
-        
+
         .stat-card.c-purple {
-            border-left-color: #8B5CF6
+            border-left-color: #8B5CF6;
+            --accent: #8B5CF6
         }
-        
+
         .stat-card .s-label {
             font-size: 12px;
             color: var(--gray);
-            margin-bottom: 4px
+            margin-bottom: 4px;
+            padding-right: 2.5rem
         }
         
         .stat-card .s-value {
@@ -1456,31 +1483,37 @@
 
             <div class="stats-grid">
                 <div class="stat-card c-gold">
+                    <div class="s-icon"><i class="fa-solid fa-users"></i></div>
                     <div class="s-label">Total Users</div>
                     <div class="s-value">{{ users|length }}</div>
                     <div class="s-sub">registered accounts</div>
                 </div>
                 <div class="stat-card c-green">
+                    <div class="s-icon"><i class="fa-solid fa-clipboard-list"></i></div>
                     <div class="s-label">Total Registrations</div>
                     <div class="s-value">{{ registrations|length }}</div>
                     <div class="s-sub">form submissions</div>
                 </div>
                 <div class="stat-card c-blue">
+                    <div class="s-icon"><i class="fa-solid fa-calendar-days"></i></div>
                     <div class="s-label">Total Schedules</div>
                     <div class="s-value">{{ schedules|length }}</div>
                     <div class="s-sub">online &amp; face to face</div>
                 </div>
                 <div class="stat-card c-purple">
+                    <div class="s-icon"><i class="fa-solid fa-user-graduate"></i></div>
                     <div class="s-label">Active Trainees</div>
                     <div class="s-value">{{ uc.active_trainee }}</div>
                     <div class="s-sub">active trainee accounts</div>
                 </div>
-                <div class="stat-card" style="border-left-color:#10B981">
+                <div class="stat-card" style="border-left-color:#10B981;--accent:#10B981">
+                    <div class="s-icon"><i class="fa-solid fa-peso-sign"></i></div>
                     <div class="s-label">Total Revenue</div>
-                    <div class="s-value" id="stat-revenue" style="font-size:22px">"”</div>
+                    <div class="s-value" id="stat-revenue" style="font-size:22px">—</div>
                     <div class="s-sub">from paid transactions</div>
                 </div>
-                <div class="stat-card" style="border-left-color:#F59E0B">
+                <div class="stat-card" style="border-left-color:#F59E0B;--accent:#F59E0B">
+                    <div class="s-icon"><i class="fa-solid fa-solar-panel"></i></div>
                     <div class="s-label">Solar Requests</div>
                     <div class="s-value">{{ solar_requests|length }}</div>
                     <div class="s-sub">consultation submissions</div>
@@ -3610,10 +3643,12 @@ function loadAnalytics() {
             new Chart(document.getElementById('chartRevenue'), {
                 type: 'bar',
                 data: { labels: months, datasets: [{ label: 'Revenue (PHP)', data: revs,
-                    backgroundColor: GREEN + 'CC', borderColor: GREEN, borderWidth: 1.5, borderRadius: 6 }] },
+                    backgroundColor: GREEN + 'CC', borderColor: GREEN, borderWidth: 1.5, borderRadius: 6,
+                    maxBarThickness: 56, categoryPercentage: 0.5, barPercentage: 0.7 }] },
                 options: { responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { callback: v => '₱' + v.toLocaleString() } } } }
+                    scales: { y: { beginAtZero: true, suggestedMax: Math.max(1, ...revs) * 1.15,
+                        ticks: { callback: v => '₱' + v.toLocaleString() } } } }
             });
 
             // Registrations by type
@@ -3633,10 +3668,12 @@ function loadAnalytics() {
             new Chart(document.getElementById('chartLms'), {
                 type: 'bar',
                 data: { labels: lmsLabels, datasets: [{ label: 'Completions', data: lmsCounts,
-                    backgroundColor: BLUE + 'CC', borderColor: BLUE, borderWidth: 1.5, borderRadius: 6 }] },
+                    backgroundColor: BLUE + 'CC', borderColor: BLUE, borderWidth: 1.5, borderRadius: 6,
+                    maxBarThickness: 22, categoryPercentage: 0.65, barPercentage: 0.75 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                    scales: { x: { beginAtZero: true, suggestedMax: Math.max(1, ...lmsCounts) + 1,
+                        ticks: { stepSize: 1, precision: 0 } } } }
             });
 
             // Registration status pie

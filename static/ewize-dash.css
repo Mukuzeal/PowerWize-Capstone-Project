@@ -69,8 +69,10 @@
   margin-left: var(--dash-rail);
   margin-top: var(--dash-bar);
   padding: clamp(1.5rem, 3vw, 2.75rem) clamp(1rem, 3vw, 2.75rem);
-  flex: 1;
   min-width: 0;
+  /* Not flex:1 — that stretched this panel to fill the viewport on shorter
+     panes (Dashboard), pinning the footer far below the content with a dead
+     gap in between. The footer should follow the content it belongs to. */
 }
 
 .dash__foot {

@@ -7,13 +7,23 @@
 <title>Trainer Console – EnergyWize</title>
 <meta name="theme-color" content="#071009">
 <link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
+<script>
+  (function () {
+    var saved = localStorage.getItem('powerwize-theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  })();
+</script>
 <!-- Applies with the HTML itself, so the first paint is already on-brand even
      if a stylesheet is still in flight. Without it a slow load shows a white
      page for a frame. Mirrors site/base.html. -->
 <style>
   html { background: #071009; color-scheme: dark; }
+  html[data-theme="light"] { background: #F3F1E8; color-scheme: light; }
   body { margin: 0; background: #071009; color: #E7F1EA;
          font-family: system-ui, sans-serif; }
+  html[data-theme="light"] body { background: #F3F1E8; color: #0A1710; }
   a { color: inherit; text-decoration: none; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,6 +125,76 @@
     transition: border-color .15s, color .15s, background .15s;
   }
   .dash__bar .tlink:hover { border-color: var(--amber); color: var(--amber); background: rgba(233, 169, 59, 0.1); }
+
+  /* Light/dark toggle, matching the admin dashboard's. */
+  .theme-toggle {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--line-mid); background: var(--ink-100);
+    color: var(--fg-dim); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .theme-toggle:hover { border-color: var(--amber); color: var(--amber); }
+  .theme-toggle:active { transform: scale(0.92); }
+
+  /* Dashboard + Solar stat tiles → boxed, shadowed cards with a colored
+     accent per card and an icon badge, matching the admin dashboard's
+     stat-card look (instead of this system's default hairline-grid panel). */
+  #pane-dashboard .stats, #pane-solar .stats {
+    background: transparent; border-block: none; gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  #pane-dashboard .stat, #pane-solar .stat {
+    position: relative;
+    background: var(--ink-100);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent, var(--line-strong));
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 180ms var(--e-out), transform 180ms var(--e-out);
+  }
+  #pane-dashboard .stat:hover, #pane-solar .stat:hover {
+    background: var(--ink-100);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+    transform: translateY(-2px);
+  }
+  #pane-dashboard .stats > .stat:nth-child(1), #pane-solar .stats > .stat:nth-child(1) { --accent: var(--amber); }
+  #pane-dashboard .stats > .stat:nth-child(2), #pane-solar .stats > .stat:nth-child(2) { --accent: var(--signal); }
+  #pane-dashboard .stats > .stat:nth-child(3), #pane-solar .stats > .stat:nth-child(3) { --accent: #3B82F6; }
+  #pane-dashboard .stats > .stat:nth-child(4), #pane-solar .stats > .stat:nth-child(4) { --accent: #8B5CF6; }
+
+  #pane-dashboard .stat .stat__ico, #pane-solar .stat .stat__ico {
+    position: absolute; top: 1.1rem; right: 1.1rem;
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    background: color-mix(in oklab, var(--accent, var(--signal)) 16%, transparent);
+    color: var(--accent, var(--signal));
+  }
+
+  /* "Jump to" quick actions → a card grid (icon tile + shadow + hover lift),
+     matching the admin dashboard's quick-action cards, instead of the shared
+     .decision-grid's default single-column list (which stays a list on the
+     other pages that reuse it — portal.html, solar_result.html). */
+  #pane-dashboard .decision-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.85rem;
+  }
+  #pane-dashboard .dec-btn {
+    align-items: flex-start;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: border-color 180ms var(--e-out), box-shadow 180ms var(--e-out), transform 180ms var(--e-out);
+  }
+  #pane-dashboard .dec-btn:hover {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+    transform: translateY(-2px);
+  }
+  #pane-dashboard .dec-icon {
+    width: 2.5rem; height: 2.5rem; border-radius: 10px; border: none;
+    background: color-mix(in oklab, var(--signal) 14%, transparent);
+    color: var(--signal); font-size: 1.05rem;
+  }
 </style>
 </head>
 <body class="dash">
@@ -231,6 +311,9 @@
     <span class="nav__word"><b>ENERGYWIZE</b><span>Solutions</span></span>
   </a>
   <p class="mono dash__tag">Trainer console</p>
+  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" onclick="toggleTheme()">
+    <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
+  </button>
   <a class="tlink" href="/auth/logout"><span>Sign out</span>{{ icon('arrow') }}</a>
 </header>
 
@@ -279,21 +362,25 @@
 
     <div class="stats">
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-user-graduate"></i></span>
         <p class="stat__val">{{ trainee_count }}</p>
         <p class="mono stat__lab">Active trainees</p>
         <p class="stat__note">Enrolled learners</p>
       </div>
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-clipboard-list"></i></span>
         <p class="stat__val">{{ registrations | length }}</p>
         <p class="mono stat__lab">Registrations</p>
         <p class="stat__note">Submitted to date</p>
       </div>
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-calendar-days"></i></span>
         <p class="stat__val">{{ schedules | length }}</p>
         <p class="mono stat__lab">Upcoming batches</p>
         <p class="stat__note">Scheduled trainings</p>
       </div>
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-solar-panel"></i></span>
         <p class="stat__val">{{ solar_requests | length }}</p>
         <p class="mono stat__lab">Solar requests</p>
         <p class="stat__note">Consultations logged</p>
@@ -502,18 +589,22 @@
 
     <div class="stats">
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-inbox"></i></span>
         <p class="stat__val">{{ solar_requests | length }}</p>
         <p class="mono stat__lab">All requests</p>
       </div>
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-robot"></i></span>
         <p class="stat__val">{{ n_ai }}</p>
         <p class="mono stat__lab">AI processed</p>
       </div>
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-clock"></i></span>
         <p class="stat__val">{{ n_pending }}</p>
         <p class="mono stat__lab">Pending review</p>
       </div>
       <div class="stat">
+        <span class="stat__ico"><i class="fa-solid fa-circle-check"></i></span>
         <p class="stat__val">{{ n_reviewed + n_sent }}</p>
         <p class="mono stat__lab">Reviewed</p>
       </div>
@@ -632,6 +723,19 @@
 </form>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+<script src="{{ url_for('static', filename='ewize-theme.js') }}"></script>
+<script>
+(function syncThemeIcon() {
+  function paint() {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var i = document.getElementById('theme-toggle-icon');
+    if (i) i.className = 'fa-solid ' + (dark ? 'fa-moon' : 'fa-sun');
+  }
+  paint();
+  var btn = document.getElementById('theme-toggle');
+  if (btn) btn.addEventListener('click', function () { setTimeout(paint, 0); });
+})();
+</script>
 <script>
 (function () {
   "use strict";
