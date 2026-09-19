@@ -7,9 +7,19 @@
 <title>Solar consultation – {{ request.name }} – EnergyWize</title>
 <meta name="theme-color" content="#071009">
 <link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
+<script>
+  (function () {
+    var saved = localStorage.getItem('powerwize-theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  })();
+</script>
 <style>
   html { background: #071009; color-scheme: dark; }
+  html[data-theme="light"] { background: #F3F1E8; color-scheme: light; }
   body { margin: 0; background: #071009; color: #E7F1EA; font-family: system-ui, sans-serif; }
+  html[data-theme="light"] body { background: #F3F1E8; color: #0A1710; }
   a { color: inherit; text-decoration: none; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,23 +69,52 @@
 
   .detail-card {
     background: var(--ink-100); border: 1px solid var(--line);
-    border-radius: 8px; padding: clamp(1.25rem, 3vw, 1.75rem); margin-bottom: 1.25rem;
+    border-top: 3px solid var(--card-accent, var(--line-mid));
+    border-radius: 10px; padding: clamp(1.25rem, 3vw, 1.75rem); margin-bottom: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.04);
+    transition: box-shadow 0.2s, transform 0.2s;
   }
+  .detail-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.08); transform: translateY(-1px); }
+  .detail-card.card-accent-blue   { --card-accent: #3B82F6; }
+  .detail-card.card-accent-purple { --card-accent: #8B5CF6; }
+  .detail-card.card-accent-amber  { --card-accent: var(--amber); }
+  .detail-card.card-accent-green  { --card-accent: var(--signal); }
   .detail-card h2 {
     margin: 0 0 1.25rem; font-family: 'Archivo', sans-serif;
     font-size: 1.05rem; font-variation-settings: "wght" 700;
-    display: flex; align-items: center; gap: 0.5rem;
+    display: flex; align-items: center; gap: 0.7rem;
   }
-  .detail-card h2 i { color: var(--signal); font-size: 0.95rem; }
+  .detail-card h2 i {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: color-mix(in oklab, var(--card-accent, var(--signal)) 16%, transparent);
+    color: var(--card-accent, var(--signal)); font-size: 0.85rem;
+  }
 
-  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1.4rem 1.5rem; }
+  .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem 1rem; }
+  .detail-grid > div {
+    background: var(--ink-050); border: 1px solid var(--line);
+    border-radius: 8px; padding: 0.85rem 1rem; transition: border-color 0.15s;
+  }
+  .detail-grid > div:has(.detail-value.highlight) {
+    background: color-mix(in oklab, var(--card-accent, var(--signal)) 7%, var(--ink-050));
+    border-color: color-mix(in oklab, var(--card-accent, var(--signal)) 35%, var(--line));
+  }
   .detail-label {
     font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 500;
     letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-mute); margin-bottom: 0.4rem;
   }
   .detail-value { font-size: 0.95rem; font-weight: 600; color: var(--fg); line-height: 1.4; }
   .detail-value.muted { color: var(--fg-dim); font-weight: 400; }
-  .detail-value.highlight { color: var(--signal); }
+  .detail-value.highlight { color: var(--card-accent, var(--signal)); font-size: 1.05rem; }
+
+  .client-avatar {
+    width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Archivo', sans-serif; font-size: 1.35rem; font-variation-settings: "wght" 800;
+    background: color-mix(in oklab, var(--signal) 18%, transparent); color: var(--signal);
+  }
+  .sd-head__id { display: flex; align-items: center; gap: 1rem; }
 
   .form-group { margin-bottom: 1.4rem; }
   .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--fg); margin-bottom: 0.5rem; }
@@ -113,21 +152,61 @@
   }
   .review-success h3 { margin: 0 0 0.35rem; color: var(--signal); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
   .review-success p { margin: 0; color: var(--fg-dim); font-size: 0.82rem; }
+
+  .theme-toggle {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--line-mid); background: var(--ink-100);
+    color: var(--fg-dim); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .theme-toggle:hover { border-color: var(--amber); color: var(--amber); }
+  .theme-toggle:active { transform: scale(0.92); }
+
+  .sd-glow {
+    position: fixed; z-index: 0; pointer-events: none;
+    inset: -15% -10% auto auto;
+    width: 55vw; height: 55vw; max-width: 800px; max-height: 800px;
+    background: radial-gradient(circle, color-mix(in oklab, var(--signal) 9%, transparent) 0%, transparent 66%);
+    filter: blur(40px);
+  }
+  .sd-glow--b {
+    inset: auto auto -25% -12%;
+    width: 46vw; height: 46vw;
+    background: radial-gradient(circle, color-mix(in oklab, var(--amber) 11%, transparent) 0%, transparent 62%);
+  }
+  :root[data-theme="light"] .sd-glow {
+    background: radial-gradient(circle, color-mix(in oklab, var(--signal) 20%, transparent) 0%, transparent 66%);
+  }
+  :root[data-theme="light"] .sd-glow--b {
+    background: radial-gradient(circle, color-mix(in oklab, var(--amber) 24%, transparent) 0%, transparent 62%);
+  }
+  .sd-bar, .sd-wrap { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="sd-glow" aria-hidden="true"></div>
+<div class="sd-glow sd-glow--b" aria-hidden="true"></div>
 
 <header class="sd-bar">
   <span class="sd-bar__seal"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></span>
   <span class="sd-bar__word"><b>ENERGYWIZE</b><span>Solutions</span></span>
   <span class="sd-bar__tag">Solar consultation</span>
+  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" onclick="toggleTheme()">
+    <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
+  </button>
 </header>
 
 <div class="sd-wrap">
   <a href="/admin/solar" class="sd-back"><i class="fa-solid fa-arrow-left"></i> Back to consultations</a>
 
   <div class="sd-head">
-    <h1>{{ request.name }}</h1>
+    <div class="sd-head__id">
+      <div class="client-avatar">{{ (request.name or "?")[:1] | upper }}</div>
+      <h1>{{ request.name }}</h1>
+    </div>
     {% if request.status == 'ai_processed' %}
       <span class="status-badge status-ai"><i class="fa-solid fa-robot"></i> AI Processed</span>
     {% elif request.status == 'pending_review' %}
@@ -140,14 +219,14 @@
   </div>
 
   {% if request.out_of_scope %}
-  <div class="detail-card" style="border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08)">
-    <h2 style="color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> Out of Scope</h2>
+  <div class="detail-card" style="--card-accent:#EF4444;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08)">
+    <h2><i class="fa-solid fa-triangle-exclamation"></i> Out of Scope</h2>
     <p style="margin:0;color:var(--fg-dim)">{{ request.out_of_scope_reason }} These figures are indicative only — route to a full site assessment before quoting.</p>
   </div>
   {% endif %}
 
   <!-- Client Information -->
-  <div class="detail-card">
+  <div class="detail-card card-accent-blue">
     <h2><i class="fa-solid fa-user"></i> Client Information</h2>
     <div class="detail-grid">
       <div>
@@ -178,7 +257,7 @@
   </div>
 
   <!-- AI-Generated Estimates -->
-  <div class="detail-card">
+  <div class="detail-card card-accent-purple">
     <h2><i class="fa-solid fa-wand-magic-sparkles"></i> AI-Generated Estimates</h2>
     <div class="detail-grid">
       <div>
@@ -221,7 +300,7 @@
 
   <!-- Specialist Review / Response Form -->
   {% if request.status in ('reviewed', 'quotation_sent') %}
-  <div class="detail-card">
+  <div class="detail-card card-accent-green">
     <div class="review-success">
       <h3><i class="fa-solid fa-circle-check"></i> Quotation Sent to Client</h3>
       <p>Reviewed on {{ request.reviewed_at.strftime("%b %d, %Y") if request.reviewed_at else "—" }}</p>
@@ -262,7 +341,7 @@
   </div>
   {% else %}
   <!-- Review Form -->
-  <div class="detail-card">
+  <div class="detail-card card-accent-amber">
     <h2><i class="fa-solid fa-clipboard-check"></i> Specialist Review</h2>
     <p style="color:var(--fg-mute);font-size:0.82rem;margin-bottom:1.5rem;line-height:1.6">Review and adjust the AI estimates if needed, then send the quotation to the client.</p>
 
@@ -323,5 +402,18 @@
   </div>
   {% endif %}
 </div>
+<script src="{{ url_for('static', filename='ewize-theme.js') }}"></script>
+<script>
+(function syncThemeIcon() {
+  function paint() {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var i = document.getElementById('theme-toggle-icon');
+    if (i) i.className = 'fa-solid ' + (dark ? 'fa-moon' : 'fa-sun');
+  }
+  paint();
+  var btn = document.getElementById('theme-toggle');
+  if (btn) btn.addEventListener('click', function () { setTimeout(paint, 0); });
+})();
+</script>
 </body>
 </html>

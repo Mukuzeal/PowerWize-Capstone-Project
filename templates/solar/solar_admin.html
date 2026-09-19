@@ -6,9 +6,19 @@
 <title>Solar PV Requests – EnergyWize</title>
 <meta name="theme-color" content="#071009">
 <link rel="icon" href="{{ url_for('static', filename='logo.png') }}" type="image/png">
+<script>
+  (function () {
+    var saved = localStorage.getItem('powerwize-theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  })();
+</script>
 <style>
   html { background: #071009; color-scheme: dark; }
+  html[data-theme="light"] { background: #F3F1E8; color-scheme: light; }
   body { margin: 0; background: #071009; color: #E7F1EA; font-family: system-ui, sans-serif; }
+  html[data-theme="light"] body { background: #F3F1E8; color: #0A1710; }
   a { color: inherit; text-decoration: none; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,14 +114,49 @@
   .empty { text-align: center; padding: 3.5rem 2rem; color: var(--fg-mute); }
   .empty i { font-size: 2.6rem; color: var(--fg-ghost); margin-bottom: 1rem; display: block; }
   .empty strong { color: var(--fg-dim); }
+
+  .theme-toggle {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid var(--line-mid); background: var(--ink-100);
+    color: var(--fg-dim); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .theme-toggle:hover { border-color: var(--amber); color: var(--amber); }
+  .theme-toggle:active { transform: scale(0.92); }
+
+  .sd-glow {
+    position: fixed; z-index: 0; pointer-events: none;
+    inset: -15% -10% auto auto;
+    width: 55vw; height: 55vw; max-width: 800px; max-height: 800px;
+    background: radial-gradient(circle, color-mix(in oklab, var(--signal) 9%, transparent) 0%, transparent 66%);
+    filter: blur(40px);
+  }
+  .sd-glow--b {
+    inset: auto auto -25% -12%;
+    width: 46vw; height: 46vw;
+    background: radial-gradient(circle, color-mix(in oklab, var(--amber) 11%, transparent) 0%, transparent 62%);
+  }
+  :root[data-theme="light"] .sd-glow {
+    background: radial-gradient(circle, color-mix(in oklab, var(--signal) 20%, transparent) 0%, transparent 66%);
+  }
+  :root[data-theme="light"] .sd-glow--b {
+    background: radial-gradient(circle, color-mix(in oklab, var(--amber) 24%, transparent) 0%, transparent 62%);
+  }
+  .sd-bar, .sd-wrap { position: relative; z-index: 1; }
 </style>
 </head>
 <body>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="sd-glow" aria-hidden="true"></div>
+<div class="sd-glow sd-glow--b" aria-hidden="true"></div>
 
 <header class="sd-bar">
   <span class="sd-bar__seal"><img src="{{ url_for('static', filename='logo.png') }}" alt=""></span>
   <span class="sd-bar__word"><b>ENERGYWIZE</b><span>Solutions</span></span>
   <span class="sd-bar__tag">Solar consultations</span>
+  <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" onclick="toggleTheme()"><i class="fa-solid fa-moon" id="theme-toggle-icon"></i></button>
 </header>
 
 <div class="sd-wrap">
@@ -213,6 +258,19 @@ function filterStatus(status, btn) {
     row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
   });
 }
+</script>
+<script src="{{ url_for('static', filename='ewize-theme.js') }}"></script>
+<script>
+(function syncThemeIcon() {
+  function paint() {
+    var dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var i = document.getElementById('theme-toggle-icon');
+    if (i) i.className = 'fa-solid ' + (dark ? 'fa-moon' : 'fa-sun');
+  }
+  paint();
+  var btn = document.getElementById('theme-toggle');
+  if (btn) btn.addEventListener('click', function () { setTimeout(paint, 0); });
+})();
 </script>
 </body>
 </html>

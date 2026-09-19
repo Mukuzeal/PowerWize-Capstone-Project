@@ -119,9 +119,10 @@
 .dash__item:hover { color: var(--fg); background: color-mix(in oklab, var(--signal) 4%, transparent); }
 .dash__item:hover .dash__ico { color: var(--fg-dim); }
 .dash__item.is-on {
-  color: var(--fg);
+  color: var(--signal);
   border-left-color: var(--amber);
-  background: color-mix(in oklab, var(--signal) 6%, transparent);
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+  font-variation-settings: "wdth" 100, "wght" 650;
 }
 .dash__item.is-on .dash__no { color: var(--signal); }
 .dash__item.is-on .dash__ico { color: var(--signal); }
