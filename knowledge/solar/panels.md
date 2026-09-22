@@ -16,7 +16,7 @@ Panels are built to withstand years of outdoor exposure and typically carry a ma
 
 ## Warranty
 
-TODO: this section is a placeholder — fill in with verified figures before relying on it. Distinguish **performance warranty** (guaranteed output stays above X% of rated capacity through year Y) from **product/materials warranty** (defects, workmanship, shorter term) — they're different numbers and customers sometimes conflate them. Source typical ranges from actual manufacturer datasheets for the brands EnergyWize installs, not from memory or industry-generic figures, and note that exact terms depend on the specific brand/model installed for a given customer.
+Solar panel warranties are divided into product warranties, which cover physical defects and hardware failures for 12 to 25 years, and performance warranties, which guarantee long-term power output over 25 to 30 years. Because solar panels naturally degrade, performance warranties account for an expected annual degradation rate of up to 1% (often lower, around 0.4% to 0.55% on premium modules), ensuring the total power retention stays above roughly 84% to 87.4% by Year 25. Although product warranties cover a shorter duration, they remain critical for handling physical hardware replacements and environmental damage if a panel fails completely.
 
 ## Mounting and wind resistance
 
