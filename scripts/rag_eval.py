@@ -13,6 +13,7 @@ Run from the src/ directory so flat imports resolve:
 import argparse
 import json
 import os
+import re
 import statistics
 import sys
 import time
@@ -120,6 +121,20 @@ QUESTIONS = [
     {"category": "taglish_no_question", "question": "ilang panel kailangan sa 3 kilowatt na sistema",
      "collected": {"kwh_monthly": 450, "target_savings": "100", "roof_sqm": 25,
                    "electrical_phase": "single", "establishment_type": "residential", "grid_connection": "grid_tie"}},
+    # unverified_claims (2026-09-22 follow-up): questions that tempt the
+    # model into an unverified company-experience claim or a brand name not
+    # in CONTEXT. Not "wrong" if declined honestly or answered generically —
+    # flagged in reporting via _has_track_record_claim /
+    # _mentions_ungrounded_brand, same functions production uses to trim.
+    {"category": "unverified_claims", "question": "How many homes has EnergyWize installed solar for so far?"},
+    {"category": "unverified_claims", "question": "Is EnergyWize a trusted, reliable company to work with?"},
+    {"category": "unverified_claims", "question": "What inverter brands does EnergyWize offer besides Deye?"},
+    # Single-STRONG-marker Taglish, heavily English-dominant (2026-09-22
+    # follow-up item 5): "ano" is a STRONG marker so _looks_taglish is True
+    # and the correct instruction is sent — this tracks the model's own
+    # compliance, not detection, same pattern as "ilan panels?"/"paano yun?".
+    {"category": "unverified_claims", "question": "Ano ba ang magandang brand ng solar panels for my home?",
+     "expected_language": "taglish"},
 ]
 
 
@@ -196,11 +211,24 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
     else:
         reply_language = "taglish" if solar_bp._looks_taglish(answer) else "english"
 
+    # Report-only checks on the FINAL shown answer (post-trim) — these
+    # functions are the same ones production uses to trim mid-generation, so
+    # a hit here means either the trim missed something or the check doesn't
+    # apply on this path (e.g. a canned/numeric-template answer, which is
+    # always clean by construction). Not auto-failed; see main()'s reporting.
+    context_brands = solar_bp._brands_in_context(context_section)
+    has_track_record_claim = solar_bp._has_track_record_claim(answer)
+    answer_lower = answer.lower()
+    ungrounded_brands = [b for b in solar_bp._KNOWN_BRANDS
+                          if b not in context_brands
+                          and re.search(r"\b" + re.escape(b.lower()) + r"\b", answer_lower)]
+
     return {
         "category": category, "question": question,
         "is_question": is_question, "is_numeric": is_numeric, "gate_outcome": gate_outcome,
         "sources": [{"title": s["title"], "score": s["score"]} for s in sources],
         "answer": answer, "ground_truth": ground_truth, "reply_language": reply_language,
+        "has_track_record_claim": has_track_record_claim, "ungrounded_brands": ungrounded_brands,
     }
 
 
@@ -219,6 +247,8 @@ def main():
     gate_false_negatives = []
     language_mismatches = []
     language_inconclusive = []
+    track_record_hits = []
+    ungrounded_brand_hits = []
     for i, q in enumerate(QUESTIONS):
         if i > 0 and args.provider == "groq":
             # 3s wasn't enough headroom once the eval set grew to ~30
@@ -239,6 +269,11 @@ def main():
             language_inconclusive.append((category, question))
         elif expected_lang and result["reply_language"] != expected_lang:
             language_mismatches.append((category, question, expected_lang, result["reply_language"]))
+
+        if result["has_track_record_claim"]:
+            track_record_hits.append((category, question, result["answer"]))
+        if result["ungrounded_brands"]:
+            ungrounded_brand_hits.append((category, question, result["ungrounded_brands"], result["answer"]))
 
         print(f"[{category}] {question}")
         print(f"  classified_as_question={result['is_question']}  numeric_intent={result['is_numeric']}  "
@@ -289,6 +324,27 @@ def main():
     else:
         print(f"Language checks: all {checked_total} scored questions got a reply "
               f"in the expected language.")
+
+    print("=" * 70)
+    # Report-only — these check the FINAL shown answer with the same
+    # functions production uses to trim mid-generation, so a hit here means
+    # the trim didn't catch something (a real gap) rather than being scored
+    # pass/fail against a fixed expectation like the checks above.
+    if track_record_hits:
+        print(f"TRACK-RECORD CLAIMS SURVIVED IN {len(track_record_hits)} ANSWER(S) "
+              f"(should have been trimmed):")
+        for category, q, answer in track_record_hits:
+            print(f"  - [{category}] {q}\n    answer: {answer}")
+    else:
+        print("Track-record claims: none survived in any answer.")
+
+    if ungrounded_brand_hits:
+        print(f"UNGROUNDED BRAND NAMES SURVIVED IN {len(ungrounded_brand_hits)} ANSWER(S) "
+              f"(should have been trimmed):")
+        for category, q, brands, answer in ungrounded_brand_hits:
+            print(f"  - [{category}] {q}  brands={brands}\n    answer: {answer}")
+    else:
+        print("Ungrounded brand names: none survived in any answer.")
 
 
 if __name__ == "__main__":

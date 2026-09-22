@@ -18,6 +18,27 @@ function scrollBottom() {
   box.scrollTop = box.scrollHeight;
 }
 
+// Bubble text can be the user's own typed message or the LLM's reply — never
+// trust either as safe HTML. Escape first, then apply bold/italic on the
+// escaped string so markdown syntax can't reintroduce a tag (e.g. a reply
+// containing literal "<img src=x onerror=...>" renders as inert text, not
+// markup, even inside a "**...**" span).
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderBubbleText(text) {
+  var escaped = escapeHtml(text);
+  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  return escaped.replace(/\n/g, '<br>');
+}
+
 function addBubble(text, role, sources) {
   var box = document.getElementById('chat-box');
   var row = document.createElement('div');
@@ -26,12 +47,12 @@ function addBubble(text, role, sources) {
   var colCls = role === 'user' ? 'user-col' : 'ai-col';
   var sourcesHtml = '';
   if (sources && sources.length) {
-    sourcesHtml = '<div class="bubble-sources">Sources: ' + sources.join(', ') + '</div>';
+    sourcesHtml = '<div class="bubble-sources">Sources: ' + sources.map(escapeHtml).join(', ') + '</div>';
   }
   row.innerHTML =
     '<div class="avatar ' + role + '"><i class="fa-solid ' + icon + '"></i></div>' +
     '<div class="bubble-col ' + colCls + '">' +
-      '<div class="bubble ' + role + '">' + text.replace(/\n/g, '<br>') + '</div>' +
+      '<div class="bubble ' + role + '">' + renderBubbleText(text) + '</div>' +
       sourcesHtml +
       '<span class="bubble-time">' + now() + '</span>' +
     '</div>';
