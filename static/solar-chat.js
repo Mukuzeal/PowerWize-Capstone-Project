@@ -18,16 +18,21 @@ function scrollBottom() {
   box.scrollTop = box.scrollHeight;
 }
 
-function addBubble(text, role) {
+function addBubble(text, role, sources) {
   var box = document.getElementById('chat-box');
   var row = document.createElement('div');
   row.className = 'bubble-row ' + (role === 'user' ? 'user-row' : 'ai-row');
   var icon   = role === 'user' ? 'fa-user' : 'fa-solar-panel';
   var colCls = role === 'user' ? 'user-col' : 'ai-col';
+  var sourcesHtml = '';
+  if (sources && sources.length) {
+    sourcesHtml = '<div class="bubble-sources">Sources: ' + sources.join(', ') + '</div>';
+  }
   row.innerHTML =
     '<div class="avatar ' + role + '"><i class="fa-solid ' + icon + '"></i></div>' +
     '<div class="bubble-col ' + colCls + '">' +
       '<div class="bubble ' + role + '">' + text.replace(/\n/g, '<br>') + '</div>' +
+      sourcesHtml +
       '<span class="bubble-time">' + now() + '</span>' +
     '</div>';
   box.appendChild(row);
@@ -303,7 +308,7 @@ async function sendMessage() {
     }
 
     if (data.text) {
-      addBubble(data.text, 'ai');
+      addBubble(data.text, 'ai', data.sources);
       if (data.messages)  messages  = data.messages;
       else messages.push({ role: 'assistant', content: data.text });
       if (data.collected) { collected = data.collected; renderRail(collected); }

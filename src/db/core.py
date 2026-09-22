@@ -485,6 +485,34 @@ def init_db():
         )
     """)
 
+    # Best-effort — pgvector is painful to install on Windows Postgres, so
+    # retrieval defaults to REAL[] + brute-force cosine similarity in Python
+    # regardless (fine at this corpus size). This just logs whether the
+    # extension happens to be available for a future ANN-backed path; a
+    # missing extension must never block startup.
+    try:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS rag_chunks (
+            id           SERIAL PRIMARY KEY,
+            source_type  VARCHAR(30)  NOT NULL,
+            source_ref   VARCHAR(255) NOT NULL,
+            title        VARCHAR(200) NOT NULL,
+            content      TEXT         NOT NULL,
+            visibility   VARCHAR(10)  NOT NULL DEFAULT 'public',
+            topic        VARCHAR(40)  NULL,
+            embedding    REAL[]       NOT NULL,
+            embed_model  VARCHAR(100) NOT NULL,
+            content_hash VARCHAR(64)  NOT NULL,
+            updated_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_rag_chunks_visibility ON rag_chunks (visibility)")
+
     # Seed GEMP 2026 batches (only once)
     cur.execute("SELECT COUNT(*) FROM batches WHERE type='gemp_training'")
     if cur.fetchone()[0] == 0:

@@ -1,6 +1,10 @@
 import math
 
 # ── Philippine solar constants ────────────────────────────────
+# TODO: verify ELECTRICITY_RATE against the current published Meralco/DU rate —
+# the chatbot's knowledge base previously cited ₱10-12/kWh while this constant
+# was 14.3496, disagreeing with itself. This module is now the single source
+# of truth; confirm the number is current before trusting it further.
 ELECTRICITY_RATE       = 14.3496   # PHP/kWh
 PEAK_SUN_HOURS         = 5.0
 SYSTEM_EFFICIENCY      = 0.78
