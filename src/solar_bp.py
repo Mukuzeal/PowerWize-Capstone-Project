@@ -926,14 +926,24 @@ def _numeric_answer_template(result: dict, is_preview: bool) -> str:
 # comparison let exactly that slip through once (target_savings=100 misread
 # as pesos in a framing sentence), so the check is unit-aware, not just
 # value-aware.
+#
+# The digit-unit separator is [\s\-–—+]* (not \s*): a hyphenated or "20+"
+# style adjectival phrasing — "25-year warranty", "500-watt panel", "20+
+# year warranty" — separates the number from the unit with a hyphen,
+# en/em-dash, or plus sign, not whitespace, and \s* alone doesn't match any
+# of those — so "30-year" and "20+ year" were both invisible to
+# _extract_numbers entirely (surfaced 2026-09-22 once sentence-level
+# trimming made a single such sentence able to stand as "grounded" on its
+# own, instead of always being caught alongside some other
+# correctly-matched figure in the same whole-answer discard).
 _NUM_UNIT_PATTERNS = [
     (re.compile(r"₱\s*([\d,]+(?:\.\d+)?)"), "php"),
-    (re.compile(r"([\d,]+(?:\.\d+)?)\s*kwp", re.IGNORECASE), "kwp"),
-    (re.compile(r"([\d,]+(?:\.\d+)?)\s*kwh", re.IGNORECASE), "kwh"),
-    (re.compile(r"([\d,]+(?:\.\d+)?)\s*%"), "pct"),
-    (re.compile(r"([\d,]+(?:\.\d+)?)\s*years?", re.IGNORECASE), "year"),
-    (re.compile(r"([\d,]+)\s*panels?", re.IGNORECASE), "panel"),
-    (re.compile(r"([\d,]+(?:\.\d+)?)\s*w(?:atts?)?\b", re.IGNORECASE), "watt"),
+    (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*kwp", re.IGNORECASE), "kwp"),
+    (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*kwh", re.IGNORECASE), "kwh"),
+    (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*%"), "pct"),
+    (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*years?", re.IGNORECASE), "year"),
+    (re.compile(r"([\d,]+)[\s\-–—+]*panels?", re.IGNORECASE), "panel"),
+    (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*w(?:atts?)?\b", re.IGNORECASE), "watt"),
 ]
 
 # Maps the field names used across `collected`, `result` (solar_engine.compute()),
@@ -1118,14 +1128,129 @@ def _gate_and_retrieve(user_msg: str, user_role, history: list = None) -> tuple:
     return None, sources, f"\nCONTEXT:\n{_context_block(sources)}\n"
 
 
+# A single fabricated figure in an otherwise honest, useful reply used to
+# discard the whole thing (2026-09-22 follow-up) — many borderline questions
+# ended up with nothing but the generic "I don't have that exact figure"
+# fallback even when most of the answer was fine. A trimmed answer still
+# needs at least one sentence this long to count as a real answer; a
+# leftover like "What's your roof size?" with everything else cut isn't
+# substantial enough on its own, so the canned fallback is still used then.
+_MIN_SUBSTANTIAL_SENTENCE_LEN = 60
+
+
+def _split_units(text: str):
+    """Splits into (original_lines, [(line_index, sentence), ...]) instead of
+    one flat sentence list, so a filtered answer can be rejoined against its
+    original line structure — this is what lets _trim_ungrounded_sentences
+    preserve paragraph breaks and bullet-list newlines instead of flattening
+    the whole reply into one block."""
+    lines = text.split("\n")
+    units = []
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        for sent in re.split(r"(?<=[.!?])\s+", stripped):
+            sent = sent.strip()
+            if sent:
+                units.append((i, sent))
+    return lines, units
+
+
+# Splitting "2. **Roof size** — halimbawa: 50 sqm?" into sentences on the
+# period after "2" produces two fragments: "2." (no numbers, so it's
+# trivially "grounded" and kept) and the actual content (dropped for its
+# fabricated figure) — leaving a bare "2." behind as an orphaned list
+# marker. _LIST_ITEM_PREFIX additionally lets _drop_orphaned_headers notice
+# when a "Typically:"-style header's list items were all dropped, so the
+# header doesn't survive pointing at nothing.
+_BARE_LIST_MARKER = re.compile(r"^\s*([-*•]|\d+[.)])\s*$")
+_LIST_ITEM_PREFIX = re.compile(r"^\s*([-*•]|\d+[.)])\s*")
+
+
+def _drop_orphaned_headers(lines: list, kept_by_line: dict) -> dict:
+    """A ':'-ending header stays only if at least one original list item
+    that immediately followed it survived. Walking from the ORIGINAL lines
+    (not just what's left) matters here — a header followed only by
+    unrelated surviving prose further down shouldn't be mistaken for "its
+    list is still there"."""
+    kept_by_line = dict(kept_by_line)
+    for i, line in enumerate(lines):
+        if not line.strip().endswith(":") or i not in kept_by_line:
+            continue
+        j, saw_list_item, any_survived = i + 1, False, False
+        while j < len(lines):
+            nxt = lines[j].strip()
+            if not nxt:
+                j += 1
+                continue
+            if not _LIST_ITEM_PREFIX.match(nxt):
+                break  # list (if any) ended, or there never was one
+            saw_list_item = True
+            any_survived = any_survived or j in kept_by_line
+            j += 1
+        if saw_list_item and not any_survived:
+            del kept_by_line[i]
+    return kept_by_line
+
+
+def _trim_ungrounded_sentences(text: str, allowed: set):
+    """Drops only the sentences containing an ungrounded figure and keeps
+    the rest, instead of discarding a whole reply over one bad sentence.
+    Returns the trimmed text with original formatting intact, or None if
+    nothing substantial survives (see _MIN_SUBSTANTIAL_SENTENCE_LEN) — the
+    caller falls back to the canned reply in that case, same as before."""
+    lines, units = _split_units(text)
+    kept_by_line, dropped = {}, []
+    for line_idx, sent in units:
+        if _numbers_are_grounded(sent, allowed):
+            kept_by_line.setdefault(line_idx, []).append(sent)
+        else:
+            dropped.append(sent)
+
+    # A line whose only surviving fragment is a bare list marker didn't
+    # really survive — treat it the same as fully dropped so the header
+    # check below (and the final has-real-content check) both see it right.
+    for i in list(kept_by_line):
+        if _BARE_LIST_MARKER.match(" ".join(kept_by_line[i])):
+            del kept_by_line[i]
+
+    kept_by_line = _drop_orphaned_headers(lines, kept_by_line)
+
+    has_real_sentence = any(
+        len(sent) >= _MIN_SUBSTANTIAL_SENTENCE_LEN
+        for sents in kept_by_line.values() for sent in sents
+    )
+    if not has_real_sentence:
+        print(f"[SOLAR] chat answer discarded (nothing substantial survived trimming): dropped {dropped!r}")
+        return None
+
+    out_lines = []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            out_lines.append(line)  # preserve the original blank-line paragraph break
+        elif i in kept_by_line:
+            out_lines.append(" ".join(kept_by_line[i]))
+        # else: every sentence on this line was dropped — omit the line entirely
+    print(f"[SOLAR] chat answer trimmed: dropped {len(dropped)} ungrounded sentence(s): {dropped!r}")
+    # A fully-dropped middle line leaves two adjacent original blank-line
+    # separators — collapse back to a single paragraph break. The frontend
+    # renders "\n" as a literal <br> (static/solar-chat.js), so an
+    # uncollapsed run would show as an oversized gap in the chat bubble.
+    result = re.sub(r"\n{3,}", "\n\n", "\n".join(out_lines).strip("\n"))
+    return result
+
+
 def _answer_general_turn(messages_out: list, user_msg: str, context_section: str,
                           collected: dict, context_body_full: str, context_body_safe: str) -> str:
     """The non-numeric grounded chat reply — same ungrounded-figure guard as
     _answer_numeric_turn (item 3): if the reply contains any peso amount,
     kWp/kWh figure, percentage, year count, panel count, or wattage that
-    isn't present in CONTEXT or the already-known `collected` fields, it's
-    discarded (logged, no retry) in favor of a canned 'don't have that on
-    hand' message rather than shown to the user."""
+    isn't present in CONTEXT or the already-known `collected` fields, the
+    offending sentence(s) are trimmed out (see _trim_ungrounded_sentences)
+    and the rest is kept if it's still substantial; only a reply with
+    nothing substantial left falls back to the canned 'don't have that on
+    hand' message."""
     grounding = GROUNDING_RULES + _language_instruction(user_msg)
     system_full = _build_grounded_system(context_body_full, grounding, context_section, "")
     system_safe = _build_grounded_system(context_body_safe, grounding, context_section, "")
@@ -1137,10 +1262,13 @@ def _answer_general_turn(messages_out: list, user_msg: str, context_section: str
         return "I'm having a bit of trouble right now — please try again in a moment."
 
     allowed = _allowed_numbers_from(context_section) | _raw_numbers_from_dict(collected)
-    if not _numbers_are_grounded(text, allowed):
-        print(f"[SOLAR] chat answer discarded: model included ungrounded figures — {text!r}")
-        return _pick_canned(user_msg, _CANNED_NO_FIGURE_EN, _CANNED_NO_FIGURE_TL)
-    return text
+    if _numbers_are_grounded(text, allowed):
+        return text
+
+    trimmed = _trim_ungrounded_sentences(text, allowed)
+    if trimmed is not None:
+        return trimmed
+    return _pick_canned(user_msg, _CANNED_NO_FIGURE_EN, _CANNED_NO_FIGURE_TL)
 
 
 # This text lands on the quotation the customer actually receives, so it needs the
