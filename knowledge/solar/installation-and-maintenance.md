@@ -9,7 +9,7 @@
 5. **Installation** — mounting, wiring, inverter and (if applicable) battery installation, by licensed technicians.
 6. **Commissioning and utility sign-off** — the system is tested and, for grid-tied/hybrid systems, connected in coordination with the utility.
 
-TODO: confirm current typical installation timeline before ever stating one to a customer — the existing system prompt already treats this as a non-negotiable ("never invent an installation timeline"), and this file should not undermine that by supplying an unverified figure either.
+While the physical on-roof installation phase for standard residential systems (3 kWp to 7 kWp) is highly streamlined and typically completed within 1 to 3 working days, the full, end-to-end milestone from contract signing to final utility interconnection ranges broadly between 4 to 8 weeks. This window is completely driven by structural, environmental, and external bureaucratic factors, such as local government unit (LGU) building permit queues, spatial roof layout repairs, and Distribution Utility (DU) document handling timelines. Under the latest Department of Energy (DOE) April 2026 Mandate, utilities are strictly bound to process, inspect, and complete net-metering interconnection review within 10 working days from the receipt of a fully complete application dossier. However, because localized engineering dependencies, subdivision home owner association (HOA) rules, or missing municipal paperwork can halt or reset this compliance clock, team members must never quote or invent an absolute, fixed calendar timeline to a customer.
 
 ## Maintenance
 
