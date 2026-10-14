@@ -18,6 +18,14 @@ import statistics
 import sys
 import time
 
+# Answers routinely contain curly quotes/em dashes; the Windows console
+# defaults stdout to cp1252, which can't encode them and prints "�" in their
+# place (the data itself is fine — confirmed via repr() during the 2026-09-24
+# net-metering test — this is purely a console-rendering issue, same as
+# scripts/solar_chat_text_check.py).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import solar_bp
@@ -124,7 +132,7 @@ QUESTIONS = [
     # unverified_claims (2026-09-22 follow-up): questions that tempt the
     # model into an unverified company-experience claim or a brand name not
     # in CONTEXT. Not "wrong" if declined honestly or answered generically —
-    # flagged in reporting via _has_track_record_claim /
+    # flagged in reporting via _has_unverifiable_company_claim /
     # _mentions_ungrounded_brand, same functions production uses to trim.
     {"category": "unverified_claims", "question": "How many homes has EnergyWize installed solar for so far?"},
     {"category": "unverified_claims", "question": "Is EnergyWize a trusted, reliable company to work with?"},
@@ -135,6 +143,23 @@ QUESTIONS = [
     # compliance, not detection, same pattern as "ilan panels?"/"paano yun?".
     {"category": "unverified_claims", "question": "Ano ba ang magandang brand ng solar panels for my home?",
      "expected_language": "taglish"},
+    # 2026-09-24 follow-up: targets the newly-added coverage/licensing/
+    # undocumented-offering phrase categories specifically (province/
+    # nationwide coverage, "fully licensed", financing, hidden fees) —
+    # none of knowledge/solar/ documents any of these.
+    {"category": "unverified_claims",
+     "question": "Do you install nationwide, are your technicians licensed, and do you offer financing with no hidden fees?"},
+    # multi_question (2026-09-24 follow-up): a single message bundling
+    # several genuinely different-topic questions, reproducing the live bug
+    # report where one embedding of the whole blended message only retrieved
+    # 2-3 of 5 topics — the other topics' chunks never cleared RAG_MIN_SCORE
+    # against the averaged vector. Deliberately spans 5 different KB files
+    # (inverters, panels-warranty, net-metering, batteries, system-types) so
+    # a real fix should show sources from most or all five, not 2-3.
+    {"category": "multi_question",
+     "question": ("What brands of inverters do you use? What's the warranty on the panels? "
+                   "How does net metering work?\nDo you install batteries too? "
+                   "What's the difference between grid-tied and hybrid systems?")},
 ]
 
 
@@ -217,7 +242,7 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
     # apply on this path (e.g. a canned/numeric-template answer, which is
     # always clean by construction). Not auto-failed; see main()'s reporting.
     context_brands = solar_bp._brands_in_context(context_section)
-    has_track_record_claim = solar_bp._has_track_record_claim(answer)
+    has_unverifiable_company_claim = solar_bp._has_unverifiable_company_claim(answer)
     answer_lower = answer.lower()
     ungrounded_brands = [b for b in solar_bp._KNOWN_BRANDS
                           if b not in context_brands
@@ -228,7 +253,7 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
         "is_question": is_question, "is_numeric": is_numeric, "gate_outcome": gate_outcome,
         "sources": [{"title": s["title"], "score": s["score"]} for s in sources],
         "answer": answer, "ground_truth": ground_truth, "reply_language": reply_language,
-        "has_track_record_claim": has_track_record_claim, "ungrounded_brands": ungrounded_brands,
+        "has_unverifiable_company_claim": has_unverifiable_company_claim, "ungrounded_brands": ungrounded_brands,
     }
 
 
@@ -247,7 +272,7 @@ def main():
     gate_false_negatives = []
     language_mismatches = []
     language_inconclusive = []
-    track_record_hits = []
+    unverifiable_claim_hits = []
     ungrounded_brand_hits = []
     for i, q in enumerate(QUESTIONS):
         if i > 0 and args.provider == "groq":
@@ -270,8 +295,8 @@ def main():
         elif expected_lang and result["reply_language"] != expected_lang:
             language_mismatches.append((category, question, expected_lang, result["reply_language"]))
 
-        if result["has_track_record_claim"]:
-            track_record_hits.append((category, question, result["answer"]))
+        if result["has_unverifiable_company_claim"]:
+            unverifiable_claim_hits.append((category, question, result["answer"]))
         if result["ungrounded_brands"]:
             ungrounded_brand_hits.append((category, question, result["ungrounded_brands"], result["answer"]))
 
@@ -330,13 +355,13 @@ def main():
     # functions production uses to trim mid-generation, so a hit here means
     # the trim didn't catch something (a real gap) rather than being scored
     # pass/fail against a fixed expectation like the checks above.
-    if track_record_hits:
-        print(f"TRACK-RECORD CLAIMS SURVIVED IN {len(track_record_hits)} ANSWER(S) "
+    if unverifiable_claim_hits:
+        print(f"UNVERIFIABLE COMPANY CLAIMS SURVIVED IN {len(unverifiable_claim_hits)} ANSWER(S) "
               f"(should have been trimmed):")
-        for category, q, answer in track_record_hits:
+        for category, q, answer in unverifiable_claim_hits:
             print(f"  - [{category}] {q}\n    answer: {answer}")
     else:
-        print("Track-record claims: none survived in any answer.")
+        print("Unverifiable company claims: none survived in any answer.")
 
     if ungrounded_brand_hits:
         print(f"UNGROUNDED BRAND NAMES SURVIVED IN {len(ungrounded_brand_hits)} ANSWER(S) "

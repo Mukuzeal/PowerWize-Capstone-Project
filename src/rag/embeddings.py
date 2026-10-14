@@ -18,7 +18,7 @@ load_dotenv()
 EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "local_cpu").lower()
 EMBED_MODEL    = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 
-LM_STUDIO_URL  = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+LM_STUDIO_URL  = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
 
 _model = None  # lazy singleton — loaded once per process, not per request
 
@@ -29,6 +29,25 @@ def _get_model():
         from fastembed import TextEmbedding
         _model = TextEmbedding(model_name=EMBED_MODEL)
     return _model
+
+
+def warm():
+    """Load the ONNX model now instead of on the first user request.
+
+    Measured at ~1.5s on this machine (more on a cold HF cache), and it is paid
+    per process — so without this the first person to hit Solara after a
+    gunicorn worker starts waits it out on top of their reply. Best-effort on
+    purpose: a failure here is a slow first request, never a dead app, and
+    retrieval would still work (the next embed() call retries the load).
+    No-op for EMBED_PROVIDER=lmstudio, which has no local model to load.
+    """
+    if EMBED_PROVIDER == "lmstudio":
+        return
+    try:
+        embed(["warm"], kind="query")
+    except Exception as e:
+        print(f"[RAG] embedder pre-warm failed ({type(e).__name__}: {e}) — "
+              f"the first query will pay the model load instead.")
 
 
 def embed(texts: list[str], kind: Literal["document", "query"] = "document") -> list[list[float]]:

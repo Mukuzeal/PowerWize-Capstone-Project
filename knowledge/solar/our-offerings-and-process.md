@@ -21,6 +21,19 @@ This is drawn from EnergyWize's published service description (`src/site_content
 
 Everything Solara or the request form produces before specialist review is explicitly preliminary — final pricing, system sizing, and net metering approval always require an EnergyWize site assessment. This isn't boilerplate: PV component pricing shifts with the market, and a site assessment can surface roof or electrical issues that change the design. Don't imply otherwise in a chat answer.
 
+## DOE registration
+
+EnergyWize Solutions Inc. (E-Wize Solutions) is a DOE-Registered Energy Service Company (ESCO) and a DOE-Recognized Training Institution (RTI).
+
+Services offered:
+- Comprehensive energy audits (Level 1, Level 2, and Investment Grade) and compliance consulting.
+- Energy Management Systems (EnMS) development and support, aligned with ISO 50001.
+- Solar PV system sales, design, and installation.
+- Supply of electrical products and energy-efficient technologies.
+- MEPF (mechanical, electrical, plumbing, fire protection) solutions.
+
+Training programs are aligned with Republic Act No. 11285 (Energy Efficiency and Conservation Act).
+
 ## Tone note
 
 EnergyWize's own material avoids self-promotional claims (years of experience, client counts, "leading"/"trusted" language) — the offerings speak for themselves. Factual information about services, DOE registration, or the team is fine to share when asked; boasting is not the house style.

@@ -1,7 +1,10 @@
-import os, json, re
+import os, json, re, threading
+import concurrent.futures
 import requests as _http
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, session, jsonify, url_for, flash
+from flask_wtf.csrf import validate_csrf
+from wtforms.validators import ValidationError as _CSRFValidationError
 from dotenv import load_dotenv
 from db import (save_solar_request, update_solar_request,
                 get_solar_request, get_solar_requests)
@@ -34,7 +37,7 @@ TEXT_PROVIDER    = os.getenv("TEXT_PROVIDER", AI_PROVIDER).lower()
 GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL       = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-LM_STUDIO_URL    = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+LM_STUDIO_URL    = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
 LM_STUDIO_MODEL  = os.getenv("LM_STUDIO_MODEL", "local-model")
 # The text side needs its own model name: LM_STUDIO_MODEL points at the vision
 # model, which is the wrong thing to hand a conversation.
@@ -63,6 +66,34 @@ def _strip_think(text: str) -> str:
     return _THINK_RE.sub("", text).strip()
 
 
+# Same reasoning as _strip_think: the prompt already says never to use
+# emojis (CHAT_BASE_SYSTEM's HOW TO BEHAVE section), but this codebase has
+# repeatedly found prompt-only style rules unreliable on the local model, so
+# this is a deterministic backstop rather than the only line of defense.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"  # pictographs, emoticons, transport, supplemental symbols
+    "\U00002600-\U000027BF"  # misc symbols & dingbats
+    "\U0001F1E6-\U0001F1FF"  # regional indicators (flag emoji)
+    "\U00002B00-\U00002BFF"  # misc symbols and arrows (stars, etc.)
+    "\U0000FE0F"             # variation selector-16 (emoji presentation)
+    "\U0000200D"             # zero-width joiner (composite emoji)
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def _strip_emojis(text: str) -> str:
+    stripped = _EMOJI_RE.sub("", text)
+    # Collapse the double-space/trailing-space/space-before-punctuation
+    # artifacts an emoji removal leaves behind (e.g. "Great! 😊 Let's" ->
+    # "Great!  Let's", "today ☀, still" -> "today , still").
+    stripped = re.sub(r"[ \t]{2,}", " ", stripped)
+    stripped = re.sub(r"[ \t]+\n", "\n", stripped)
+    stripped = re.sub(r"[ \t]+([,.!?;:])", r"\1", stripped)
+    return stripped.strip()
+
+
 def _detect_repetition(text: str, min_repeats: int = 3) -> str:
     """Deterministic loop guard: small local models occasionally degenerate
     into repeating the same sentence instead of stopping cleanly (observed on
@@ -87,6 +118,105 @@ class _GroqRateLimited(Exception):
     pass
 
 
+class _RequestCancelled(Exception):
+    """Raised out of _call_lmstudio when the caller's cancel_event gets set
+    mid-stream (Stop button, or the client disconnecting — see
+    /solar/chat/cancel). Deliberately NOT caught by _ai_chat's generic
+    Exception handler that triggers a Groq fallback — a cancelled request
+    should just stop, not retry on a different provider."""
+    pass
+
+
+# Per-request cancellation, keyed by a client-generated request_id (2026-09-23
+# follow-up: a refreshed/closed chat tab left the server blocked inside a
+# single, non-streamed requests.post() to LM Studio with no way to notice —
+# only killing the whole worker process freed it). In-process memory only —
+# threads share process memory, so this works fine under Procfile's gunicorn
+# gthread worker (--workers 1 --threads 4) and under app.run(threaded=True)
+# in dev, both of which is exactly why cancellation needed a threaded server
+# at all: a cancel POST has to be able to reach the process WHILE the
+# original request is still running. But a cancel would silently no-op if
+# --workers is ever raised above 1 — each worker process gets its own
+# separate memory and its own copy of this dict, so a cancel landing on a
+# different worker than the one handling the original call would find
+# nothing to set. A shared store (Redis, etc.) would be the fix if/when more
+# worker processes are ever needed for throughput. See docs/RAG_SETUP.md for
+# the same note.
+_active_requests_lock = threading.Lock()
+_active_requests: dict = {}
+
+
+def _register_request(request_id):
+    if not request_id:
+        return None
+    event = threading.Event()
+    event.request_id = request_id  # logging only — see _call_lmstudio's per-chunk log
+    with _active_requests_lock:
+        _active_requests[request_id] = event
+    return event
+
+
+def _unregister_request(request_id):
+    if not request_id:
+        return
+    with _active_requests_lock:
+        _active_requests.pop(request_id, None)
+
+
+def _cancel_request(request_id) -> bool:
+    """True means this call actually set an event some in-flight
+    solar_chat_msg call is polling. False means request_id names nothing
+    currently registered — either it already finished and was unregistered
+    (a late cancel beacon arriving after the reply was already sent, which
+    is harmless: nothing is listening for that event anymore), or it was
+    never a real in-flight id to begin with. Either way False can never
+    reach into a DIFFERENT, newer request's entry — request_id is a fresh
+    client-generated token per call (see newRequestId() in solar-chat.js)
+    and this only ever does an exact dict lookup, never "the latest one"."""
+    with _active_requests_lock:
+        event = _active_requests.get(request_id)
+    if event is None:
+        print(f"[SOLAR] cancel for {request_id!r} found nothing in flight (already finished or unknown) — no-op")
+        return False
+    event.set()
+    print(f"[SOLAR] cancel applied to in-flight request {request_id!r}")
+    return True
+
+
+# One in-flight /solar/chat/msg call per browser session at a time (keyed by
+# the solar_chat_sid cookie value set in solar_chat()) — a second call
+# arriving before the first has finished (a stray double-submit, or a
+# request that was queued behind a slow one and only got dispatched once
+# the browser had already moved on) is dropped instead of independently
+# paying for its own extract/gate/chat calls. Shares _active_requests_lock
+# rather than a second lock since both dicts are tiny and single-writer per
+# request.
+_session_active_request: dict = {}
+
+
+def _claim_session_slot(sid, request_id) -> bool:
+    """False means another request already owns this session's slot — the
+    caller should treat this call as a duplicate. sid is None for any caller
+    that never hit the GET /solar/chat route first (e.g. rag_eval.py), which
+    always claims since there's no session to dedupe against."""
+    if not sid:
+        return True
+    with _active_requests_lock:
+        current = _session_active_request.get(sid)
+        if current is not None and current != request_id:
+            return False
+        _session_active_request[sid] = request_id
+    return True
+
+
+def _release_session_slot(sid, request_id):
+    if not sid:
+        return
+    with _active_requests_lock:
+        if _session_active_request.get(sid) == request_id:
+            _session_active_request.pop(sid, None)
+
+
 # A fixed system message, not a persona reply — deliberately not
 # language-matched (it's about capacity, not content), and callers that
 # check reply language (e.g. rag_eval.py) should treat this as inconclusive
@@ -95,7 +225,38 @@ _RATE_LIMITED_MSG = "We're getting a lot of requests right now — please try ag
 
 
 def _call_lmstudio(messages: list, system: str, model: str, temperature: float,
-                    max_tokens: int = 512) -> str:
+                    max_tokens: int = 512, cancel_event: threading.Event = None) -> str:
+    """Streamed (stream=True) rather than one blocking non-streamed POST — not
+    for a token-by-token UI (the caller still gets the full text back), but
+    because reading in chunks gives a point to check cancel_event between
+    them and close the connection early. Closing mid-stream is what actually
+    makes LM Studio (llama.cpp underneath) stop generating instead of
+    finishing the completion into the void; a single blocking call has no
+    such checkpoint, which is why a refreshed tab used to leave the server
+    (and LM Studio) working until the full LM_STUDIO_TIMEOUT elapsed.
+
+    Decodes raw bytes with a hardcoded UTF-8 decoder rather than
+    resp.iter_lines(decode_unicode=True) — that helper decodes using
+    resp.encoding, which requests derives from the Content-Type header, and
+    falls back to ISO-8859-1 for any text/* response with no explicit
+    charset param (RFC 2616 default). LM Studio's text/event-stream carries
+    no charset, so decode_unicode=True silently read UTF-8 bytes as Latin-1
+    (curly quotes and em/en dashes turning into "â€™"-style mojibake) rather
+    than raising anything that would have surfaced the bug sooner.
+
+    2026-09-23: cancellation verified end-to-end against a live LM Studio
+    server (matched log pair — Flask closed at chunk #77 with
+    cancel_event.is_set()=True, LM Studio logged "Client disconnected.
+    Stopping generation..." the same second and killed the task rather than
+    finishing it). See docs/RAG_SETUP.md's "Request cancellation" section
+    for the full evidence. The two print()s left below (streaming-started,
+    closing-connection) are what made that verifiable and are cheap enough
+    (once per call, not per chunk) to leave in permanently."""
+    rid = getattr(cancel_event, "request_id", None) if cancel_event is not None else None
+    def _ts(): return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
+    if cancel_event is not None and cancel_event.is_set():
+        raise _RequestCancelled()
     resp = _http.post(
         f"{LM_STUDIO_URL}/v1/chat/completions",
         json={
@@ -111,11 +272,66 @@ def _call_lmstudio(messages: list, system: str, model: str, temperature: float,
             # a chat reply. Not guaranteed on every LM Studio/llama.cpp build,
             # so _strip_think() still runs on the result regardless.
             "chat_template_kwargs": {"enable_thinking": False},
+            "stream": True,
         },
         timeout=LM_STUDIO_TIMEOUT,
+        stream=True,
     )
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    # The clear marker to click Stop against — everything before this line is
+    # the non-streaming extract+gate phase, which has no cancellation
+    # checkpoint of its own; this is genuinely the earliest moment a Stop
+    # click can interrupt anything before the reply is already complete.
+    print(f"[SOLAR] {_ts()} streaming started for {rid!r} "
+          f"(Content-Length={resp.headers.get('Content-Length')!r}, "
+          f"Transfer-Encoding={resp.headers.get('Transfer-Encoding')!r})")
+    pieces = []
+    buf = b""
+    chunk_n = 0
+    cancelled_at = None
+    try:
+        # A small chunk_size (rather than iter_lines' internal 512-byte read)
+        # means cancel_event gets polled roughly once per network read instead
+        # of once per buffered line, so a Stop click lands within a chunk or
+        # two of tokens instead of however many happened to already be
+        # buffered when it was pressed.
+        for chunk in resp.iter_content(chunk_size=64):
+            chunk_n += 1
+            if cancel_event is not None and cancel_event.is_set():
+                cancelled_at = chunk_n
+                raise _RequestCancelled()
+            if not chunk:
+                continue
+            buf += chunk
+            while b"\n" in buf:
+                raw_line, buf = buf.split(b"\n", 1)
+                # SSE frames split on newline bytes, which never appear inside
+                # a UTF-8 continuation byte (those are always 0x80-0xBF), so
+                # decoding each line independently is safe even when a
+                # multi-byte character straddled two network chunks.
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line or not line.startswith("data:"):
+                    continue
+                payload = line[len("data:"):].strip()
+                if payload == "[DONE]":
+                    return "".join(pieces)
+                try:
+                    obj = json.loads(payload)
+                except ValueError:
+                    continue
+                delta = (obj.get("choices") or [{}])[0].get("delta", {})
+                piece = delta.get("content")
+                if piece:
+                    pieces.append(piece)
+    finally:
+        # This close() is the actual disconnect signal LM Studio depends on
+        # to notice the client is gone and kill the generation task instead
+        # of finishing it — verified live (see the docstring above and
+        # docs/RAG_SETUP.md), not just assumed.
+        print(f"[SOLAR] {_ts()} _call_lmstudio {rid!r}: closing connection "
+              f"(cancelled={cancelled_at is not None}, at_chunk={cancelled_at}, total_chunks_read={chunk_n})")
+        resp.close()
+    return "".join(pieces)
 
 
 def _call_groq(messages: list, system: str, model: str, temperature: float,
@@ -135,24 +351,34 @@ def _call_groq(messages: list, system: str, model: str, temperature: float,
 
 
 def _ai_chat(messages: list, system: str, system_safe: str = None,
-             model: str = None, temperature: float = 0.75, max_tokens: int = 512) -> str:
+             model: str = None, temperature: float = 0.75, max_tokens: int = 512,
+             cancel_event: threading.Event = None) -> str:
     """Provider dispatch, Groq fallback, and PII-free-context/think-strip/
     repetition-guard protections all live here so every caller gets them for
     free.
 
-    system:      full prompt — only ever sent to LM Studio.
-    system_safe: PII-free variant sent whenever the call target is Groq,
-                 whether Groq is the configured primary provider or the
-                 automatic LM-Studio-down fallback. Defaults to `system` for
-                 callers whose prompt never contains stored personal fields
-                 to begin with (e.g. _llama_recommendations).
+    system:       full prompt — only ever sent to LM Studio.
+    system_safe:  PII-free variant sent whenever the call target is Groq,
+                  whether Groq is the configured primary provider or the
+                  automatic LM-Studio-down fallback. Defaults to `system` for
+                  callers whose prompt never contains stored personal fields
+                  to begin with (e.g. _llama_recommendations).
+    cancel_event: checked mid-stream by _call_lmstudio (LM Studio path only —
+                  Groq's call is a short, non-streamed request with its own
+                  tight 30s timeout, not the call this was built for). None
+                  everywhere except the live chat-reply paths in
+                  solar_chat_msg, which is the only place a request_id
+                  actually gets registered.
     """
     if system_safe is None:
         system_safe = system
 
     if TEXT_PROVIDER == "lmstudio":
         try:
-            text = _call_lmstudio(messages, system, model, temperature, max_tokens)
+            text = _call_lmstudio(messages, system, model, temperature, max_tokens,
+                                   cancel_event=cancel_event)
+        except _RequestCancelled:
+            raise
         except Exception as e:
             if not (RAG_GROQ_FALLBACK and GROQ_API_KEY):
                 raise
@@ -173,7 +399,7 @@ def _ai_chat(messages: list, system: str, system_safe: str = None,
         except _GroqRateLimited:
             return _RATE_LIMITED_MSG
 
-    text = _detect_repetition(_strip_think(text))
+    text = _strip_emojis(_detect_repetition(_strip_think(text)))
     if len(text.strip()) < 15:
         last_user = messages[-1]["content"] if messages else ""
         text = _pick_canned(last_user, _GENERIC_RETRY_EN, _GENERIC_RETRY_TL)
@@ -244,14 +470,24 @@ def _ai_extract(user_msg: str, asked_field: str = None):
             url, headers, model = f"{LM_STUDIO_URL}/v1/chat/completions", {}, LM_STUDIO_TEXT_MODEL
             # LM Studio rejects json_object and wants a schema, which suits us
             # better anyway — the grammar makes an unparseable reply impossible.
-            # Every field is nullable because strict mode requires them all to
-            # be present, and "absent" is the answer most of the time.
+            #
+            # required=[] is a latency fix, and it is worth more than it looks.
+            # Listing every field as required makes the grammar force the model
+            # to emit all 11 keys even when the message answers none of them —
+            # measured at 87 completion tokens of pure `null` padding, 1568ms,
+            # on EVERY turn. With required=[] the same request returns
+            # {"notes": null, "roof_sqm": null} in 17 tokens / 388ms.
+            # It is also the better answer for correctness: a model forced to
+            # produce a key it has no value for is a model under pressure to
+            # invent one, which is exactly the padding _NULLISH below exists to
+            # scrub. Values stay nullable so an explicit null is still legal —
+            # the parser skips absent and null keys identically.
             fmt = {"type": "json_schema", "json_schema": {
                 "name": "solar_fields", "strict": True,
                 "schema": {
                     "type": "object", "additionalProperties": False,
                     "properties": {k: {"type": [t, "null"]} for k, t in _EXTRACT_SCHEMA.items()},
-                    "required": list(_EXTRACT_SCHEMA),
+                    "required": [],
                 }}}
             timeout = LM_STUDIO_TIMEOUT
         else:
@@ -395,10 +631,11 @@ HOW TO BEHAVE:
 - Mention relevant PH-specific context when it adds value (net metering, typhoon considerations, local rates)
 - Keep responses to 4–6 sentences — detailed enough to be useful, short enough to feel like chat
 - Use ₱ for amounts, not PHP or "pesos"
+- NEVER use emojis
 - NEVER say "Got it", "Noted", "Understood", "Certainly", or "Of course" as openers
 - NEVER list out all the fields you need to collect — gather them conversationally
 - NEVER sound like you are reading from a checklist or filling out a form
-- If the user seems hesitant about cost, acknowledge it and briefly explain financing options or the long-term savings angle
+- If the user seems hesitant about cost, acknowledge it and briefly point to the long-term savings angle (2026-09-24: financing options was removed from this line — knowledge/solar/ has no financing content, so the model could only invent rates/terms when asked to "explain" it)
 - If a user's number looks impossible (an unrealistically tiny bill, or a roof size far larger than a typical home), gently double-check it instead of accepting it
 - Match the user's language — if they write in Filipino or Taglish, reply the same way, keeping ₱ and the technical terms in English
 """
@@ -899,9 +1136,16 @@ def _calc_lines(result: dict) -> list:
     if result.get("battery_kwh_capacity") is not None:
         lines.append(f"Battery capacity: {result['battery_kwh_capacity']} kWh")
     if result["grid_connection"] != "off_grid":
-        lines.append(f"Estimated monthly savings: ₱{result['monthly_savings']:,}")
+        # Both figures below scale directly with target_savings_pct — stating
+        # it inline is what stops "Estimated payback: 2.4 years" from being
+        # read as an unconditional promise when it's actually conditioned on
+        # a target (100% by default, whether or not the user ever said so —
+        # see solar_engine.compute()'s target_savings_pct).
+        pct = result.get("target_savings_pct")
+        assumption = f" (assuming you offset {pct}% of your bill)" if pct is not None else ""
+        lines.append(f"Estimated monthly savings: ₱{result['monthly_savings']:,}{assumption}")
         if result.get("roi_years") is not None:
-            lines.append(f"Estimated payback: {result['roi_years']} years")
+            lines.append(f"Estimated payback: {result['roi_years']} years{assumption}")
     return lines
 
 
@@ -1014,34 +1258,6 @@ def _context_block(sources: list) -> str:
     return "\n\n".join(f"[{s['title']}]\n{s['content']}" for s in sources)
 
 
-# 0.65 is a display-only cutoff, separate from RAG_MIN_SCORE (0.55, which
-# governs what's usable as CONTEXT) — a chunk can be relevant enough to help
-# ground the answer without being worth showing as a citation. Previously
-# every retrieved-above-RAG_MIN_SCORE chunk was shown, alphabetized (losing
-# both score and relevance order) — a top-5 retrieval for a narrow question
-# could surface a barely-related 0.56 chunk (e.g. a Tagalog FAQ entry) right
-# alongside the real answer.
-_SOURCES_DISPLAY_MIN_SCORE = 0.65
-_SOURCES_DISPLAY_MAX = 3
-
-
-def _top_source_titles(sources: list) -> list:
-    """The #1 source (by score — `sources` arrives pre-sorted from
-    retrieve()) is always shown if there is one, plus up to two more that
-    clear _SOURCES_DISPLAY_MIN_SCORE, deduped by title, in score order."""
-    titles, seen = [], set()
-    for i, s in enumerate(sources):
-        if s["title"] in seen:
-            continue
-        if i > 0 and s["score"] < _SOURCES_DISPLAY_MIN_SCORE:
-            continue
-        titles.append(s["title"])
-        seen.add(s["title"])
-        if len(titles) == _SOURCES_DISPLAY_MAX:
-            break
-    return titles
-
-
 # Grounding instructions for a turn classified as a genuine solar question.
 # The "doesn't actually address" line exists because retrieval can surface a
 # chunk that scores above threshold on loose topical/language similarity (a
@@ -1097,7 +1313,8 @@ def _cap_sentences(text: str, max_sentences: int = 2) -> str:
 
 def _answer_numeric_turn(user_msg: str, result: dict, collected: dict,
                           context_body_full: str, context_body_safe: str,
-                          context_section: str, is_preview: bool = True) -> str:
+                          context_section: str, is_preview: bool = True,
+                          cancel_event: threading.Event = None) -> str:
     """Deterministic numeric answer: Python builds the real numbers from
     solar_engine.compute() (already run — passed in as `result`); the LLM may
     only add 1-2 short, number-free framing sentences. A post-generation check
@@ -1117,20 +1334,75 @@ def _answer_numeric_turn(user_msg: str, result: dict, collected: dict,
 
     try:
         framing = _ai_chat([{"role": "user", "content": user_msg}],
-                            system=system_full, system_safe=system_safe, temperature=0.1)
+                            system=system_full, system_safe=system_safe, temperature=0.1,
+                            cancel_event=cancel_event)
+    except _RequestCancelled:
+        raise
     except Exception as e:
         print(f"[SOLAR] numeric framing call failed ({type(e).__name__}: {e}); using template alone.")
         return template
 
     framing = _cap_sentences(framing)
-    if not _numbers_are_grounded(framing, allowed) or _has_track_record_claim(framing):
+    doe_grounded = _context_supports_doe_claim(context_section)
+    if not _numbers_are_grounded(framing, allowed) or _has_unverifiable_company_claim(framing, doe_grounded):
         print(f"[SOLAR] numeric answer discarded: model included an ungrounded figure or company claim — {framing!r}")
         return template
 
     return f"{framing}\n\n{template}"
 
 
-def _gate_and_retrieve(user_msg: str, user_role, history: list = None) -> tuple:
+# Sentinel distinct from every real return value of _is_on_topic (True,
+# False, or None-meaning-"provider call failed, don't gate") — needed
+# because _gate_and_retrieve's precomputed_on_topic param has to tell "no
+# value was precomputed, call it yourself" apart from "it WAS precomputed
+# and genuinely came back None".
+_NOT_COMPUTED = object()
+
+# Cap on the merged chunk count for a multi-question message — retrieving
+# k=5 per sub-question and simply concatenating could otherwise hand a
+# 5-question message 25 chunks of CONTEXT. 8 comfortably covers a genuinely
+# 5-6-topic message (RAG_MIN_SCORE already keeps irrelevant chunks out; this
+# is purely a prompt-size ceiling, not a relevance filter).
+_MULTI_QUESTION_MAX_CHUNKS = 8
+
+
+def _split_into_subquestions(text: str) -> list:
+    """Breaks a message into separate retrieval queries on '?' and newlines.
+    A single embedding of "what warranty do panels have? what brands do you
+    use? how does net metering work?" averages three unrelated topics into
+    one vector — that's why a real 5-question message only ever retrieved
+    chunks for whichever topic dominated the average (2026-09-24 bug
+    report): the other topics' chunks never scored above RAG_MIN_SCORE
+    against the blended query at all, not because they weren't relevant.
+    A single-question message (the common case) produces exactly one
+    fragment, so callers fall through to a plain retrieve() for it."""
+    parts = re.split(r"[?\n]+", text)
+    return [p.strip() for p in parts if len(p.strip()) >= 4]
+
+
+def _retrieve_multi(user_msg: str, user_role, k: int = 5) -> list:
+    """retrieve(), but splits a multi-question message first (see
+    _split_into_subquestions), retrieves per sub-question, and merges by
+    (source_ref, title) keeping the max score — the same chunk scoring well
+    against two sub-questions is one chunk in CONTEXT, not two. A
+    single-fragment message costs exactly the one retrieve() call it always
+    did."""
+    fragments = _split_into_subquestions(user_msg)
+    if len(fragments) <= 1:
+        return retrieve(user_msg, user_role, k=k)
+
+    merged = {}
+    for frag in fragments:
+        for chunk in retrieve(frag, user_role, k=k):
+            key = (chunk["source_ref"], chunk["title"])
+            if key not in merged or chunk["score"] > merged[key]["score"]:
+                merged[key] = chunk
+    results = sorted(merged.values(), key=lambda c: c["score"], reverse=True)
+    return results[:_MULTI_QUESTION_MAX_CHUNKS]
+
+
+def _gate_and_retrieve(user_msg: str, user_role, history: list = None,
+                        precomputed_on_topic=_NOT_COMPUTED) -> tuple:
     """Runs before any chat LLM call on a turn classified as a genuine
     question. Returns (canned_text_or_None, sources, context_section).
 
@@ -1146,13 +1418,20 @@ def _gate_and_retrieve(user_msg: str, user_role, history: list = None) -> tuple:
     blocking a real customer is worse than letting an off-topic message
     through, so any message with clear domain vocabulary is treated as
     on-topic without asking the model at all.
+
+    precomputed_on_topic: lets the caller hand in a result it already
+    started (see solar_chat_msg — the gate call and _ai_extract are
+    independent, so they can run concurrently instead of back to back,
+    which is where about half of a turn's pre-reply latency was going).
+    Left at the default, this calls _is_on_topic itself exactly as before.
     """
     if not _has_topic_keyword(user_msg):
-        on_topic = _is_on_topic(user_msg, history=history)
+        on_topic = (_is_on_topic(user_msg, history=history)
+                    if precomputed_on_topic is _NOT_COMPUTED else precomputed_on_topic)
         if on_topic is False:
             return _pick_canned(user_msg, _CANNED_OFF_TOPIC_EN, _CANNED_OFF_TOPIC_TL), [], ""
 
-    sources = retrieve(user_msg, user_role, k=5)
+    sources = _retrieve_multi(user_msg, user_role, k=5)
     if not sources:
         return _pick_canned(user_msg, _CANNED_NO_INFO_EN, _CANNED_NO_INFO_TL), [], ""
 
@@ -1236,12 +1515,140 @@ _TRACK_RECORD_PHRASES = (
     "hundreds of", "thousands of", "many clients", "many customers", "many homes",
     "we've helped", "we have helped", "trusted by", "trusted for",
     "libo-libong", "daan-daang", "maraming kliyente", "maraming customer", "maraming kostumer",
+    # Added 2026-09-24 — a rag_eval.py 3x run surfaced this exact paraphrase
+    # surviving untrimmed ("We've worked with clients across different
+    # provinces and property types") — same claim as "we've helped", just
+    # worded around the phrase already covered.
+    "worked with clients", "we've worked with", "we have worked with",
+)
+
+# Extended 2026-09-24: a live test ("what brands, what warranty, are you
+# licensed, do you offer financing...") got back "We've installed systems
+# across all provinces including Laguna", "Our team is fully licensed",
+# "We also offer flexible financing options", and "No hidden fees" — none of
+# which knowledge/solar/ documents (checked directly: no "province",
+# "laguna", "nationwide", "financing", or "hidden fee" anywhere in the
+# corpus). Same gap as brands/track-record: GROUNDING_RULES already lists
+# "service areas... certifications" as requiring CONTEXT, but that's a
+# prompt-only rule on the same unreliable local model. Deliberately narrow
+# on licensing — "licensed technicians" (installation-and-maintenance.md's
+# actual wording, about who does the install) is true and must survive;
+# only a sweeping *company-wide* licensing/certification claim is caught.
+_COVERAGE_PHRASES = (
+    "all provinces", "every province", "nationwide", "across the country",
+    "all over the philippines", "all over the country",
+    "buong pilipinas", "sa buong bansa", "lahat ng probinsya",
+)
+# Regex, not a phrase list (2026-09-24 follow-up): the phrase list above
+# missed "we cover most provinces and cities" outright — "most" isn't "all"/
+# "every"/"nationwide". A local model paraphrasing the same coverage boast
+# has more ways to say it than a fixed list will ever enumerate; this covers
+# the shape ("most/all/every" + a place-plural) instead of one more literal
+# string.
+_COVERAGE_CLAIM_RE = re.compile(
+    r"\b(most|all|every)\b\s+(provinces?|cities|regions?)\b",
+    re.IGNORECASE,
+)
+
+_LICENSING_PHRASES = (
+    "we are fully licensed", "we're fully licensed", "our team is fully licensed",
+    "fully licensed and certified", "fully licensed and insured",
+    "doe-accredited", "doe accredited", "iso certified", "iso-certified",
+)
+# Regex, not a phrase list (2026-09-24, second pass): the first fix here was
+# a literal phrase list ("licensed by the doe", etc.) built from a rag_eval
+# 3x run where 2 of 3 answers said "licensed by the Department of Energy
+# (DOE)" and the third said "registered with the Department of Energy
+# (DOE)". A FOLLOW-UP 3x run (after that fix shipped) produced "licensed
+# AND CERTIFIED by the Department of Energy (DOE)" — the inserted verb broke
+# every literal phrase. Same lesson as _COVERAGE_CLAIM_RE: match the
+# self-referential grammatical shape (a licensing verb, optionally chained
+# with "and <another verb>", directly followed by "by/with the DOE"), not
+# one more exact string. Deliberately tight (verb immediately before "by/
+# with the [DOE]", not "anywhere within N characters of DOE") so a
+# legitimate regulatory citation — "DOE Circular No. ... requires
+# utilities to..." (net-metering-philippines.md is full of these) — is
+# never caught; those never have this verb-then-by/with-DOE shape.
+_DOE_SELF_CLAIM_RE = re.compile(
+    r"\b(licensed|certified|accredited|registered)\b"
+    r"(?:\s+and\s+(?:licensed|certified|accredited|registered))?"
+    r"\s+(?:by|with)\s+the\s+(department\s+of\s+energy|doe)\b"
+    # Second shape (2026-09-24, third pass): the model says "licensed BY
+    # THE DOE" (verb-then-preposition), but the KB's own DOE registration
+    # section — written to answer this exact question — says "DOE-
+    # Registered"/"DOE-Recognized" (DOE-as-adjective-prefix instead).
+    # _context_supports_doe_claim tested False against that chunk's real
+    # text until this was added, which would have kept trimming a claim
+    # the KB had just started actually grounding.
+    r"|\bdoe[\s-]+(registered|recognized|recognised|accredited|licensed|certified)\b",
+    re.IGNORECASE,
+)
+# NOT "smart monitoring" alone — that offering IS documented
+# (our-offerings-and-process.md) and must keep surviving. Only a claim of a
+# specific EnergyWize-owned tool/app (undocumented — the KB only describes
+# generic inverter-reported monitoring), or an offering with no KB mention
+# at all (financing, installment plans, a workmanship warranty distinct
+# from the manufacturer warranties panels.md/batteries.md actually cover,
+# a blanket "no hidden fees" promise).
+_UNDOCUMENTED_OFFERING_PHRASES = (
+    "flexible financing", "financing options", "installment plan", "installment option",
+    "no hidden fees", "no hidden charges", "no hidden costs",
+    "our monitoring app", "our monitoring tool", "our monitoring platform",
+    "workmanship warranty", "warranty on our installation", "warranty on our work",
+    "walang hidden", "hulugan",
 )
 
 
-def _has_track_record_claim(text: str) -> bool:
+# NO_SELF_PROMOTION's own first rule already says this in words ("no years
+# of experience... no 'I've been helping people since…'"), but a rag_eval.py
+# 3x run caught the model stating "has been helping customers install solar
+# PV systems since 2019" in every single run — and no fixed phrase list can
+# cover every year, so this is a regex. Also: this class of number was
+# INVISIBLE to the numeric-grounding check entirely — _NUM_UNIT_PATTERNS
+# only matches a year count shaped like "N years" (a duration), and a bare
+# "since 2019" has no "years" suffix to match against, so it was never even
+# recognized as a number needing grounding, let alone flagged.
+_YEARS_OF_OPERATION_RE = re.compile(
+    r"\bsince\s+(19|20)\d{2}\b"
+    r"|\b\d+\s*\+?\s*years?\s+of\s+experience\b"
+    r"|\bfor\s+over\s+(a\s+decade|\d+\s+years?)\b",
+    re.IGNORECASE,
+)
+
+
+def _context_supports_doe_claim(context_section: str) -> bool:
+    """True only if the retrieved CONTEXT itself contains EnergyWize's own
+    DOE registration/licensing statement — same allow-if-grounded shape as
+    _brands_in_context, one level down (a regex match instead of a fixed
+    name). knowledge/solar/our-offerings-and-process.md's "DOE registration"
+    section (2026-09-24) is a TODO placeholder until filled in with real
+    details, so this returns False today regardless of what the model
+    claims — exactly the safe default while that section has nothing to
+    actually ground. Once filled in with real, retrievable wording matching
+    _DOE_SELF_CLAIM_RE's shape, a genuine DOE claim starts surviving."""
+    return bool(_DOE_SELF_CLAIM_RE.search(context_section or ""))
+
+
+def _has_unverifiable_company_claim(text: str, doe_grounded: bool = False) -> bool:
+    """True for a track-record boast, a service-coverage/licensing claim, a
+    years-of-operation claim, or a mention of an offering (financing, a
+    proprietary monitoring tool, a workmanship warranty, a fee promise) that
+    knowledge/solar/ doesn't document. Every category here is unconditional
+    (never genuinely grounded by anything in the corpus — see the 2026-09-24
+    comments above _COVERAGE_PHRASES and _LICENSING_PHRASES) EXCEPT the DOE
+    self-claim, which — like a brand name via _mentions_ungrounded_brand —
+    is allowed through when doe_grounded is True (the retrieved CONTEXT
+    itself supports it; see _context_supports_doe_claim). Callers with no
+    CONTEXT to check against (e.g. _llama_recommendations) leave
+    doe_grounded at its default False, same as brands defaulting to an
+    empty set there."""
     t = text.lower()
-    return any(p in t for p in _TRACK_RECORD_PHRASES)
+    if any(p in t for p in _TRACK_RECORD_PHRASES + _COVERAGE_PHRASES
+           + _LICENSING_PHRASES + _UNDOCUMENTED_OFFERING_PHRASES):
+        return True
+    if _YEARS_OF_OPERATION_RE.search(text) or _COVERAGE_CLAIM_RE.search(text):
+        return True
+    return (not doe_grounded) and bool(_DOE_SELF_CLAIM_RE.search(text))
 
 
 # Real-world brand names the model has been observed naming even when they
@@ -1274,19 +1681,67 @@ def _mentions_ungrounded_brand(text: str, context_brands: set) -> bool:
     return False
 
 
-def _trim_ungrounded_sentences(text: str, allowed: set, context_brands: set = frozenset()):
-    """Drops sentences containing an ungrounded figure, a track-record claim,
-    or an ungrounded brand name, and keeps the rest, instead of discarding a
-    whole reply over one bad sentence. Returns the trimmed text with original
-    formatting intact, or None if nothing substantial survives (see
-    _MIN_SUBSTANTIAL_SENTENCE_LEN) — the caller falls back to the canned
-    reply in that case, same as before."""
+# A sentence opening on a bare demonstrative only makes sense if whatever it
+# points at is still on the page. Deliberately anchored to the START of the
+# sentence and a small, specific set of linking words — "This is a
+# preliminary estimate..." (self-contained, not referring to anything just
+# dropped) must NOT match; only "This/These/Those/They/It/Such <copula-or-
+# reference-verb>..." does. Two words, not one ("This" alone would catch far
+# too much), so a plain "This means..." still needs the verb right after.
+_REFERENT_OPENER_RE = re.compile(
+    r"^(these|those|this|that|they|it|such)\b[\s,]*"
+    r"(are|is|were|was|include|includes|comes?|refers?\s+to|means?|offers?)\b",
+    re.IGNORECASE,
+)
+
+
+def _drop_orphaned_referents(units: list, keep: list) -> list:
+    """Second pass, run after the grounding checks below have already
+    decided what to keep: a surviving sentence starting with a bare
+    demonstrative ("These are standard industry terms,", "Those include...")
+    is only coherent if its antecedent is still there. If the immediately
+    preceding sentence was dropped, this one is now pointing at nothing and
+    gets dropped too — the same problem _drop_orphaned_headers solves for a
+    ":"-header whose list items all got cut, one level down at the sentence
+    level. Runs to a fixed point since dropping one referent sentence can
+    orphan the next one in turn (2026-09-24: reported live as "These are
+    standard industry terms," and "These are chosen for reliability,
+    efficiency..." surviving with their actual referent — the brand/warranty
+    figure — already trimmed out). `keep` is parallel to `units`, mutated
+    and returned."""
+    changed = True
+    while changed:
+        changed = False
+        for i in range(1, len(units)):
+            if keep[i] and not keep[i - 1]:
+                _, sent = units[i]
+                if _REFERENT_OPENER_RE.match(sent.strip()):
+                    keep[i] = False
+                    changed = True
+    return keep
+
+
+def _trim_ungrounded_sentences(text: str, allowed: set, context_brands: set = frozenset(),
+                                doe_grounded: bool = False):
+    """Drops sentences containing an ungrounded figure, an unverifiable
+    company claim, an ungrounded brand name, or an orphaned reference to one
+    of those (see _drop_orphaned_referents), and keeps the rest, instead of
+    discarding a whole reply over one bad sentence. Returns the trimmed text
+    with original formatting intact, or None if nothing substantial survives
+    (see _MIN_SUBSTANTIAL_SENTENCE_LEN) — the caller falls back to the
+    canned reply in that case, same as before."""
     lines, units = _split_units(text)
+    keep = [
+        _numbers_are_grounded(sent, allowed)
+        and not _has_unverifiable_company_claim(sent, doe_grounded)
+        and not _mentions_ungrounded_brand(sent, context_brands)
+        for _, sent in units
+    ]
+    keep = _drop_orphaned_referents(units, keep)
+
     kept_by_line, dropped = {}, []
-    for line_idx, sent in units:
-        if (_numbers_are_grounded(sent, allowed)
-                and not _has_track_record_claim(sent)
-                and not _mentions_ungrounded_brand(sent, context_brands)):
+    for (line_idx, sent), ok in zip(units, keep):
+        if ok:
             kept_by_line.setdefault(line_idx, []).append(sent)
         else:
             dropped.append(sent)
@@ -1325,7 +1780,8 @@ def _trim_ungrounded_sentences(text: str, allowed: set, context_brands: set = fr
 
 
 def _answer_general_turn(messages_out: list, user_msg: str, context_section: str,
-                          collected: dict, context_body_full: str, context_body_safe: str) -> str:
+                          collected: dict, context_body_full: str, context_body_safe: str,
+                          cancel_event: threading.Event = None) -> str:
     """The non-numeric grounded chat reply. A sentence gets trimmed out (see
     _trim_ungrounded_sentences) if it contains a figure not present in
     CONTEXT or the already-known `collected` fields, a track-record/company
@@ -1337,19 +1793,22 @@ def _answer_general_turn(messages_out: list, user_msg: str, context_section: str
     system_safe = _build_grounded_system(context_body_safe, grounding, context_section, "")
     try:
         text = _ai_chat(messages_out, system=system_full, system_safe=system_safe,
-                         temperature=0.25, max_tokens=384)
+                         temperature=0.25, max_tokens=384, cancel_event=cancel_event)
+    except _RequestCancelled:
+        raise
     except Exception as e:
         print(f"[SOLAR CHAT ERROR] {e}")
         return "I'm having a bit of trouble right now — please try again in a moment."
 
     allowed = _allowed_numbers_from(context_section) | _raw_numbers_from_dict(collected)
     context_brands = _brands_in_context(context_section)
+    doe_grounded = _context_supports_doe_claim(context_section)
     if (_numbers_are_grounded(text, allowed)
-            and not _has_track_record_claim(text)
+            and not _has_unverifiable_company_claim(text, doe_grounded)
             and not _mentions_ungrounded_brand(text, context_brands)):
         return text
 
-    trimmed = _trim_ungrounded_sentences(text, allowed, context_brands)
+    trimmed = _trim_ungrounded_sentences(text, allowed, context_brands, doe_grounded)
     if trimmed is not None:
         return trimmed
     return _pick_canned(user_msg, _CANNED_NO_FIGURE_EN, _CANNED_NO_FIGURE_TL)
@@ -1470,8 +1929,14 @@ Write in a helpful, professional tone suitable for a Philippine audience. Mentio
         print(f"[SOLAR AI ERROR] {e}")
         return template
 
-    if not _numbers_are_grounded(text, allowed):
-        print(f"[SOLAR] recommendation discarded: model included ungrounded figures — {text!r}")
+    # No CONTEXT block here (this prompt is templated numbers, not retrieval),
+    # so no brand is ever grounded — any brand name at all gets discarded.
+    # Also checked for unverifiable company claims (coverage/licensing/
+    # undocumented offerings) — this text lands on the customer's actual
+    # quotation, so it's at least as important to catch here as in chat.
+    if (not _numbers_are_grounded(text, allowed) or _mentions_ungrounded_brand(text, set())
+            or _has_unverifiable_company_claim(text)):
+        print(f"[SOLAR] recommendation discarded: model included an ungrounded figure, brand, or company claim — {text!r}")
         return template
 
     return text
@@ -1554,20 +2019,33 @@ def solar_form():
 
 @solar_bp.route("/solar/chat")
 def solar_chat():
+    # A fresh id per page load, not reused across visits — see
+    # _claim_session_slot. Each load "owns" the single in-flight slot from
+    # here on, so a stale id from a closed tab can't block a new one.
+    session["solar_chat_sid"] = os.urandom(8).hex()
     prefill = {
         "name":  session.get("user_name", ""),
         "email": session.get("user_email", ""),
     }
-    return render_template("solar/solar_chat.html", prefill=prefill)
+    # Handed to the frontend so its no-response watchdog (solar-chat.js) can
+    # track the same ceiling the server actually waits on for LM Studio,
+    # rather than a second hardcoded number that can silently drift from
+    # this one — see the watchdog comment in solar-chat.js for why it needs
+    # to exist at all (a proxy — ngrok in testing, possibly Render in
+    # production — can drop a response that sat fully silent too long,
+    # which leaves fetch() neither resolving nor rejecting).
+    return render_template("solar/solar_chat.html", prefill=prefill,
+                            lm_studio_timeout_ms=LM_STUDIO_TIMEOUT * 1000)
 
 
 @solar_bp.route("/solar/chat/msg", methods=["POST"])
 def solar_chat_msg():
-    data      = request.get_json(force=True)
-    messages  = _sanitize_history(data.get("messages", []))
-    user_msg  = str(data.get("user_message", ""))[:MAX_USER_MSG_CHARS].strip()
-    collected = data.get("collected", {})
-    q_index   = data.get("q_index", -1)  # index of the field Solara last prioritised
+    data       = request.get_json(force=True)
+    messages   = _sanitize_history(data.get("messages", []))
+    user_msg   = str(data.get("user_message", ""))[:MAX_USER_MSG_CHARS].strip()
+    collected  = data.get("collected", {})
+    q_index    = data.get("q_index", -1)  # index of the field Solara last prioritised
+    request_id = data.get("request_id")   # client-generated; see /solar/chat/cancel
 
     if not user_msg:
         return jsonify({"text": ""}), 400
@@ -1590,223 +2068,346 @@ def solar_chat_msg():
         return jsonify({"text": intro, "messages": msgs_out,
                         "collected": collected, "q_index": 0})
 
-    # Snapshot before extraction so the turn classifier below can tell whether
-    # this message actually answered a field, or was something else.
-    fields_before_turn = set(collected.keys())
+    # Registered here — before extract/gate/chat, the turn's three LLM calls —
+    # rather than just before the chat call, so a cancellation arriving while
+    # extract or gate is running (or between them) is seen at the next
+    # boundary instead of only ever stopping the last of the three. sid dedup
+    # (_claim_session_slot) rides along on the same registration since both
+    # exist to stop a stale/duplicate call from independently running this
+    # pipeline — see solar_chat() for where solar_chat_sid is seeded.
+    cancel_event = _register_request(request_id)
+    sid = session.get("solar_chat_sid")
+    if not _claim_session_slot(sid, request_id):
+        _unregister_request(request_id)
+        print(f"[SOLAR] duplicate in-flight request for session {sid!r} dropped: {request_id!r}")
+        return jsonify({"cancelled": True}), 200
+    # Everything from here on — extract, gate, chat, and the DB write on
+    # completion — is wrapped in one try/finally, not the two hand-placed
+    # cleanup calls this had before. Those only ran on the exact paths
+    # anticipated (cancelled-early, redirect, normal reply); anything that
+    # raised in between (e.g. _process_and_save's save_solar_request hitting
+    # a transient DB error) skipped them entirely and leaked this sid's slot
+    # in _session_active_request forever — every later message from that
+    # browser tab would then be silently dropped as a "duplicate" until the
+    # process restarted. A single try/finally has no such gap: cleanup runs
+    # on every exit, including an exception we don't otherwise handle here
+    # (which still propagates as a 500, same as before this existed).
+    #
+    # Defined out here (not inside the try) so the finally below can always
+    # reference them safely, even if the very first cancel check inside the
+    # try raises before the speculative-gate section ever runs.
+    _gate_pool = _gate_future = None
+    try:
+        if cancel_event is not None and cancel_event.is_set():
+            print(f"[SOLAR] request {request_id!r} (session {sid!r}) already cancelled before extract — skipping turn")
+            raise _RequestCancelled()
 
-    FREE_TEXT = {"name", "address", "email", "contact", "notes"}
+        # Snapshot before extraction so the turn classifier below can tell whether
+        # this message actually answered a field, or was something else.
+        fields_before_turn = set(collected.keys())
 
-    def _store(f, val):
-        if f == "monthly_bill_php" and isinstance(val, tuple):
-            kind, num = val
-            if kind == "kwh":
-                collected["kwh_monthly"] = num;      collected["monthly_bill_php"] = None
+        FREE_TEXT = {"name", "address", "email", "contact", "notes"}
+
+        def _store(f, val):
+            if f == "monthly_bill_php" and isinstance(val, tuple):
+                kind, num = val
+                if kind == "kwh":
+                    collected["kwh_monthly"] = num;      collected["monthly_bill_php"] = None
+                else:
+                    collected["monthly_bill_php"] = num; collected["kwh_monthly"] = None
             else:
-                collected["monthly_bill_php"] = num; collected["kwh_monthly"] = None
-        else:
-            collected[f] = val
+                collected[f] = val
 
-    # 0. Ask the model what this message actually answers.
-    #    No pattern can settle "is this a person's name?" — "Test" and "Hello"
-    #    are shaped exactly like real ones. Judgement is the model's job; the
-    #    regex below is only what we fall back on when the provider is down.
-    #    It only runs while a free-text field is still outstanding. Enums and
-    #    figures are what the regex is genuinely good at, so once the name and
-    #    address are banked there is nothing left for a model to adjudicate —
-    #    and on a local model that saved call is most of the turn's latency.
-    asked = QUESTION_FLOW[q_index]["field"] if 0 <= q_index < len(QUESTION_FLOW) else None
-    needs_judgement = any(f not in collected for f in ("name", "address"))
-    ai_ok, ai_fields = _ai_extract(user_msg, asked_field=asked) if needs_judgement else (False, {})
-    for f, v in ai_fields.items():
-        # "notes" is the one open-ended field, which makes it a magnet for any
-        # phrasing the model cannot place. Only bank it when it is what we
-        # actually asked for, otherwise an answer to another question ends up
-        # filed as the customer's concerns.
-        if f == "notes" and asked != "notes":
-            continue
-        if f == "kwh_monthly":
-            if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
-            _store("monthly_bill_php", ("kwh", v))
-        elif f == "monthly_bill_php":
-            if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
-            _store("monthly_bill_php", ("bill", v))
-        elif f not in collected:
-            _store(f, v)
+        # 0. Ask the model what this message actually answers.
+        #    No pattern can settle "is this a person's name?" — "Test" and "Hello"
+        #    are shaped exactly like real ones. Judgement is the model's job; the
+        #    regex below is only what we fall back on when the provider is down.
+        #    It only runs while a free-text field is still outstanding. Enums and
+        #    figures are what the regex is genuinely good at, so once the name and
+        #    address are banked there is nothing left for a model to adjudicate —
+        #    and on a local model that saved call is most of the turn's latency.
+        asked = QUESTION_FLOW[q_index]["field"] if 0 <= q_index < len(QUESTION_FLOW) else None
+        needs_judgement = any(f not in collected for f in ("name", "address"))
 
-    # 1. Lenient extraction for the field Solara last prioritised.
-    #    Skipped when the model answered, because this is the permissive path —
-    #    it accepts a bare line as whatever was last asked for, which is how the
-    #    greeting became a customer name. Re-running it would overrule the very
-    #    judgement we just paid for.
-    if not ai_ok and 0 <= q_index < len(QUESTION_FLOW):
-        cur = QUESTION_FLOW[q_index]["field"]
-        if cur == "monthly_bill_php":
-            already = "monthly_bill_php" in collected or "kwh_monthly" in collected
-        else:
-            already = cur in collected
-        if not already:
-            v = _extract_answer(cur, user_msg, lenient=True)
-            if v is not None:
-                _store(cur, v)
+        # Kick the topic gate off concurrently with extraction rather than
+        # running them back to back — the two calls are independent (gate
+        # only reads user_msg + history, extraction only reads user_msg +
+        # collected/asked), and sequencing them was pure wasted latency
+        # (~3s of a turn's ~4-7s total was extract+gate alone, before the
+        # chat call even started — see the 2026-09-23 Stop-button
+        # investigation, which is also why cutting this matters for the
+        # ngrok idle-timeout risk). Only safe to fire early when
+        # treat_as_question below is ALREADY guaranteed True regardless of
+        # what extraction finds: _looks_like_question()/message length
+        # don't depend on extraction's result, but field_answer_only also
+        # needs to know whether extraction banked something NEW, which
+        # isn't known yet here — so a short, non-question-shaped message
+        # still waits and decides after extraction, same as before. A
+        # keyword hit means _gate_and_retrieve wouldn't call the LLM gate
+        # at all (see _has_topic_keyword), so there's nothing to
+        # parallelize there either.
+        _gate_pool = _gate_future = None
+        if (not _has_topic_keyword(user_msg)
+                and (_looks_like_question(user_msg) or len(user_msg) >= 120)):
+            _gate_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            _gate_future = _gate_pool.submit(_is_on_topic, user_msg, history=messages[-4:])
 
-    # 2. Strict greedy scan for all remaining structured fields. Safe to run
-    #    either way: it needs an explicit signal word, so it only ever adds
-    #    enums and figures the model overlooked.
-    for q in QUESTION_FLOW:
-        f = q["field"]
-        if f in FREE_TEXT: continue
-        if f == "monthly_bill_php":
-            if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
-        elif f in collected: continue
-        v = _extract_answer(f, user_msg, lenient=False)
-        if v is not None:
-            _store(f, v)
+        ai_ok, ai_fields = _ai_extract(user_msg, asked_field=asked) if needs_judgement else (False, {})
+        for f, v in ai_fields.items():
+            # "notes" is the one open-ended field, which makes it a magnet for any
+            # phrasing the model cannot place. Only bank it when it is what we
+            # actually asked for, otherwise an answer to another question ends up
+            # filed as the customer's concerns.
+            if f == "notes" and asked != "notes":
+                continue
+            if f == "kwh_monthly":
+                if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
+                _store("monthly_bill_php", ("kwh", v))
+            elif f == "monthly_bill_php":
+                if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
+                _store("monthly_bill_php", ("bill", v))
+            elif f not in collected:
+                _store(f, v)
 
-    # 3. Free-text fields with explicit lead-in — fallback only, same reason as 1.
-    if not ai_ok:
+        # 1. Lenient extraction for the field Solara last prioritised.
+        #    Skipped when the model answered, because this is the permissive path —
+        #    it accepts a bare line as whatever was last asked for, which is how the
+        #    greeting became a customer name. Re-running it would overrule the very
+        #    judgement we just paid for.
+        if not ai_ok and 0 <= q_index < len(QUESTION_FLOW):
+            cur = QUESTION_FLOW[q_index]["field"]
+            if cur == "monthly_bill_php":
+                already = "monthly_bill_php" in collected or "kwh_monthly" in collected
+            else:
+                already = cur in collected
+            if not already:
+                v = _extract_answer(cur, user_msg, lenient=True)
+                if v is not None:
+                    _store(cur, v)
+
+        # 2. Strict greedy scan for all remaining structured fields. Safe to run
+        #    either way: it needs an explicit signal word, so it only ever adds
+        #    enums and figures the model overlooked.
         for q in QUESTION_FLOW:
             f = q["field"]
-            if f not in FREE_TEXT or f in collected: continue
+            if f in FREE_TEXT: continue
+            if f == "monthly_bill_php":
+                if "monthly_bill_php" in collected or "kwh_monthly" in collected: continue
+            elif f in collected: continue
             v = _extract_answer(f, user_msg, lenient=False)
             if v is not None:
                 _store(f, v)
 
-    # ── Check completion ────────────────────────────────────────────────────────
-    REQUIRED = {"name", "address",
-                "establishment_type", "ownership", "electrical_phase",
-                "target_savings", "roof_sqm"}
-    has_consumption = "monthly_bill_php" in collected or "kwh_monthly" in collected
-    if all(f in collected for f in REQUIRED) and has_consumption:
-        collected.setdefault("time_of_use_night_pct", 30)
-        collected.setdefault("notes", "")
-        form_data = {k: v for k, v in collected.items() if v is not None}
-        form_data.setdefault("target_savings", "100")
-        req_id = _process_and_save(form_data)
-        dest = f"/solar/result/{req_id}"
-        return jsonify({"redirect": dest})
+        # 3. Free-text fields with explicit lead-in — fallback only, same reason as 1.
+        if not ai_ok:
+            for q in QUESTION_FLOW:
+                f = q["field"]
+                if f not in FREE_TEXT or f in collected: continue
+                v = _extract_answer(f, user_msg, lenient=False)
+                if v is not None:
+                    _store(f, v)
 
-    # ── Find next priority missing field ────────────────────────────────────────
-    _LABELS = {
-        "name":                  "full name",
-        "address":               "complete address",
-        "email":                 "email address",
-        "contact":               "contact number",
-        "establishment_type":    "type of establishment (residential/commercial/industrial)",
-        "ownership":             "ownership (owned/rented)",
-        "electrical_phase":      "electrical phase (single/three)",
-        "monthly_bill_php":      "monthly electricity bill (PHP) or kWh consumption",
-        "time_of_use_night_pct": "nighttime usage percentage (0–100)",
-        "target_savings":        "target savings (100%/75%/50%)",
-        "roof_sqm":              "available roof area in sqm",
-        "notes":                 "additional notes or concerns",
-    }
-    next_qi, next_label = None, ""
-    for i, q in enumerate(QUESTION_FLOW):
-        f = q["field"]
-        if f == "monthly_bill_php":
-            if "monthly_bill_php" not in collected and "kwh_monthly" not in collected:
-                next_qi, next_label = i, _LABELS[f]; break
-        elif f not in collected:
-            next_qi, next_label = i, _LABELS.get(f, f); break
+        # ── Check completion ────────────────────────────────────────────────────
+        REQUIRED = {"name", "address",
+                    "establishment_type", "ownership", "electrical_phase",
+                    "target_savings", "roof_sqm"}
+        has_consumption = "monthly_bill_php" in collected or "kwh_monthly" in collected
+        if all(f in collected for f in REQUIRED) and has_consumption:
+            collected.setdefault("time_of_use_night_pct", 30)
+            collected.setdefault("notes", "")
+            form_data = {k: v for k, v in collected.items() if v is not None}
+            form_data.setdefault("target_savings", "100")
+            req_id = _process_and_save(form_data)
+            dest = f"/solar/result/{req_id}"
+            return jsonify({"redirect": dest})
 
-    done_parts = [f"{_LABELS.get(k,k)}: {v}" for k, v in collected.items()
-                  if v is not None and k in _LABELS]
-    missing_labels = []
-    for q in QUESTION_FLOW:
-        f = q["field"]
-        if f == "monthly_bill_php":
-            if "monthly_bill_php" not in collected and "kwh_monthly" not in collected:
-                missing_labels.append(_LABELS[f])
-        elif f not in collected:
-            missing_labels.append(_LABELS.get(f, f))
+        # ── Find next priority missing field ────────────────────────────────────
+        _LABELS = {
+            "name":                  "full name",
+            "address":               "complete address",
+            "email":                 "email address",
+            "contact":               "contact number",
+            "establishment_type":    "type of establishment (residential/commercial/industrial)",
+            "ownership":             "ownership (owned/rented)",
+            "electrical_phase":      "electrical phase (single/three)",
+            "monthly_bill_php":      "monthly electricity bill (PHP) or kWh consumption",
+            "time_of_use_night_pct": "nighttime usage percentage (0–100)",
+            "target_savings":        "target savings (100%/75%/50%)",
+            "roof_sqm":              "available roof area in sqm",
+            "notes":                 "additional notes or concerns",
+        }
+        next_qi, next_label = None, ""
+        for i, q in enumerate(QUESTION_FLOW):
+            f = q["field"]
+            if f == "monthly_bill_php":
+                if "monthly_bill_php" not in collected and "kwh_monthly" not in collected:
+                    next_qi, next_label = i, _LABELS[f]; break
+            elif f not in collected:
+                next_qi, next_label = i, _LABELS.get(f, f); break
 
-    done_str      = "; ".join(done_parts)    or "nothing yet"
-    done_parts_safe = [f"{_LABELS.get(k,k)}: {v}" for k, v in collected.items()
-                        if v is not None and k in _LABELS and k not in _PII_FIELDS]
-    done_str_safe = "; ".join(done_parts_safe) or "nothing yet"
-    missing_str   = ", ".join(missing_labels) or "all collected!"
+        done_parts = [f"{_LABELS.get(k,k)}: {v}" for k, v in collected.items()
+                      if v is not None and k in _LABELS]
+        missing_labels = []
+        for q in QUESTION_FLOW:
+            f = q["field"]
+            if f == "monthly_bill_php":
+                if "monthly_bill_php" not in collected and "kwh_monthly" not in collected:
+                    missing_labels.append(_LABELS[f])
+            elif f not in collected:
+                missing_labels.append(_LABELS.get(f, f))
 
-    # ── RAG: classify the turn, retrieve, ground ────────────────────────────────
-    # A turn is a plain field answer (skip retrieval/grounding) only when it
-    # banked something new, shows no question signal, and is short — a mixed
-    # answer+question, or a message that banked nothing, still gets treated as
-    # a possible solar question. See _looks_like_question for the bilingual
-    # keyword list this leans on (users write a lot of Taglish with no "?").
-    newly_banked      = set(collected.keys()) - fields_before_turn
-    field_answer_only = bool(newly_banked) and not _looks_like_question(user_msg) and len(user_msg) < 120
-    treat_as_question  = not field_answer_only
+        done_str      = "; ".join(done_parts)    or "nothing yet"
+        done_parts_safe = [f"{_LABELS.get(k,k)}: {v}" for k, v in collected.items()
+                            if v is not None and k in _LABELS and k not in _PII_FIELDS]
+        done_str_safe = "; ".join(done_parts_safe) or "nothing yet"
+        missing_str   = ", ".join(missing_labels) or "all collected!"
 
-    sources = []
-    context_section = ""
-    numeric_result = None
-    canned_text = None
-    if treat_as_question:
-        # Deterministic gate before any chat LLM call — off-topic and
-        # zero-retrieval turns get a fixed reply and never reach the model at
-        # all. See _gate_and_retrieve.
-        canned_text, sources, context_section = _gate_and_retrieve(
-            user_msg, session.get("user_role"), history=messages[-4:])
-        if canned_text is None and _looks_numeric_question(user_msg) and \
-                ("kwh_monthly" in collected or "monthly_bill_php" in collected):
-            numeric_result = _run_preview_calc(collected)
+        if cancel_event is not None and cancel_event.is_set():
+            print(f"[SOLAR] request {request_id!r} (session {sid!r}) cancelled before topic gate — skipping turn")
+            raise _RequestCancelled()
 
-    def _context_body(done_for_prompt: str) -> str:
-        return (f"Already shared: {done_for_prompt[:1200]}\n"
-                 f"Still need to gather: {missing_str}\n"
-                 f"Next thing to naturally work into the conversation: {next_label}")
+        # ── RAG: classify the turn, retrieve, ground ────────────────────────────
+        # A turn is a plain field answer (skip retrieval/grounding) only when it
+        # banked something new, shows no question signal, and is short — a mixed
+        # answer+question, or a message that banked nothing, still gets treated as
+        # a possible solar question. See _looks_like_question for the bilingual
+        # keyword list this leans on (users write a lot of Taglish with no "?").
+        newly_banked      = set(collected.keys()) - fields_before_turn
+        field_answer_only = bool(newly_banked) and not _looks_like_question(user_msg) and len(user_msg) < 120
+        treat_as_question  = not field_answer_only
 
-    messages_out = messages + [{"role": "user", "content": user_msg}]
+        sources = []
+        context_section = ""
+        numeric_result = None
+        canned_text = None
+        if treat_as_question:
+            # Deterministic gate before any chat LLM call — off-topic and
+            # zero-retrieval turns get a fixed reply and never reach the model at
+            # all. See _gate_and_retrieve.
+            #
+            # _gate_future, if set, is guaranteed to belong to THIS turn's
+            # user_msg — it was only ever started when treat_as_question was
+            # already provably going to land True (see the comment where
+            # it's submitted), so treat_as_question being True here is
+            # exactly the condition that guarantees a future exists whenever
+            # one was worth starting. .result() blocks only for whatever
+            # time is left of the gate call beyond what extraction already
+            # took — usually already finished by now, not an extra wait.
+            precomputed = _gate_future.result() if _gate_future is not None else _NOT_COMPUTED
+            canned_text, sources, context_section = _gate_and_retrieve(
+                user_msg, session.get("user_role"), history=messages[-4:],
+                precomputed_on_topic=precomputed)
+            if canned_text is None and _looks_numeric_question(user_msg) and \
+                    ("kwh_monthly" in collected or "monthly_bill_php" in collected):
+                numeric_result = _run_preview_calc(collected)
 
-    if canned_text is not None:
-        text = canned_text
-    elif numeric_result is not None:
-        # Deterministic path — see _answer_numeric_turn. The numbers never
-        # touch the LLM; it may only supply short, number-free framing text,
-        # which is itself checked before use. Single-turn (no history) on
-        # purpose — keeping this call minimal is part of what keeps it
-        # constrained.
-        text = _answer_numeric_turn(
-            user_msg, numeric_result, collected,
-            context_body_full=_context_body(done_str),
-            context_body_safe=_context_body(done_str_safe),
-            context_section=context_section,
-            is_preview=True,
-        )
-    elif treat_as_question:
-        # General grounded chat — see _answer_general_turn for the same
-        # ungrounded-figure guard the numeric path has.
-        text = _answer_general_turn(
-            messages_out[-10:], user_msg, context_section, collected,
-            context_body_full=_context_body(done_str),
-            context_body_safe=_context_body(done_str_safe),
-        )
-    else:
-        # Plain field-answer continuation — no grounding or number-check
-        # applies here, same persona-driven flow as always. Still gets the
-        # explicit language instruction, same as every other chat call.
-        lang = _language_instruction(user_msg)
-        system_full = _build_grounded_system(_context_body(done_str), lang, "", "")
-        system_safe = _build_grounded_system(_context_body(done_str_safe), lang, "", "")
-        try:
-            text = _ai_chat(messages_out[-10:], system=system_full, system_safe=system_safe, temperature=0.25)
-        except Exception as e:
-            text = f"I'm having a bit of trouble right now — please try again in a moment."
-            print(f"[SOLAR CHAT ERROR] {e}")
+        def _context_body(done_for_prompt: str) -> str:
+            return (f"Already shared: {done_for_prompt[:1200]}\n"
+                     f"Still need to gather: {missing_str}\n"
+                     f"Next thing to naturally work into the conversation: {next_label}")
 
-    # Normalize an LLM-composed off-topic decline to the same canned constant
-    # a gate-caught off-topic message gets, so every decline looks identical
-    # and never shows a Sources line — regardless of which provider wrote it.
-    if text not in _CANNED_REPLIES and _looks_like_decline(text):
-        text = _pick_canned(user_msg, _CANNED_OFF_TOPIC_EN, _CANNED_OFF_TOPIC_TL)
+        messages_out = messages + [{"role": "user", "content": user_msg}]
 
-    shown_sources = [] if text in _CANNED_REPLIES else _top_source_titles(sources)
-    return jsonify({
-        "text":      text,
-        "messages":  messages_out + [{"role": "assistant", "content": text}],
-        "collected": collected,
-        "q_index":   next_qi if next_qi is not None else q_index,
-        "sources":   shown_sources,
-    })
+        if canned_text is not None:
+            text = canned_text
+        elif numeric_result is not None:
+            # Deterministic path — see _answer_numeric_turn. The numbers never
+            # touch the LLM; it may only supply short, number-free framing text,
+            # which is itself checked before use. Single-turn (no history) on
+            # purpose — keeping this call minimal is part of what keeps it
+            # constrained.
+            text = _answer_numeric_turn(
+                user_msg, numeric_result, collected,
+                context_body_full=_context_body(done_str),
+                context_body_safe=_context_body(done_str_safe),
+                context_section=context_section,
+                is_preview=True,
+                cancel_event=cancel_event,
+            )
+        elif treat_as_question:
+            # General grounded chat — see _answer_general_turn for the same
+            # ungrounded-figure guard the numeric path has.
+            text = _answer_general_turn(
+                messages_out[-10:], user_msg, context_section, collected,
+                context_body_full=_context_body(done_str),
+                context_body_safe=_context_body(done_str_safe),
+                cancel_event=cancel_event,
+            )
+        else:
+            # Plain field-answer continuation — no grounding or number-check
+            # applies here, same persona-driven flow as always. Still gets the
+            # explicit language instruction, same as every other chat call.
+            lang = _language_instruction(user_msg)
+            system_full = _build_grounded_system(_context_body(done_str), lang, "", "")
+            system_safe = _build_grounded_system(_context_body(done_str_safe), lang, "", "")
+            try:
+                text = _ai_chat(messages_out[-10:], system=system_full, system_safe=system_safe,
+                                 temperature=0.25, cancel_event=cancel_event)
+            except _RequestCancelled:
+                raise
+            except Exception as e:
+                text = f"I'm having a bit of trouble right now — please try again in a moment."
+                print(f"[SOLAR CHAT ERROR] {e}")
+
+        # Normalize an LLM-composed off-topic decline to the same canned constant
+        # a gate-caught off-topic message gets, so every decline looks identical
+        # and never shows a Sources line — regardless of which provider wrote it.
+        if text not in _CANNED_REPLIES and _looks_like_decline(text):
+            text = _pick_canned(user_msg, _CANNED_OFF_TOPIC_EN, _CANNED_OFF_TOPIC_TL)
+
+        return jsonify({
+            "text":      text,
+            "messages":  messages_out + [{"role": "assistant", "content": text}],
+            "collected": collected,
+            "q_index":   next_qi if next_qi is not None else q_index,
+        })
+    except _RequestCancelled:
+        # Stop button, a genuine disconnect (see /solar/chat/cancel), or one
+        # of the two boundary checks above — whoever's still listening
+        # (usually no one) gets a minimal ack instead of paying for the rest
+        # of the pipeline on a reply nobody asked to finish.
+        print(f"[SOLAR] request {request_id!r} (session {sid!r}) cancelled — returning empty ack")
+        return jsonify({"cancelled": True}), 200
+    finally:
+        # shutdown(wait=False) doesn't cancel an already-submitted future —
+        # it just stops the pool from accepting new work and lets this one
+        # finish in the background if nothing ever consumed it (e.g. the
+        # pre-gate cancel check fired first). Not waiting here matters: this
+        # finally runs on every exit including the fast "cancelled before
+        # topic gate" path, and blocking it on a gate call nobody needs the
+        # result of anymore would defeat the point of having parallelized it.
+        if _gate_pool is not None:
+            _gate_pool.shutdown(wait=False)
+        _release_session_slot(sid, request_id)
+        _unregister_request(request_id)
+
+
+@solar_bp.route("/solar/chat/cancel", methods=["POST"])
+def solar_chat_cancel():
+    """Called by the Stop button, and by a page-teardown beacon when the tab
+    is refreshed/closed mid-reply (see pagehide/visibilitychange in
+    solar-chat.js) — sets the cancel_event solar_chat_msg is polling, which
+    breaks its LM Studio read loop and frees the worker instead of leaving it
+    blocked until LM_STUDIO_TIMEOUT.
+
+    navigator.sendBeacon() (the only reliable way to fire a request during
+    page teardown — a plain fetch() in beforeunload is frequently killed
+    mid-flight by the browser) cannot set a custom header, so the CSRF token
+    travels in the JSON body instead of the usual X-CSRFToken header. This
+    view is exempted from Flask-WTF's automatic (header/form-only) check for
+    that reason — not from CSRF protection itself: the token is still read
+    from the body and validated for real below. It's a relocation, not the
+    same kind of exemption as the 3 in app.py (those skip validation
+    entirely for callers that can't present a token at all)."""
+    payload = request.get_json(force=True, silent=True) or {}
+    try:
+        validate_csrf(payload.get("csrf_token"))
+    except _CSRFValidationError:
+        return jsonify({"error": "invalid csrf token"}), 400
+
+    request_id = payload.get("request_id")
+    cancelled = _cancel_request(request_id) if request_id else False
+    return jsonify({"cancelled": cancelled})
 
 
 @solar_bp.route("/solar/ocr", methods=["POST"])

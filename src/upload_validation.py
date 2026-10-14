@@ -32,7 +32,7 @@ GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # LMStudio config
-LMSTUDIO_URL = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+LMSTUDIO_URL = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
 LMSTUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-4b")
 
 # Dev-only escape hatch. Set DEV_SKIP_VALIDATION=1 in .env to make every

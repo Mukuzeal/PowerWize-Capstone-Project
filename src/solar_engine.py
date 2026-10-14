@@ -1,11 +1,9 @@
 import math
 
 # ── Philippine solar constants ────────────────────────────────
-# TODO: verify ELECTRICITY_RATE against the current published Meralco/DU rate —
-# the chatbot's knowledge base previously cited ₱10-12/kWh while this constant
-# was 14.3496, disagreeing with itself. This module is now the single source
-# of truth; confirm the number is current before trusting it further.
-ELECTRICITY_RATE       = 14.3496   # PHP/kWh
+# VERIFIED: Updated against the published September 2026 Meralco residential rate.
+# The previous constant (14.3496) was the record high from April 2026.
+ELECTRICITY_RATE       = 14.7424   # PHP/kWh
 PEAK_SUN_HOURS         = 5.0
 SYSTEM_EFFICIENCY      = 0.78
 PANEL_WATTAGE_W        = 400
@@ -185,4 +183,11 @@ def compute(
         "battery_kwh_capacity": battery_kwh_capacity,
         "out_of_scope": out_of_scope,
         "out_of_scope_reason": out_of_scope_reason,
+        # Echoes back the *effective* target-savings percentage actually
+        # used (post _target_ratio() normalization, not the raw input) so
+        # callers can state the assumption behind monthly_savings/roi_years
+        # inline instead of silently defaulting to 100% and letting the
+        # number read as an unconditional promise. None off-grid, where
+        # there's no bill to offset a percentage of.
+        "target_savings_pct": None if off_grid else round(ratio * 100),
     }

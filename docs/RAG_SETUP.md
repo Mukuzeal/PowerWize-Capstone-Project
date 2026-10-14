@@ -11,6 +11,7 @@ EMBED_PROVIDER=local_cpu           # local_cpu (default) | lmstudio
 EMBED_MODEL=BAAI/bge-small-en-v1.5 # fastembed model id, or the LM Studio embedding model name if EMBED_PROVIDER=lmstudio
 RAG_MIN_SCORE=0.55                 # cosine similarity floor — see the reasoning below
 RAG_GROQ_FALLBACK=0                # 1 = retry through Groq once if LM Studio fails
+RAG_CACHE_TTL=300                  # seconds to reuse the in-process chunk matrix; 0 = no cache
 ```
 
 `EMBED_PROVIDER` is independent of `TEXT_PROVIDER`. Switching which model answers chat (LM Studio vs Groq) never requires re-indexing, and `local_cpu` embeddings work even when LM Studio isn't running — that's the whole point of defaulting to CPU (fastembed/ONNX, no GPU, no torch/CUDA) on a machine where the chat model needs the GPU.
@@ -120,6 +121,33 @@ For a turn where the numeric-intent keywords fire (`_looks_numeric_question`) an
 
 `RAG_GROQ_FALLBACK=1` makes both LM-Studio-backed calls — Solara's conversational reply (`solar_chat_msg`) and the final quotation write-up (`_llama_recommendations`) — retry once through Groq if the LM Studio request fails (connection refused, timeout, any other request error). Off by default, so the existing "LM Studio down → show a friendly retry message" behavior is unchanged unless you opt in. A Groq HTTP 429 (rate limit) is caught and turned into a friendly "please try again shortly" message instead of a crash, on both providers-as-primary and providers-as-fallback paths.
 
+## Request cancellation — Stop button and disconnected clients
+
+`_call_lmstudio()` streams (`"stream": true`, `resp.iter_content(chunk_size=64)` with a hardcoded UTF-8 decode — not `resp.iter_lines(decode_unicode=True)`, see the function's docstring for why) instead of making one blocking non-streamed call — not for a token-by-token UI, but so the read loop has a checkpoint between chunks to notice a cancellation and close the connection early. Before this, a refreshed or closed browser tab left the Flask worker (and LM Studio itself) running the full completion with no way to notice nobody was listening, since Flask/gunicorn's sync workers don't observe a client disconnect mid-request and a non-streamed call gives LM Studio no signal either — only killing the whole worker process reliably freed it.
+
+Mechanism: the frontend generates a `request_id` per `/solar/chat/msg` call (`static/solar-chat.js`); `solar_chat_msg` registers a `threading.Event` for it (`_register_request`) just before the LLM-calling dispatch and always clears it in a `finally`. `_call_lmstudio` checks that event between streamed chunks and raises `_RequestCancelled` if it's set, which `_ai_chat` re-raises rather than treating as a normal failure (no Groq fallback on a cancelled request — it should just stop). The Stop button and a `pagehide`/`visibilitychange` page-teardown handler both call `POST /solar/chat/cancel {request_id}`, which sets the event.
+
+**Serving concurrently (2026-09-23):** a cancel POST has to actually reach the server *while* the original request is still being handled, and a single-threaded, single-worker server can't do that — it services one request at a time, full stop, so the cancel POST (or a page-refresh's next request) just queues behind whatever's already running instead of getting a chance to interrupt it. This was caught live: the local dev server ran `app.run(debug=True)` with no `threaded=True`, which meant Stop/refresh couldn't take effect until the blocked LM Studio call finished or timed out on its own — the exact "5-10 tokens still generating," duplicate-request-burst, and post-refresh-error symptoms all traced back to this one thing. Fixed on both paths:
+- **Dev:** `src/app.py` now calls `app.run(debug=True, threaded=True)`.
+- **Prod:** `Procfile` now runs `gunicorn ... --workers 1 --threads 4 --worker-class gthread` instead of the bare default (implicitly a single-threaded **sync** worker) — gthread lets one worker process handle several requests concurrently on separate threads, so a cancel POST can be serviced while another request is mid-stream.
+
+**Known limitation:** `_active_requests` is a plain in-process `dict` (`solar_bp.py`), guarded by a `threading.Lock`. Threads share process memory, so gthread's multiple threads-per-worker still see the same dict — that's exactly what makes the fix above work, and why `--workers` was deliberately left at `1` rather than raised alongside `--threads`. If `--workers` is ever increased beyond 1, each worker process gets its **own** separate memory space and its own copy of `_active_requests` — a cancel request landing on a different worker than the one handling the original call would silently no-op, since nothing shares this state across processes. Moving to a shared store (Redis, or Postgres via a `cancelled_requests` table with a short TTL sweep) would be the fix if/when more worker processes are ever needed for throughput — not needed at the current scale.
+
+The CSRF token for `/solar/chat/cancel` travels in the JSON body rather than the usual `X-CSRFToken` header, because `navigator.sendBeacon()` (used for the page-teardown case — a plain `fetch()` in `beforeunload`/`pagehide` is frequently killed mid-flight by the browser before it sends) can't set custom headers. The view is `csrf.exempt()`-ed from Flask-WTF's automatic header/form-only check for that reason and validates the body-carried token manually via `validate_csrf()` — it's a relocation of where the token travels, not a skip of validation, unlike the 3 exemptions in `app.py` for callers that can't present a token at all (PayMongo webhook, face-match/upload-validation APIs).
+
+Scope: this only covers the LM Studio path used by the live chat-reply branches in `solar_chat_msg` (`_answer_general_turn`, `_answer_numeric_turn`, and the plain field-answer branch). Groq's call is short and non-streamed with its own tight 30s timeout, so it wasn't the call this was built for. `_llama_recommendations()` (the one-shot final quotation write-up, triggered once when the consultation completes rather than per-turn) isn't wired into cancellation either — a much rarer, shorter-lived call than the "prompt keeps processing while the user idles or refreshes mid-conversation" scenario this was built to fix.
+
+### Request cancellation — verified behaviour (2026-09-23)
+
+Confirmed end-to-end against a live LM Studio server, not just assumed from reading the code — a matched log pair from the same Stop click:
+
+- **Flask:** `chunk #77` at `23:54:27.106` with `cancel_event.is_set()=True`, then `closing connection (cancelled=True, at_chunk=77, total_chunks_read=77)` at `23:54:27.107`.
+- **LM Studio**, the same second: `"Client disconnected. Stopping generation..."`, then `cancel task, id_task = 2886` and the slot was released. The task was killed, not run to completion.
+
+Earlier in this investigation, several "Stop didn't work" reports turned out to be Stop landing during the extract+gate phase (non-streaming, ~1.5–3s per call, before any LM Studio streaming connection even opens) rather than during actual generation — those always ran to completion because there was nothing streaming yet to close. That phase now runs concurrently instead of sequentially (see `_gate_future` in `solar_chat_msg`), which both shortens it and gives a genuine streaming window to test Stop against sooner. The clear marker for "cancelling now actually does something" is the `streaming started for <request_id>` log line in `_call_lmstudio` — a Stop click has to land after that line to hit the mechanism this section describes.
+
+**Caveat:** if LM Studio is still processing the *prompt* (prompt eval — the 0%→100% progress logged before generation/streaming begins) when the disconnect arrives, it finishes that phase first before noticing the client is gone; cancellation only interrupts promptly once token generation (streaming) has actually started. For a short chat turn this phase is usually well under a second, but a long conversation history or a large retrieved-context block can stretch it.
+
 ## Privacy — what does and doesn't reach Groq
 
 Whenever a call's target is Groq — whether Groq is the configured primary (`TEXT_PROVIDER=groq`) or the automatic fallback above — the system prompt uses a PII-free variant of the conversation's `<context>` block: stored fields like name, address, contact number, email, and notes are left out; only consumption figures, target savings, and already-computed numbers go in. This applies everywhere a Groq call can happen, including the primary-provider case, which previously sent the full context (including name and address) to Groq on every turn — that gap is fixed by this work, not new to it.
@@ -134,6 +162,160 @@ Chat generation runs through LM Studio's OpenAI-compatible HTTP API — this cod
 - Confirm GPU offload is actually active in LM Studio's model settings — a model silently running on CPU is what the generous `LM_STUDIO_TIMEOUT` is there to paper over, not something you want by default.
 - If ROCm has issues after a driver update, fall back to the **Vulkan runtime** in LM Studio.
 - Embeddings (`EMBED_PROVIDER=local_cpu`) run on CPU via fastembed/ONNX by default and don't depend on LM Studio being up at all — retrieval keeps working even if the GPU-backed chat model is down.
+## `RAG_CACHE_TTL` — why retrieval caches the chunk matrix
+
+Profiled on the 68-chunk corpus (2026-10-14), one `retrieve()` call cost ~62ms, spent almost entirely on work that had nothing to do with similarity:
+
+| Step | Time |
+|---|---|
+| `get_db()` — open + close a fresh psycopg2 connection | 33.3ms |
+| Query `rag_chunks` + parse 68 × 384 `REAL[]` into Python | ~15ms |
+| Embed the query (fastembed CPU, warm) | 4.5ms |
+| Normalize 68 vectors (per-row Python loop) | 1.0ms |
+| **The actual cosine ranking** | **0.003ms** |
+
+`_retrieve_multi()` in `solar_bp.py` calls `retrieve()` once per sub-question, so a 3-question message paid it three times — ~194ms refetching rows that cannot have changed between fragments.
+
+`retriever.py` now caches the fetched chunks plus a row-normalized `(n, 384)` float32 matrix per visibility tuple, behind a lock so a cold cache under concurrent requests costs one fetch rather than one per thread. Ranking is a single `matrix @ q_vec`. Measured after: **5.3ms** for one question, **16.2ms** for three.
+
+Two things the cache deliberately does *not* do:
+
+- **It doesn't cache an empty result.** An empty `rag_chunks` almost always means the index hasn't been built yet, and pinning that for a full TTL would outlast the `build_rag_index.py` run that fixes it.
+- **It doesn't detect a re-index.** `build_rag_index.py` is a separate process, so a running app keeps serving the old vectors until the TTL lapses. Checking for freshness would need the same connection the cache exists to avoid. Restart the app, wait out the TTL, or set `RAG_CACHE_TTL=0` while hand-checking an index you're actively rebuilding.
+
+Keyed by visibility tuple because an admin/employee session ranks over a strictly larger candidate set than the public chat, and the two must not share a matrix.
+
+Ranking order and scores are unchanged — verified identical to the pre-cache implementation across 20 query/role pairs (in-KB, off-topic, Taglish, both roles). The `argsort` is `kind="stable"` so score ties keep row order the way the previous `list.sort()` did, and `RAG_MIN_SCORE` is still applied *after* the top-k slice, not before it.
+
+## Hands-on testing — `scripts/solar_chat_devapp.py`
+
+`rag_eval.py` runs a fixed question set and prints a report. When you need to *talk* to Solara and see why a particular reply came out the way it did, this serves the real app on a second port with a debug page:
+
+```powershell
+cd src; ..\venv\Scripts\python.exe ..\scripts\solar_chat_devapp.py                  # provider from .env
+cd src; ..\venv\Scripts\python.exe ..\scripts\solar_chat_devapp.py --provider groq   # override for this run
+```
+
+Then open `http://127.0.0.1:5001/dev/chat` — the real `solar_chat.html` in an iframe on the left, a live trace of each turn on the right.
+
+It imports `app` from `app.py`, so `/solar/chat/msg` **is** the production route, not a reimplementation. Tracing is monkeypatched onto `solar_bp` from that process only (the same technique `rag_eval.py` uses to force `TEXT_PROVIDER`), and no production module imports the harness — so there is no dev-only branch living inside a shipped route. It calls `require_local_db()`, because the route it drives writes a `solar_requests` row once a conversation has every required field.
+
+**The thing it shows that the shipped UI structurally cannot.** The chat response carries no source information at all — the Sources line was removed from the chatbot, along with `_top_source_titles()` and its display cutoff. Retrieval is therefore completely invisible in the real UI by design, and this panel is the only place to see it: every chunk above `RAG_MIN_SCORE`, with its score, source file and topic. When an answer looks like it came from nowhere, this is where you find out whether it did.
+
+Also surfaced per turn: gate outcome (`on_topic` / `off_topic` / `on_topic_zero_sources`), whether the LLM topic gate ran at all or `_has_topic_keyword` short-circuited it, what the AI extractor banked, the `_run_preview_calc` result, per-step timings, and the exact system prompt — expandable, as sent.
+
+One instrumentation limit worth knowing: only `_ai_extract` is traced. When it returns `ok=false` the route falls back to the regex extractor, whose result appears under **collected so far** but not under **ai extraction** — the panel labels this rather than letting an empty extraction read as "nothing was banked."
+
+## Where a turn's latency actually goes
+
+Measured with `scripts/solar_latency_check.py` on 2026-10-14, median ms per stage, after warm-up. Groq = `openai/gpt-oss-120b`; LM Studio = `qwen/qwen3-vl-4b` on the local GPU.
+
+**Groq** (`--provider groq -n 3 --delay 3`) — small sample, this account rate-limits hard:
+
+| turn type | extract | gate(llm) | retrieve | chat | TOTAL | chars |
+|---|--:|--:|--:|--:|--:|--:|
+| question, keyword hit | 394 | — | 6 | 1940 | **2341** | 436 |
+| off-topic (canned, no chat call) | 506 | 485 | 6 | — | **515** | 96 |
+| field answer | 424 | — | — | — | **1753** | 352 |
+| numeric question | 472 | 515 | 7 | 454 | **980** | 422 |
+
+**LM Studio** (`--provider lmstudio -n 3`), same cases:
+
+| turn type | extract | gate(llm) | retrieve | chat | TOTAL | chars |
+|---|--:|--:|--:|--:|--:|--:|
+| question, keyword hit | 3634 | — | 7 | 4978 | **8649** | 846 |
+| question, no keyword | 3688 | 2527 | 9 | 6812 | **10487** | 1056 |
+| off-topic (canned, no chat call) | 3670 | 2553 | — | — | **3671** | 132 |
+| field answer | 3594 | — | — | — | **6842** | 289 |
+| numeric question | 3515 | 2520 | 8 | 4985 | **8508** | 482 |
+
+So a real reply was roughly **2–2.3s on Groq vs 8.5–10.5s locally** — about 4x, on a 4B model.
+
+**Both tables predate the two fixes below.** With `127.0.0.1` and `required: []` in place, the same local turn measures **3689ms** (extract 280ms, retrieve 8ms, chat 3398ms) — 2.3x faster than the 8649ms baseline, and the attribution adds up: ~4.1s from the connection fix (2 calls x ~2.05s) plus ~1.3s from the schema fix. Re-run the benchmark for current numbers rather than trusting these.
+
+What the breakdown settles:
+
+- **Two sequential LLM calls are ~95% of a turn** — `_ai_extract` then the chat call. Everything else is noise.
+- **The speculative gate already works.** LM Studio pays a 2527ms gate call but the no-keyword row costs only ~1.8s more than keyword-hit, and most of that is its longer reply. The `ThreadPoolExecutor` fired before extraction is hiding nearly all of the gate. Don't "optimize" it; it's done.
+- **Retrieval is 6–9ms on both.** Provider-independent, as expected — it never touches the chat model. See `RAG_CACHE_TTL` above.
+- **Off-topic is the floor** (515ms / 3.7s), because the gate catches it and the chat call never happens.
+
+### `required: []` on the extraction schema
+
+LM Studio's `json_schema` response format applies a GBNF grammar. Listing every field in `required` forces the model to emit all 11 keys even when the message answers none of them — and "none of them" is the common case, because most turns are questions.
+
+Observed in the LM Studio server log for "does more solar panels mean more harvest and is it better?":
+
+```
+completion_tokens: 87      eval time = 1486.81 ms / 87 tokens (17.29 ms per token)
+content: {"name": null, "address": null, "notes": null, "establishment_type": null, ...}
+```
+
+**87 tokens, ~1.5s, to say "nothing" — on every single turn.** Same request with `"required": []`:
+
+| schema | time | completion tokens |
+|---|--:|--:|
+| `strict`, all 11 required | 1568 ms | 87 |
+| `strict`, `required: []` | **388 ms** | **17** |
+
+The parser was already compatible: `_ai_extract` iterates `data.items()` and `continue`s on `None`/`""`, so an absent key and a null key are indistinguishable to it. Nothing downstream changed.
+
+It is also the better answer for *correctness*, not just speed. A model forced to produce a key it has no value for is a model under pressure to invent one — which is precisely the padding the `_NULLISH` set below it exists to scrub ("the string 'null', and words lifted out of the schema itself"). Relaxing `required` removes the pressure rather than cleaning up after it.
+
+Accuracy re-checked across 8 extraction cases (name, address, bill, kWh, roof, both enums, and a mixed field-plus-question message): **8/8 banked everything expected**, mean 347ms vs ~1550ms.
+
+Does not apply to `_is_on_topic` — its single `on_topic` boolean genuinely is required, and it only costs 7 tokens.
+
+### Use `127.0.0.1`, never `localhost`, for LM Studio
+
+Measured 2026-10-14. Identical request, same server, same model:
+
+| URL | per-call floor |
+|---|--:|
+| `http://localhost:1234` | **2046 ms** |
+| `http://127.0.0.1:1234` | **3.2 ms** |
+
+`GET /v1/models` — an endpoint that runs no inference at all — took 2039ms via `localhost`. The cost is fixed: a 9-token prompt cost the same as a 434-token one, so it is not prefill and not generation.
+
+Cause: on Windows `localhost` resolves to IPv6 `::1` **before** IPv4 (`socket.getaddrinfo` returns `AF_INET6` first). LM Studio binds IPv4 only, so every single request opens a connection to `::1`, waits for it to fail, and retries on `127.0.0.1`. That retry is the ~2s.
+
+A Solara turn makes 2–3 LM Studio calls (extract, topic gate, chat), so this was costing **~4–6 seconds per reply** while looking exactly like "the local model is slow." The `LM_STUDIO_URL` default in all five modules that read it is now `http://127.0.0.1:1234`, and `.env.example` carries the warning. If you ever point `LM_STUDIO_URL` at a remote GPU box, use its IP for the same reason — or verify the hostname resolves to IPv4 first.
+
+### Watch for model thrashing when benchmarking
+
+LM Studio JIT-loads a model on first request and evicts others under VRAM pressure. Calling two models alternately (easy to do when comparing `LM_STUDIO_MODEL` against `LM_STUDIO_TEXT_MODEL`) makes it swap on *every* request: observed extraction going from 3.6s to 24s, and generation throughput dropping from ~68 to ~12 tok/s across both models.
+
+Check residency before trusting any measurement:
+
+```powershell
+curl http://127.0.0.1:1234/api/v0/models    # look at each model's "state"
+```
+
+Exactly one model should read `loaded` — the one `LM_STUDIO_TEXT_MODEL` names. If throughput stays low after the other is evicted, restart LM Studio; generation rate does not always recover on its own.
+
+### Benchmarking pitfall: a refused call times fast
+
+The first version of this script fired runs back to back, tripped Groq's rate limit, and reported a **468ms** "chat" stage — which was `_RATE_LIMITED_MSG` (exactly 73 characters) coming back from a refused request, not a reply. It made Groq look 4x faster than it is, and the harder the script hammered, the better the provider scored.
+
+`solar_latency_check.py` now classifies every run and discards `rate_limited` / `[ERROR:` turns from the timing stats rather than averaging them in, printing how many it threw away. **If the `chars` column looks implausibly small for the turn type, distrust the row** — that column exists as the tell. Raise `--delay` when runs get discarded.
+
+### The one large lever: extraction
+
+`needs_judgement` skips `_ai_extract` once `name` *and* `address` are banked, which is measurable — same question, same provider, 826ms with extraction vs **424ms** with it skipped. That only helps late in a conversation; every turn before those two fields land pays full price. On LM Studio it is ~3.6s of every single turn.
+
+It cannot simply be skipped earlier. The chat prompt's "Already shared / Still need to gather" block is built from `collected`, so running chat before extraction makes Solara re-ask for something the user just gave — the exact failure the `rag_eval.py` harness-gap comment describes. The dependency is real.
+
+What's available, in order of value:
+
+1. **A smaller model for extraction only.** Field-picking is not the same job as writing a reply, and the codebase already splits providers for exactly this reason (`TEXT_PROVIDER` vs `VISION_PROVIDER`). An `EXTRACT_MODEL` knob pointed at something small would cut ~3.6s locally, ~0.4s on Groq, from *every* turn. Needs an accuracy check against `rag_eval.py` first.
+2. **Stream the chat reply.** Doesn't reduce total time, cuts time-to-first-token to near zero — which matters far more at 8.5s than at 2s. `_call_lmstudio` already streams internally; the route buffers the whole reply before responding. Needs SSE plus a frontend change.
+3. ~~Pre-warm the embedder~~ — **done.** `rag.embeddings.warm()` is called from `app.py` after `init_db()`. The fastembed/ONNX load is ~1.5s and paid per process, so the first person to hit Solara after a gunicorn worker started used to wait it out. First `retrieve()` after boot is now 69ms instead of ~1500ms.
+
+Parallelizing retrieval with extraction is not worth doing — it would save 7ms.
+
+### Check `LM_STUDIO_TEXT_MODEL`
+
+As measured, `LM_STUDIO_TEXT_MODEL=qwen/qwen3-vl-4b` — the **vision** model was answering chat, while `qwen/qwen3-8b` sat loaded and unused. That is the exact mix-up the comment above `LM_STUDIO_TEXT_MODEL` in `solar_bp.py` warns about ("the text side needs its own model name"). A VL model will answer text, so nothing looks broken; it is just not the model you meant to ship. Note the 8B would likely be *slower* than the 4B — this is a quality decision, not a speed one.
 
 ## Future enhancements (not built)
 

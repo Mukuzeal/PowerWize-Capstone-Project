@@ -18,7 +18,7 @@ GROQ_URL        = "https://api.groq.com/openai/v1/chat/completions"
 # VISION_PROVIDER. This used to be pinned to Groq, which meant a locally hosted
 # vision model was never given the one job it was configured for.
 VISION_PROVIDER = os.getenv("VISION_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
-LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
 LM_STUDIO_VISION_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-4b")
 
 _BILL_PROMPT = (

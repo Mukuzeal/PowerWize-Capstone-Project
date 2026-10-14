@@ -12,8 +12,11 @@ The Philippine energy regulatory landscape undergoes rapid adjustments, making i
 
 1. The system has to be grid-tied (or hybrid) — an off-grid system has no grid connection to export to.
 2. The property's distribution utility (e.g. the local electric cooperative or franchise holder) has to approve the net metering connection before it's active — this isn't automatic just because a system is installed.
-3. A bidirectional meter (or equivalent metering arrangement) tracks power flowing both into and out of the property, so the utility can net the two directions against each other.
-4. Credits apply directly against the customer's consumption on their bill. Under ERC Resolution No. 15, Series of 2025, any unused net-metering credits that exceed a billing period's total consumption are subject to indefinite, automatic rollover rather than forfeiture. Unused credits are banked and continuously carried forward to offset future billing periods with no calendar expiration limit. Furthermore, if property ownership changes, these accumulated balances can legally transfer to the new owner upon submission of a conformed letter from the original account holder.
+3. A bidirectional meter (or equivalent metering arrangement) tracks power flowing both into and out of the property, so the utility can net the two directions against each other. Credits from that netting apply directly against the customer's consumption on their bill.
+
+## What happens to unused credits
+
+Under ERC Resolution No. 15, Series of 2025, any unused net-metering credits that exceed a billing period's total consumption are subject to indefinite, automatic rollover rather than forfeiture. Unused credits are banked and continuously carried forward to offset future billing periods with no calendar expiration limit. Furthermore, if property ownership changes, these accumulated balances can legally transfer to the new owner upon submission of a conformed letter from the original account holder.
 
 ## What EnergyWize actually commits to
 

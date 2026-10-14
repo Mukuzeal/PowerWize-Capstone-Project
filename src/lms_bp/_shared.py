@@ -22,7 +22,7 @@ os.makedirs(EXAM_UPLOAD_DIR, exist_ok=True)
 AI_PROVIDER     = os.getenv("TEXT_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
 GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL      = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+LM_STUDIO_URL   = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
 LM_STUDIO_MODEL = os.getenv("LM_STUDIO_TEXT_MODEL",
                             os.getenv("LM_STUDIO_MODEL", "local-model"))
 
@@ -50,8 +50,8 @@ def _allowed(filename, allowed_set):
 def _owns_module(mod):
     """May the caller act on this module (edit, publish, lock, delete)?
 
-    Only Admin holds `manage_any_module`; every other instructor role --
-    Super User, Secretary, Trainer -- is limited to modules they created.
+    Only Admin holds `manage_any_module`; every other instructor role —
+    Super User, Secretary, Trainer — is limited to modules they created.
     """
     return (can(_role(), 'manage_any_module')
             or (mod is not None and mod.get('instructor_id') == _uid()))

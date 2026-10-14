@@ -1112,7 +1112,6 @@ input[type=file] { display: none; }
 .bubble.ai strong { color: var(--fg); font-variation-settings: "wght" 500; }
 .bubble.user { background: color-mix(in oklab, var(--signal) 12%, var(--ink-050)); border-color: var(--signal-dim); color: var(--fg); }
 .bubble-time { margin-top: 0.3rem; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em; color: var(--fg-ghost); }
-.bubble-sources { margin-top: 0.35rem; font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.02em; color: var(--fg-mute); }
 
 /* The "view my estimate" call to action Solara sends when it has an answer. */
 .bubble .chat-cta {
