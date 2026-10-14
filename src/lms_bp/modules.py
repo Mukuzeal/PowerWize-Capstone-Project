@@ -9,6 +9,8 @@ from db import (lms_create_module, lms_get_modules, lms_get_module,
                 lms_add_file, lms_get_files, lms_get_file, lms_delete_file,
                 lms_get_quiz, lms_get_exam, lms_get_questions)
 
+from permissions import can
+
 from . import lms_bp
 from ._shared import _uid, _role, _is_instructor, _allowed, _owns_module, _back_to_modules, LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL
 
@@ -31,7 +33,9 @@ def modules():
     if not _uid():
         return redirect(url_for('auth.auth'))
     if _is_instructor():
-        inst_id = _uid() if _role() != 'admin' else None
+        # Only a role that may act on *any* module sees the whole catalogue;
+        # everyone else sees the modules they own.
+        inst_id = None if can(_role(), 'manage_any_module') else _uid()
         mods = lms_get_modules(instructor_id=inst_id)
         for m in mods:
             m['program_label'] = _PROGRAM_LABELS.get(m['training_type'], m['training_type'])

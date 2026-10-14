@@ -5,6 +5,8 @@ from datetime import datetime
 from flask import session, request, redirect, url_for
 import requests as _http
 
+from permissions import can, home_url_for
+
 from db import (lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms_update_progress,
                lms_get_modules_for_trainee)
 
@@ -37,7 +39,7 @@ def _role():
     return session.get('user_role', '')
 
 def _is_instructor():
-    return _role() in ('admin', 'employee')
+    return can(_role(), 'manage_modules')
 
 def _is_trainee():
     return _role() == 'trainee'
@@ -46,7 +48,13 @@ def _allowed(filename, allowed_set):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_set
 
 def _owns_module(mod):
-    return _role() == 'admin' or (mod is not None and mod.get('instructor_id') == _uid())
+    """May the caller act on this module (edit, publish, lock, delete)?
+
+    Only Admin holds `manage_any_module`; every other instructor role --
+    Super User, Secretary, Trainer -- is limited to modules they created.
+    """
+    return (can(_role(), 'manage_any_module')
+            or (mod is not None and mod.get('instructor_id') == _uid()))
 
 def _back_to_modules():
     """Return to wherever a module action (archive/restore/delete) was
@@ -62,8 +70,8 @@ def _back_to_modules():
         return redirect('/employee#modules')
     if request.referrer:
         return redirect(request.referrer)
-    if _role() == 'admin':
-        return redirect('/admin')
+    if can(_role(), 'view_admin_console'):
+        return redirect(home_url_for(_role()))
     return redirect(url_for('lms.modules'))
 
 

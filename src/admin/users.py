@@ -2,16 +2,15 @@ from flask import redirect, flash, session, request, render_template, abort, jso
 from werkzeug.security import generate_password_hash
 
 from db import get_db, dict_cur, audit_log
+from permissions import require, VALID_ROLES, role_label
 from utils import check_required
 
 from . import admin_bp, require_admin
 
-VALID_ROLES = ("admin", "employee", "trainee")
-
 
 @admin_bp.route("/admin/user/create", methods=["GET", "POST"])
 def admin_create_user():
-    resp = require_admin()
+    resp = require("manage_users")
     if resp:
         return resp
 
@@ -66,7 +65,7 @@ def admin_create_user():
     conn.commit(); cur.close(); conn.close()
     audit_log(session.get("user_id"), "create_user", "user", uid,
               f"Created {role} account for {fname} {lname} ({email})")
-    flash(f"{fname} {lname} has been added as a{'n' if role == 'admin' else ''} {role}.", "success")
+    flash(f"{fname} {lname} has been added as {role_label(role)}.", "success")
     if is_xhr:
         return jsonify(ok=True, redirect="/admin#users")
     return redirect("/admin#users")
@@ -74,7 +73,7 @@ def admin_create_user():
 
 @admin_bp.route("/admin/user/edit/<int:user_id>", methods=["GET", "POST"])
 def admin_edit_user(user_id):
-    resp = require_admin()
+    resp = require("manage_users")
     if resp:
         return resp
 
@@ -140,7 +139,7 @@ def admin_edit_user(user_id):
 
 @admin_bp.route("/admin/user/archive/<int:user_id>", methods=["POST"])
 def admin_archive_user(user_id):
-    resp = require_admin()
+    resp = require("manage_users")
     if resp:
         return resp
     conn = get_db()
@@ -159,7 +158,7 @@ def admin_archive_user(user_id):
 
 @admin_bp.route("/admin/user/unarchive/<int:user_id>", methods=["POST"])
 def admin_unarchive_user(user_id):
-    resp = require_admin()
+    resp = require("manage_users")
     if resp:
         return resp
     conn = get_db()
@@ -178,7 +177,7 @@ def admin_unarchive_user(user_id):
 
 @admin_bp.route("/admin/user/delete/<int:user_id>", methods=["POST"])
 def admin_delete_user(user_id):
-    resp = require_admin()
+    resp = require("manage_users")
     if resp:
         return resp
     conn = get_db()

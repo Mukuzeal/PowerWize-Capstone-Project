@@ -3,12 +3,19 @@ import psycopg2.extras
 from .core import get_db
 
 
-def log_payment(user_id, amount_php, method, paymongo_id):
+def log_payment(user_id, amount_php, method, paymongo_id,
+                discount_code_id=None, discount_percent=None, discount_amount_php=None):
+    """Record the intent before the gateway is called. The discount columns
+    capture what the charge was actually computed from, so an amount that
+    reached PayMongo can always be explained afterwards."""
     conn = get_db()
     cur  = conn.cursor()
     cur.execute(
-        "INSERT INTO payments (user_id, amount_php, method, paymongo_id, status) VALUES (%s,%s,%s,%s,'pending') RETURNING id",
-        (user_id, amount_php, method, paymongo_id),
+        "INSERT INTO payments (user_id, amount_php, method, paymongo_id, status, "
+        "discount_code_id, discount_percent, discount_amount_php) "
+        "VALUES (%s,%s,%s,%s,'pending',%s,%s,%s) RETURNING id",
+        (user_id, amount_php, method, paymongo_id,
+         discount_code_id, discount_percent, discount_amount_php),
     )
     conn.commit()
     row_id = cur.fetchone()[0]
@@ -17,14 +24,37 @@ def log_payment(user_id, amount_php, method, paymongo_id):
 
 
 def mark_payment_paid(paymongo_id):
+    """True only for the call that actually moved the row pending -> paid.
+
+    Card attach, the QRPH poll and the webhook can all report the same
+    payment; the guarded UPDATE means exactly one of them sees True, which is
+    what makes redeeming a discount code exactly-once.
+    """
     conn = get_db()
     cur  = conn.cursor()
     cur.execute(
         "UPDATE payments SET status='paid', paid_at=NOW() WHERE paymongo_id=%s AND status='pending'",
         (paymongo_id,),
     )
+    transitioned = cur.rowcount == 1
     conn.commit()
     cur.close(); conn.close()
+    return transitioned
+
+
+def get_payment_discount(paymongo_id):
+    """(discount_code_id, discount_percent) for a payment, or (None, None)."""
+    conn = get_db()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT discount_code_id, discount_percent FROM payments WHERE paymongo_id=%s LIMIT 1",
+        (paymongo_id,),
+    )
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if not row:
+        return None, None
+    return row["discount_code_id"], row["discount_percent"]
 
 
 def mark_payment_failed(paymongo_id):

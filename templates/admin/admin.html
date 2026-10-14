@@ -1425,7 +1425,7 @@
             <img src="/static/logo.png" alt="PowerWize" class="topbar-logo-img">
         </div>
         <div class="topbar-right">
-            <span class="topbar-badge">Admin Dashboard</span>
+            <span class="topbar-badge">{{ role_label(session.get('user_role')) }} Console</span>
             <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" onclick="toggleTheme()">
                 <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
             </button>
@@ -1441,24 +1441,49 @@
   </button>
 
         <span class="nav-section">Manage</span>
+        {% if can('manage_users') %}
         <button class="nav-item" onclick="showSection('users', this)">
     <span class="nav-icon"><i class="fa-solid fa-users"></i></span> Users
   </button>
+        {% endif %}
+        {% if can('manage_schedules') %}
         <button class="nav-item" onclick="showSection('schedules', this)">
     <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span> Schedules
   </button>
+        {% endif %}
+        {% if can('review_registrations') %}
         <button class="nav-item" onclick="showSection('registrations', this)">
     <span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span> Registrations
   </button>
+        {% endif %}
+        {% if can('review_solar') %}
         <button class="nav-item" onclick="showSection('solar', this)">
     <span class="nav-icon"><i class="fa-solid fa-solar-panel"></i></span> Solar Requests
   </button>
+        {% endif %}
 
+        {% if can('corporate_payments') or can('discount_codes') %}
+        <span class="nav-section">Billing</span>
+        {% if can('corporate_payments') %}
+        <a class="nav-item" href="/admin/corporate">
+    <span class="nav-icon"><i class="fa-solid fa-building-columns"></i></span> Corporate Payments
+  </a>
+        {% endif %}
+        {% if can('discount_codes') %}
+        <a class="nav-item" href="/admin/discounts">
+    <span class="nav-icon"><i class="fa-solid fa-tags"></i></span> Discount Codes
+  </a>
+        {% endif %}
+        {% endif %}
+
+        {% if can('manage_modules') %}
         <span class="nav-section">Learning</span>
         <button class="nav-item" onclick="showSection('modules', this)">
     <span class="nav-icon"><i class="fa-solid fa-book-open"></i></span> Modules
   </button>
+        {% endif %}
 
+        {% if can('view_reports') %}
         <span class="nav-section">Reports</span>
         <button class="nav-item" onclick="showSection('reports', this)">
     <span class="nav-icon"><i class="fa-solid fa-file-arrow-down"></i></span> Export Reports
@@ -1469,6 +1494,7 @@
         <button class="nav-item" onclick="showSection('auditlog', this)">
     <span class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></span> Audit Log
   </button>
+        {% endif %}
     </nav>
 
     <!-- ── Main ── -->
@@ -1610,6 +1636,7 @@
         </div>
 
         <!-- ═══ USERS ═══ -->
+        {% if can('manage_users') %}
         <div id="section-users" class="section">
             <div class="page-head">
                 <div>
@@ -1625,7 +1652,15 @@
                     <div class="s-value">{{ uc.admin }}</div>
                 </div>
                 <div class="stat-card c-blue">
-                    <div class="s-label">Employees</div>
+                    <div class="s-label">Super Users</div>
+                    <div class="s-value">{{ uc.super_user }}</div>
+                </div>
+                <div class="stat-card c-blue">
+                    <div class="s-label">Secretaries</div>
+                    <div class="s-value">{{ uc.secretary }}</div>
+                </div>
+                <div class="stat-card c-blue">
+                    <div class="s-label">Trainers</div>
                     <div class="s-value">{{ uc.employee }}</div>
                 </div>
                 <div class="stat-card c-green">
@@ -1666,7 +1701,7 @@
                             <td>{{ u.fname }} {{ u.lname }}</td>
                             <td style="color:var(--text-secondary)">{{ u.email }}</td>
                             <td>
-                                {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'employee' %}<span class="badge b-employee">Employee</span> {% else %}<span class="badge b-trainee">Trainee</span>{% endif %}
+                                {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'trainee' %}<span class="badge b-trainee">Trainee</span> {% else %}<span class="badge b-employee">{{ role_label(u.role) }}</span>{% endif %}
                             </td>
                             <td>{{ u.company_name or '—' }}</td>
                             <td>{{ u.contact_number or '—' }}</td>
@@ -1740,7 +1775,7 @@
                                 <td style="color:var(--text-tertiary)">{{ u.fname }} {{ u.lname }}</td>
                                 <td style="color:var(--text-tertiary)">{{ u.email }}</td>
                                 <td>
-                                    {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'employee' %}<span class="badge b-employee">Employee</span> {% else %}<span class="badge b-trainee">Trainee</span>{% endif %}
+                                    {% if u.role == 'admin' %}<span class="badge b-admin">Admin</span> {% elif u.role == 'trainee' %}<span class="badge b-trainee">Trainee</span> {% else %}<span class="badge b-employee">{{ role_label(u.role) }}</span>{% endif %}
                                 </td>
                                 <td style="color:var(--text-tertiary)">{{ u.company_name or '"”' }}</td>
                                 <td style="color:var(--gray);font-size:12px">{{ u.archived_at.strftime('%b %d, %Y') }}</td>
@@ -1768,6 +1803,9 @@
         </div>
 
         <!-- ═══ SCHEDULES ═══ -->
+        {% endif %}
+
+        {% if can('manage_schedules') %}
         <div id="section-schedules" class="section">
             <div class="page-head">
                 <h1>Schedules</h1>
@@ -1915,6 +1953,9 @@
         </div>
 
         <!-- ═══ REGISTRATIONS ═══ -->
+        {% endif %}
+
+        {% if can('review_registrations') %}
         <div id="section-registrations" class="section">
             <div class="page-head">
                 <h1>Registrations</h1>
@@ -2020,6 +2061,9 @@
         </div>
 
         <!-- ═══ SOLAR ═══ -->
+        {% endif %}
+
+        {% if can('review_solar') %}
         <div id="section-solar" class="section">
             <div class="page-head">
                 <h1>Solar Requests</h1>
@@ -2105,6 +2149,9 @@
         </div>
 
         <!-- ═══ MODULES ═══ -->
+        {% endif %}
+
+        {% if can('manage_modules') %}
         <div id="section-modules" class="section">
             <div class="page-head">
                 <h1>Training Modules (LMS)</h1>
@@ -2300,6 +2347,9 @@
         </div>
 
         <!-- ═══ REPORTS ═══ -->
+        {% endif %}
+
+        {% if can('view_reports') %}
         <div id="section-reports" class="section">
             <div class="page-head">
                 <h1>Export Reports</h1>
@@ -2444,6 +2494,7 @@
                 </table>
             </div>
         </div>
+        {% endif %}
 
     </div>
     <!-- end .main -->
@@ -2760,16 +2811,16 @@
 
         // ── Analytics charts (Dashboard) ───────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
-            const _userData = {admin:{{uc.admin}},employee:{{uc.employee}},trainee:{{uc.trainee}},archived:{{uc.archived}}};
+            const _userData = {admin:{{uc.admin}},staff:{{uc.super_user + uc.secretary + uc.employee}},trainee:{{uc.trainee}},archived:{{uc.archived}}};
             const _regData = [{% for r in registrations %}{"type":"{{r.form_type}}","date":"{{r.submitted_at}}"}{% if not loop.last %},{% endif %}{% endfor %}];
 
             // Users doughnut
             new Chart(document.getElementById('chart-users'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Admin', 'Employee', 'Trainee', 'Archived'],
+                    labels: ['Admin', 'Staff', 'Trainee', 'Archived'],
                     datasets: [{
-                        data: [_userData.admin, _userData.employee, _userData.trainee, _userData.archived],
+                        data: [_userData.admin, _userData.staff, _userData.trainee, _userData.archived],
                         backgroundColor: ['#D97706', '#3B82F6', '#16A34A', '#9CA3AF'],
                         borderWidth: 3,
                         borderColor: '#fff',

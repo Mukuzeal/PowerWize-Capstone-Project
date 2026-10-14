@@ -7,6 +7,7 @@ from flask import Flask, request, session, render_template, jsonify
 from flask_wtf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from db import init_db
+from permissions import current_can, role_label, home_url_for
 from auth import auth_bp
 from admin import admin_bp
 from employee_bp import employee_bp
@@ -33,6 +34,11 @@ app.config["UPLOAD_FOLDER"] = os.path.join(base_dir, "static", "uploads")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 csrf = CSRFProtect(app)
+
+# Templates gate on the same permission table the routes do, so a button that
+# is hidden and the route behind it can never disagree about who may act.
+app.jinja_env.globals["can"] = current_can
+app.jinja_env.globals["role_label"] = role_label
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
@@ -62,8 +68,7 @@ def forbidden(e):
                  or (len(accept) > 0 and "text/html" not in accept))
     if wants_json:
         return jsonify(error="Forbidden"), 403
-    home_url = {"admin": "/admin", "employee": "/employee", "trainee": "/portal"}.get(
-        session.get("user_role"), "/auth")
+    home_url = home_url_for(session.get("user_role"))
     return render_template("shared/access_denied.html", home_url=home_url), 403
 
 @app.after_request

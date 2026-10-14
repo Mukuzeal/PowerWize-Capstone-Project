@@ -1,0 +1,159 @@
+{% extends "admin/_page.html" %}
+{% set fd = form_data or {} %}
+
+{% block title %}Discount Codes – EnergyWize{% endblock %}
+{% block barlabel %}Discount Codes{% endblock %}
+
+{% block content %}
+<div class="phead">
+  <div>
+    <h1>Discount Codes</h1>
+    <p>Codes trainees can enter on the payment page. They apply to individual training
+       fees only — a corporate invoice already carries its own negotiated total.</p>
+  </div>
+</div>
+
+{% if errors %}
+<div class="notice notice--err">
+  <strong>Could not save the code:</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card__h"><i class="fa-solid fa-plus"></i> Create a code</div>
+  <form method="post" action="{{ url_for('admin.discounts_create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid-3">
+      <div class="field">
+        <label for="code">Code <span class="req">*</span></label>
+        <input type="text" id="code" name="code" required maxlength="40"
+               placeholder="EARLYBIRD25" style="text-transform:uppercase"
+               value="{{ fd.get('code', '') if not edit_id }}">
+        <small>Case-insensitive — <code>earlybird25</code> is the same code.</small>
+      </div>
+      <div class="field">
+        <label for="percent_off">Discount % <span class="req">*</span></label>
+        <input type="number" id="percent_off" name="percent_off" min="1" max="100" required
+               value="{{ fd.get('percent_off', '') if not edit_id }}">
+      </div>
+      <div class="field">
+        <label for="expires_on">Expires on <span class="req">*</span></label>
+        <input type="date" id="expires_on" name="expires_on" required
+               value="{{ fd.get('expires_on', '') if not edit_id }}">
+      </div>
+      <div class="field">
+        <label for="max_uses">Max redemptions <span class="req">*</span></label>
+        <input type="number" id="max_uses" name="max_uses" min="1" required
+               value="{{ fd.get('max_uses', '') if not edit_id }}">
+      </div>
+      <div class="field">
+        <label for="training_type">Applies to</label>
+        <select id="training_type" name="training_type">
+          {% for code, label in programs %}
+          <option value="{{ code }}" {% if not edit_id and fd.get('training_type') == code %}selected{% endif %}>
+            {{ label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button class="btn btn--go" type="submit"><i class="fa-solid fa-tag"></i> Create code</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card__h"><i class="fa-solid fa-tags"></i> All codes ({{ codes|length }})</div>
+  {% if codes %}
+  <div class="tbl__scroll">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Code</th><th class="num">Off</th><th>Applies to</th>
+          <th>Expires</th><th class="num">Used</th><th>Status</th><th>Created by</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in codes %}
+        <tr>
+          <td class="mono" style="font-weight:600">{{ c.code }}</td>
+          <td class="num">{{ c.percent_off }}%</td>
+          <td class="muted">
+            {%- for code, label in programs %}{% if code == (c.training_type or '') %}{{ label }}{% endif %}{% endfor -%}
+          </td>
+          <td class="mono muted">{{ c.expires_on.strftime('%Y-%m-%d') }}</td>
+          <td class="num">{{ c.used }} / {{ c.max_uses }}</td>
+          <td><span class="pill pill--{{ c.status }}">{{ c.status }}</span></td>
+          <td class="muted">{{ (c.fname ~ ' ' ~ (c.lname or '')) if c.fname else '—' }}</td>
+          <td class="right" style="white-space:nowrap">
+            <button class="btn btn--sm" type="button" onclick="editCode({{ c.id }})">Edit</button>
+            <form method="post" action="{{ url_for('admin.discounts_toggle', code_id=c.id) }}"
+                  style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn--sm" type="submit">
+                {{ 'Activate' if not c.is_active else 'Deactivate' }}
+              </button>
+            </form>
+            <form method="post" action="{{ url_for('admin.discounts_delete', code_id=c.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Delete {{ c.code }}? This cannot be undone.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn--sm btn--danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="edit-{{ c.id }}" hidden>
+          <td colspan="8" style="background:var(--bg-tertiary)">
+            <form method="post" action="{{ url_for('admin.discounts_edit', code_id=c.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <div class="grid-3">
+                <div class="field">
+                  <label>Code</label>
+                  <input type="text" name="code" maxlength="40" required value="{{ c.code }}">
+                </div>
+                <div class="field">
+                  <label>Discount %</label>
+                  <input type="number" name="percent_off" min="1" max="100" required value="{{ c.percent_off }}">
+                </div>
+                <div class="field">
+                  <label>Expires on</label>
+                  <input type="date" name="expires_on" required value="{{ c.expires_on.strftime('%Y-%m-%d') }}">
+                </div>
+                <div class="field">
+                  <label>Max redemptions</label>
+                  <input type="number" name="max_uses" min="{{ c.used or 1 }}" required value="{{ c.max_uses }}">
+                  <small>Cannot go below the {{ c.used }} already redeemed.</small>
+                </div>
+                <div class="field">
+                  <label>Applies to</label>
+                  <select name="training_type">
+                    {% for code, label in programs %}
+                    <option value="{{ code }}" {% if (c.training_type or '') == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <button class="btn btn--go btn--sm" type="submit">Save changes</button>
+              <button class="btn btn--sm" type="button" onclick="editCode({{ c.id }})">Close</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><i class="fa-solid fa-tags"></i>No discount codes yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editCode(id) {
+  var row = document.getElementById('edit-' + id);
+  row.hidden = !row.hidden;
+}
+{% if edit_id %}editCode({{ edit_id }});{% endif %}
+</script>
+{% endblock %}

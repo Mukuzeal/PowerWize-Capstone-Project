@@ -6,4 +6,6 @@ from .users import *
 from .payments import *
 from .lms import *
 from .misc import *
+from .corporate import *
+from .discounts import *
 from .rag import *

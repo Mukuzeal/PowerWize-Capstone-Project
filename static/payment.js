@@ -27,6 +27,8 @@ function clearError() {
   el.classList.remove('shown');
 }
 
+var _cardNumber = document.getElementById('card-number');
+if (_cardNumber) {
 document.getElementById('card-number').addEventListener('input', function() {
   var v = this.value.replace(/\D/g, '').substring(0, 16);
   this.value = v.match(/.{1,4}/g)?.join(' ') || v;
@@ -39,6 +41,7 @@ document.getElementById('card-expiry').addEventListener('input', function() {
 document.getElementById('card-cvc').addEventListener('input', function() {
   this.value = this.value.replace(/\D/g, '').substring(0, 4);
 });
+}
 
 async function payCard() {
   clearError();
@@ -190,3 +193,90 @@ function resetQRBtn() {
   btn.disabled = false;
   btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Generate QR Code';
 }
+
+
+/* ── Discount codes ─────────────────────────────────────────────────────────
+   Applying a code only tells the server which code was typed. The amount is
+   recomputed server-side before every PayMongo call, so this never sends a
+   price and a stale button label can't change what is charged — the page
+   reloads on success so every total on it comes from the server. */
+
+(function () {
+  var applyBtn  = document.getElementById('btn-discount-apply');
+  var removeBtn = document.getElementById('btn-discount-remove');
+  var input     = document.getElementById('discount-code');
+  var errBox    = document.getElementById('discount-err');
+
+  function discountError(msg) {
+    if (!errBox) return;
+    errBox.textContent = msg || '';
+    errBox.classList.toggle('shown', !!msg);
+  }
+
+  function busy(btn, on, label) {
+    btn.disabled = on;
+    btn.innerHTML = on ? '<div class="spinner"></div>' : label;
+  }
+
+  if (applyBtn && input) {
+    applyBtn.addEventListener('click', async function () {
+      discountError('');
+      var code = input.value.trim();
+      if (!code) { discountError('Enter a discount code.'); return; }
+      busy(applyBtn, true, 'Apply');
+      try {
+        var res = await fetch('/payment/discount/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+          body: JSON.stringify({ code: code })
+        }).then(function (r) { return r.json(); });
+        if (res.error) { discountError(res.error); busy(applyBtn, false, 'Apply'); return; }
+        window.location.reload();
+      } catch (e) {
+        discountError('Could not apply that code. Please try again.');
+        busy(applyBtn, false, 'Apply');
+      }
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); applyBtn.click(); }
+    });
+  }
+
+  if (removeBtn) {
+    removeBtn.addEventListener('click', async function () {
+      busy(removeBtn, true, 'Remove');
+      try {
+        await fetch('/payment/discount/remove', {
+          method: 'POST', headers: { 'X-CSRFToken': csrfToken() }
+        });
+      } catch (e) { /* reload restores the true total either way */ }
+      window.location.reload();
+    });
+  }
+})();
+
+/* A 100% discount leaves nothing for PayMongo to charge, so enrollment is
+   completed against the server instead of the gateway. The server recomputes
+   the amount and refuses this whenever anything is actually due. */
+(function () {
+  var btn = document.getElementById('btn-settle-free');
+  if (!btn) return;
+  btn.addEventListener('click', async function () {
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Completing…';
+    try {
+      var res = await fetch('/payment/settle-free', {
+        method: 'POST', headers: { 'X-CSRFToken': csrfToken() }
+      }).then(function (r) { return r.json(); });
+      if (res.status === 'paid') { window.location.href = '/payment/success'; return; }
+      var box = document.getElementById('discount-err');
+      if (box) { box.textContent = res.error || 'Could not complete enrollment.'; box.classList.add('shown'); }
+    } catch (e) {
+      var box2 = document.getElementById('discount-err');
+      if (box2) { box2.textContent = 'Could not complete enrollment. Please try again.'; box2.classList.add('shown'); }
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-unlock"></i> Complete enrollment';
+  });
+})();

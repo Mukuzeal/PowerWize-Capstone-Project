@@ -1,6 +1,7 @@
-from flask import session, jsonify
+from flask import jsonify
 
 from db import get_analytics_data, get_feedback, get_feedback_summary, get_audit_logs
+from permissions import current_can
 
 from . import admin_bp
 
@@ -9,7 +10,7 @@ from . import admin_bp
 
 @admin_bp.route("/admin/analytics")
 def admin_analytics():
-    if session.get("user_role") != "admin":
+    if not current_can("view_reports"):
         return jsonify(error="Unauthorized"), 403
     data = get_analytics_data()
     # Convert Decimal to float for JSON serialisation
@@ -23,7 +24,7 @@ def admin_analytics():
 
 @admin_bp.route("/admin/feedback-json")
 def admin_feedback_json():
-    if session.get("user_role") != "admin":
+    if not current_can("view_reports"):
         return jsonify(error="Unauthorized"), 403
     feedback = get_feedback()
     summary  = get_feedback_summary()
@@ -41,7 +42,7 @@ def admin_feedback_json():
 
 @admin_bp.route("/admin/audit-log-json")
 def admin_audit_log_json():
-    if session.get("user_role") != "admin":
+    if not current_can("view_reports"):
         return jsonify(error="Unauthorized"), 403
     logs = get_audit_logs(limit=500)
     for row in logs:

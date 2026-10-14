@@ -3,7 +3,7 @@
 
 {# Top level, not inside a block: the amount is needed in both `main` and
    `scripts`, and Jinja does not carry block-local names between blocks. #}
-{% set total = "{:,.2f}".format(fee.total) %}
+{% set total = "{:,.2f}".format(amount_due) %}
 
 {% block title %}Complete Payment – EnergyWize{% endblock %}
 {% block description %}Settle your EnergyWize training fee by card or QRPH e-wallet.{% endblock %}
@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block main %}
-{% set total = "{:,.2f}".format(fee.total) %}
+{% set total = "{:,.2f}".format(amount_due) %}
 <section class="formpage">
   <div class="shell">
     <div class="result-wrap">
@@ -35,6 +35,47 @@
       <!-- Populated by payment.js; shared by both methods, so it sits above them. -->
       <div class="err-box" id="err-box"></div>
 
+      {% if amount_due <= 0 %}
+      <div class="form-card">
+        <div class="section-header">
+          <div class="section-icon"><i class="fa-solid fa-tag"></i></div>
+          <div>
+            <h2>{{ fee.label }}</h2>
+            <p>Fully covered by {{ discount.code if discount else 'a discount' }}</p>
+          </div>
+        </div>
+        <div class="specs-grid">
+          <div class="spec-item">
+            <div class="spec-label">Program fee</div>
+            <div class="spec-value">₱{{ "{:,.2f}".format(fee.total) }}</div>
+          </div>
+          {% if discount %}
+          <div class="spec-item">
+            <div class="spec-label">{{ discount.code }} ({{ discount.percent_off }}% off)</div>
+            <div class="spec-value">−₱{{ "{:,.2f}".format(discount_php) }}</div>
+          </div>
+          {% endif %}
+          <div class="spec-item">
+            <div class="spec-label">Amount due</div>
+            <div class="spec-value is-signal">₱0.00</div>
+          </div>
+        </div>
+        <div class="form-body">
+          <p class="pay-note">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Nothing to pay. Confirm to unlock your dashboard.</span>
+          </p>
+          <div class="err-box" id="discount-err"></div>
+          <button type="button" class="btn-submit is-block" id="btn-settle-free">
+            <i class="fa-solid fa-unlock"></i> Complete enrollment
+          </button>
+          <button type="button" class="btn-submit is-block" id="btn-discount-remove"
+                  style="margin-top:10px">
+            Remove {{ discount.code if discount else 'code' }}
+          </button>
+        </div>
+      </div>
+      {% else %}
       <div class="mode-tabs" role="tablist">
         <button type="button" class="mode-tab pay-tab active" onclick="switchTab('card',this)">
           <i class="fa-solid fa-credit-card"></i> Credit / Debit Card
@@ -55,8 +96,8 @@
             </div>
           </div>
 
-          {% if fee.has_vat %}
           <div class="specs-grid">
+            {% if fee.has_vat %}
             <div class="spec-item">
               <div class="spec-label">Base price</div>
               <div class="spec-value">₱{{ "{:,.2f}".format(fee.base) }}</div>
@@ -65,20 +106,51 @@
               <div class="spec-label">VAT 12%</div>
               <div class="spec-value">₱{{ "{:,.2f}".format(fee.vat) }}</div>
             </div>
+            {% endif %}
+            {% if discount %}
             <div class="spec-item">
-              <div class="spec-label">Total</div>
-              <div class="spec-value is-signal">₱{{ total }}</div>
+              <div class="spec-label">Program fee</div>
+              <div class="spec-value">₱{{ "{:,.2f}".format(fee.total) }}</div>
             </div>
-          </div>
-          {% else %}
-          <div class="specs-grid">
+            <div class="spec-item">
+              <div class="spec-label">{{ discount.code }} ({{ discount.percent_off }}% off)</div>
+              <div class="spec-value">−₱{{ "{:,.2f}".format(discount_php) }}</div>
+            </div>
+            {% endif %}
             <div class="spec-item">
               <div class="spec-label">Amount due</div>
-              <div class="spec-value is-signal">₱{{ total }}</div>
-              <div class="spec-unit">VAT not applicable</div>
+              <div class="spec-value is-signal" id="amount-due">₱{{ total }}</div>
+              {% if not fee.has_vat %}<div class="spec-unit">VAT not applicable</div>{% endif %}
             </div>
           </div>
-          {% endif %}
+
+          {# Only the code is sent; the charge itself is recomputed server-side
+             on every gateway call, so nothing here can name a price. #}
+          <div class="form-body" id="discount-block">
+            <div class="err-box" id="discount-err"></div>
+            <div class="field">
+              <label for="discount-code">Discount code</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <input type="text" id="discount-code" placeholder="Enter a code"
+                       style="flex:1;min-width:160px;text-transform:uppercase"
+                       value="{{ discount.code if discount else '' }}"
+                       {% if discount %}readonly{% endif %}>
+                {% if discount %}
+                <button type="button" class="btn-submit" id="btn-discount-remove"
+                        style="flex:0 0 auto">Remove</button>
+                {% else %}
+                <button type="button" class="btn-submit" id="btn-discount-apply"
+                        style="flex:0 0 auto">Apply</button>
+                {% endif %}
+              </div>
+              {% if discount %}
+              <p class="pay-note" style="margin-top:8px">
+                <i class="fa-solid fa-tag"></i>
+                <span>{{ discount.code }} applied — {{ discount.percent_off }}% off.</span>
+              </p>
+              {% endif %}
+            </div>
+          </div>
 
           <div class="form-body">
             <div class="card-icons">
@@ -169,6 +241,8 @@
           </div>
         </div>
       </div>
+
+      {% endif %}
 
       <p class="secure-badge"><i class="fa-solid fa-lock"></i> 256-bit encrypted · PayMongo</p>
 

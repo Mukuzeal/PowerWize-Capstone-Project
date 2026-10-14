@@ -8,6 +8,7 @@ from db import (save_solar_request, update_solar_request,
 from solar_engine import compute as solar_compute
 from solar_engine import PANEL_WATTAGE_W
 from ocr_module import extract_bill_data
+from permissions import current_can, is_staff, require, home_url_for
 from utils import save_file
 from rag import retrieve
 
@@ -1912,8 +1913,8 @@ def solar_decision(req_id):
         update_solar_request(req_id, status="pending_review", **contact_updates)
         flash("A consultation request has been sent. Our team will reach out to schedule a site visit.", "success")
 
-    if session.get("user_role") in ("admin", "employee"):
-        return redirect("/admin#solar")
+    if is_staff():
+        return redirect(home_url_for(session.get("user_role")) + "#solar")
     return redirect(f"/solar/result/{req_id}")
 
 
@@ -1921,16 +1922,18 @@ def solar_decision(req_id):
 
 @solar_bp.route("/admin/solar")
 def admin_solar():
-    if session.get("user_role") not in ("admin", "employee"):
-        return redirect("/auth")
+    resp = require("review_solar")
+    if resp:
+        return resp
     requests = get_solar_requests()
     return render_template("solar/solar_admin.html", solar_requests=requests)
 
 
 @solar_bp.route("/admin/solar/<int:req_id>")
 def admin_solar_view(req_id):
-    if session.get("user_role") not in ("admin", "employee"):
-        return redirect("/auth")
+    resp = require("review_solar")
+    if resp:
+        return resp
     req = get_solar_request(req_id)
     if not req:
         return redirect("/admin/solar")
@@ -1939,7 +1942,7 @@ def admin_solar_view(req_id):
 
 @solar_bp.route("/admin/solar/<int:req_id>/data")
 def admin_solar_data(req_id):
-    if session.get("user_role") not in ("admin", "employee"):
+    if not current_can("review_solar"):
         return jsonify({"error": "Unauthorized"}), 403
     req = get_solar_request(req_id)
     if not req:
@@ -1953,8 +1956,9 @@ def admin_solar_data(req_id):
 
 @solar_bp.route("/admin/solar/<int:req_id>/review", methods=["POST"])
 def admin_solar_review(req_id):
-    if session.get("user_role") not in ("admin", "employee"):
-        return redirect("/auth")
+    resp = require("review_solar")
+    if resp:
+        return resp
     f = request.form
     update_solar_request(req_id,
         final_system_kw      = f.get("final_system_kw") or None,
