@@ -19,7 +19,14 @@ Residential systems are typically built from monocrystalline panels (see `panels
 
 ## When solar may not be cost-effective
 
-Solar isn't the right fit for every property. EnergyWize enforces a non-negotiable Five-Point Site Qualification Checklist during initial consultation to screen for viable properties. If a site triggers any of these thresholds, it is officially flagged as marginal, unfeasible, or out-of-scope:Extreme Shading: High-density shading assets (dense foliage, multi-story neighboring developments, structural firewall obstructions) that block clear solar exposure for more than 3 hours of peak daylight (10:00 AM to 1:00 PM), extending estimated investment payback timelines beyond reasonable project parameters.Low Consumption Threshold: Properties with a baseline monthly electricity consumption of less than 200 kWh (or a consistent monthly power bill below ₱2,500). Below this baseline, the upfront fixed capital costs of an approved interconnection setup outpace the potential recovery rate.Property Tenancy or Ownership Disputes: Renters, short-term leaseholders, or building units lacking a clean title, a notarized long-term lessor consent form, or clear corporate/homeowners association (HOA) structural modification clearance.Imminent Relocation Plans: Customers intending to sell, transfer, or move away from the property within 24 months of project kickoff, preventing them from achieving minimum asset capitalization.
+Solar isn't the right fit for every property. EnergyWize screens for a handful of concerns during initial consultation; a site triggering one of these is flagged as marginal, unfeasible, or out of scope — numbers for any of these, where they matter at all, come from the CALCULATIONS block or `solar_engine.py`, never stated here as a fixed figure:
+
+- **Extreme shading** — significant shading from dense foliage, taller neighboring buildings, or structural obstructions that blocks a large share of peak daylight hours stretches the payback period well beyond what's reasonable.
+- **Low consumption** — households with very light monthly electricity usage may find a system doesn't pay for itself within a reasonable timeframe, since the upfront cost takes too long to recover against a small bill. This concern is mainly relevant to households; a commercial or industrial property using that little electricity is uncommon in practice, so sizing for those properties proceeds normally.
+- **Property tenancy or ownership disputes** — renters, short-term leaseholders, or building units lacking a clean title, a notarized long-term lessor consent form, or clear corporate/HOA structural-modification clearance generally can't proceed regardless of the economics.
+- **Imminent relocation plans** — customers planning to sell, transfer, or move away from the property in the near term may not stay long enough to recover the upfront cost through savings, even though the system itself keeps working for whoever owns the property next.
+
+None of this is a hard rule applied by a formula — the EnergyWize team makes the actual call during consultation based on the property's specifics.
 
 ## Scope limits
 
