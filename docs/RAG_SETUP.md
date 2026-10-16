@@ -117,6 +117,12 @@ For a turn where the numeric-intent keywords fire (`_looks_numeric_question`) an
 
 `scripts/rag_eval.py` calls the same `_answer_numeric_turn()` function production uses, not a hand-rolled copy — a prior version of this harness diverged from production prompt construction and produced a misleading eval result (see the git history / PR notes around the Q18 harness fix) that looked like a model failure but was actually a harness gap.
 
+## Cost-effectiveness verdicts are deterministic too — `assess_suitability()`
+
+Same principle as the numeric answers above, applied to "is solar worth it for me" questions (2026-09-24): `assess_suitability()` in `solar_engine.py` decides `not_worth` / `borderline` / `worthwhile` / `not_applicable` / `unknown_type` from the customer's actual monthly consumption — the model never judges this itself, it may only add short framing sentences around whichever verdict Python already reached (`SUITABILITY_MODE_RULES`, same pattern as `NUMERIC_MODE_RULES`).
+
+The 400 kWh/month minimum-consumption guidance is a **household-only** rule — commercial/industrial accounts are exempt from the check entirely, not subject to a different number. 400 kWh is guidance from a professional client in the solar field; 350 kWh (borderline) and 450 kWh (where the "close to the minimum" note stops applying) are the team's own tolerance margins around that number, not from the professional. `solar_chat_msg`, the customer-facing results page, and the admin review view all call this same function fresh against the same two DB columns (`kwh_monthly`, `establishment_type`) — none of them cache or duplicate the verdict, so they can't disagree with each other.
+
 ## Groq fallback
 
 `RAG_GROQ_FALLBACK=1` makes both LM-Studio-backed calls — Solara's conversational reply (`solar_chat_msg`) and the final quotation write-up (`_llama_recommendations`) — retry once through Groq if the LM Studio request fails (connection refused, timeout, any other request error). Off by default, so the existing "LM Studio down → show a friendly retry message" behavior is unchanged unless you opt in. A Groq HTTP 429 (rate limit) is caught and turned into a friendly "please try again shortly" message instead of a crash, on both providers-as-primary and providers-as-fallback paths.
