@@ -260,6 +260,22 @@
   <div class="detail-card card-accent-purple">
     <h2><i class="fa-solid fa-wand-magic-sparkles"></i> AI-Generated Estimates</h2>
     <div class="detail-grid">
+      {# Computed fresh from kwh_monthly + establishment_type, same function
+         the customer-facing results page uses — see assess_suitability()
+         in solar_engine.py. Never persisted, so it can't drift. #}
+      {% if suitability.verdict in ('not_worth', 'borderline') %}
+      <div>
+        <div class="detail-label">Cost-Effectiveness</div>
+        <div class="detail-value" style="color:{{ '#DC2626' if suitability.verdict == 'not_worth' else '#D97706' }}">
+          {{ "Below minimum (~%.0f kWh/mo)"|format(suitability.kwh) if suitability.verdict == 'not_worth' else "Borderline (~%.0f kWh/mo)"|format(suitability.kwh) }}
+        </div>
+      </div>
+      {% elif suitability.verdict == 'worthwhile' %}
+      <div>
+        <div class="detail-label">Cost-Effectiveness</div>
+        <div class="detail-value">Above minimum (~{{ "%.0f"|format(suitability.kwh) }} kWh/mo){% if suitability.note %} — close to it{% endif %}</div>
+      </div>
+      {% endif %}
       <div>
         <div class="detail-label">System Size (kWp)</div>
         <div class="detail-value">{{ request.system_size_kw or "—" }}</div>

@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from db import (save_solar_request, update_solar_request,
                 get_solar_request, get_solar_requests)
 from solar_engine import compute as solar_compute
-from solar_engine import PANEL_WATTAGE_W
+from solar_engine import PANEL_WATTAGE_W, ELECTRICITY_RATE
+from solar_engine import assess_suitability
 from ocr_module import extract_bill_data
 from permissions import current_can, is_staff, require, home_url_for
 from utils import save_file
@@ -624,7 +625,7 @@ APPLIANCE-ONLY SYSTEMS — SAY YES, THEN RECOMMEND BETTER:
 
 HOW TO BEHAVE:
 - Sound like a knowledgeable friend who genuinely wants to help, not a customer service script
-- Show real enthusiasm when appropriate ("That's a solid electricity bill to offset — solar could make a real dent in it for you!")
+- Show real enthusiasm when appropriate ("Thanks for sharing that — let's see what actually fits your household's usage.")
 - Ask 2–3 related questions together naturally, never one robotic question at a time
 - When the user shares a number or fact, react to it meaningfully before moving on
 - If they ask a technical solar question, give a clear 2–3 sentence answer then naturally steer back to gathering their info
@@ -635,7 +636,7 @@ HOW TO BEHAVE:
 - NEVER say "Got it", "Noted", "Understood", "Certainly", or "Of course" as openers
 - NEVER list out all the fields you need to collect — gather them conversationally
 - NEVER sound like you are reading from a checklist or filling out a form
-- If the user seems hesitant about cost, acknowledge it and briefly point to the long-term savings angle (2026-09-24: financing options was removed from this line — knowledge/solar/ has no financing content, so the model could only invent rates/terms when asked to "explain" it)
+- If the user seems hesitant about cost, acknowledge it. Only point to the long-term savings angle if nothing you've told them so far suggests their usage is too low for solar to be worth it — if you already told them it likely wouldn't pay off, stay honest about that instead of suggesting savings anyway. (2026-09-24: financing options was removed from this line — knowledge/solar/ has no financing content, so the model could only invent rates/terms when asked to "explain" it)
 - If a user's number looks impossible (an unrealistically tiny bill, or a roof size far larger than a typical home), gently double-check it instead of accepting it
 - Match the user's language — if they write in Filipino or Taglish, reply the same way, keeping ₱ and the technical terms in English
 """
@@ -677,6 +678,12 @@ QUESTION_FLOW = [
     {"field": "notes",                 "ask": "Any additional notes or concerns? (Say 'none' to skip.)"},
 ]
 
+# Looked up by field name rather than hardcoded as a literal index, so
+# QUESTION_FLOW can be reordered later without silently breaking the
+# "ask for property type first" override in solar_chat_msg (see
+# _pending_worth_it / assess_suitability's "unknown_type" verdict).
+_ESTABLISHMENT_TYPE_QI = next(i for i, q in enumerate(QUESTION_FLOW) if q["field"] == "establishment_type")
+
 
 def _extract_answer(field: str, text: str, lenient: bool = False):
     """Extract a single field value from text.
@@ -689,18 +696,33 @@ def _extract_answer(field: str, text: str, lenient: bool = False):
         if "residential" in t: return "residential"
         if "commercial"  in t: return "commercial"
         if "industrial"  in t: return "industrial"
+        # Word-boundary matching, not substring — "household" used to match
+        # "residential" only by accident, because "a house" is a literal
+        # substring of "a household" ("it's a household" contains "...a
+        # househ[old]"). \b on each side means "household" is only matched
+        # by its own explicit entry below, never by "house" bleeding into
+        # the next word.
+        def _hit(words):
+            return any(re.search(r"\b" + re.escape(w) + r"\b", t) for w in words)
         # People say "my home", not "residential" — and the chat's own opening
         # chips are worded that way too, so without these the answer the user
         # just clicked would never reach the quotation.
-        if any(w in t for w in ("my home", "our home", "my house", "our house",
-                                "a home", "a house", "for home", "condo",
-                                "townhouse", "apartment", "bahay")):
+        if _hit(("my home", "our home", "my house", "our house", "a home", "a house",
+                 "for home", "household", "condo", "townhouse", "apartment", "bahay")):
             return "residential"
-        if any(w in t for w in ("my business", "our business", "my shop", "my store",
-                                "my office", "our office", "restaurant", "retail",
-                                "hotel", "for business")):
+        # 2026-10-14: "our small sari-sari store" fell through entirely —
+        # "my store" covered "my"/"our" for "shop" but not "store", and
+        # common PH small-business/service terms weren't covered at all.
+        # The caller (solar_chat_msg) also no longer lets an unrecognized
+        # answer here fall through to the off-topic decline; see
+        # property_type_unresolved there.
+        if _hit(("my business", "our business", "my shop", "my store", "our store",
+                 "a store", "my office", "our office", "restaurant", "retail", "hotel",
+                 "for business", "sari-sari", "sari sari", "tindahan", "karinderya",
+                 "carinderia", "salon", "clinic", "school", "farm", "resort",
+                 "bakery", "pharmacy")):
             return "commercial"
-        if any(w in t for w in ("factory", "plant", "warehouse", "manufacturing")):
+        if _hit(("factory", "plant", "warehouse", "manufacturing")):
             return "industrial"
 
     elif field == "ownership":
@@ -916,7 +938,20 @@ def _pick_canned(text: str, en: str, tl: str) -> str:
     return tl if _looks_taglish(text) else en
 
 
-def _language_instruction(user_msg: str) -> str:
+def _previous_user_message(history: list):
+    """Most recent prior user turn, scanning backwards. `history` is prior
+    turns only — NOT including the current message — so every caller passes
+    messages/messages_out sliced to exclude the turn being answered right
+    now (see _language_instruction)."""
+    if not history:
+        return None
+    for m in reversed(history):
+        if m.get("role") == "user":
+            return m.get("content")
+    return None
+
+
+def _language_instruction(user_msg: str, history: list = None) -> str:
     """Explicit, deterministic language directive appended to every chat
     call's system prompt, driven by the same _looks_taglish used for canned
     messages. This exists because the model was previously left to infer
@@ -924,8 +959,20 @@ def _language_instruction(user_msg: str) -> str:
     language" instruction — which has no stated default for plain English
     input — and was observed replying in Tagalog to clearly English
     messages (retrieved CONTEXT was confirmed clean English in that case,
-    so the model's own guess was simply wrong, not primed by context)."""
-    if _looks_taglish(user_msg):
+    so the model's own guess was simply wrong, not primed by context).
+
+    2026-10-14: a bare one-word follow-up with no Tagalog marker at all
+    ("sige?", "talaga ba?" without "talaga" in the set, etc.) gave
+    _looks_taglish nothing to go on and silently defaulted to English mid-
+    Taglish conversation. When the current message has zero marker hits
+    (not even a weak one) and a prior turn is available, inherit that
+    turn's language instead of guessing English."""
+    text_for_detection = user_msg
+    if not ({w for w in _words(user_msg) if w in _TAGALOG_MARKERS}):
+        prev = _previous_user_message(history)
+        if prev is not None:
+            text_for_detection = prev
+    if _looks_taglish(text_for_detection):
         return "\nLANGUAGE: Reply in the same Taglish style the user used.\n"
     return "\nLANGUAGE: Reply in English.\n"
 
@@ -951,6 +998,36 @@ _CANNED_NO_FIGURE_TL = ("Wala akong eksaktong numero diyan — ikukumpirma na la
 _GENERIC_RETRY_EN = "Let's try that a different way — could you rephrase your question?"
 _GENERIC_RETRY_TL = "Subukan nating ibang paraan — pwede mo bang ulitin ang tanong mo sa ibang paraan?"
 
+# Fully deterministic, no model call — same reasoning as the other _CANNED_*
+# replies: asking which property type this is for is a simple, closed
+# question, so a model call only adds a chance to get it wrong. Used by
+# _answer_suitability_turn's "unknown_type" case (2026-09-24).
+_CANNED_ASK_PROPERTY_TYPE_EN = ("To tell you whether solar's worth it for your case, I need to "
+                                "know first if this is for a home, a business, or an "
+                                "industrial site — residential, commercial, or industrial?")
+_CANNED_ASK_PROPERTY_TYPE_TL = ("Para masabi ko kung sulit ang solar sa'yo, kailangan ko munang "
+                                "malaman kung bahay, negosyo, o pabrika ito — residential, "
+                                "commercial, o industrial?")
+
+# Distinct from _CANNED_ASK_PROPERTY_TYPE_* above — that one is framed
+# around a worth-it question ("to tell you whether solar's worth it...").
+# This one fires when Solara asked the plain "what type of establishment"
+# QUESTION_FLOW question and the reply didn't match any recognized value or
+# synonym (2026-10-14: "our small sari-sari store" fell through every
+# synonym and got routed to the off-topic gate instead of a clarifying
+# follow-up — see property_type_unresolved in solar_chat_msg).
+_CANNED_CLARIFY_PROPERTY_TYPE_EN = ("Just to make sure I've got it right — is this for a "
+                                    "household, a business, or an industrial site: "
+                                    "residential, commercial, or industrial?")
+_CANNED_CLARIFY_PROPERTY_TYPE_TL = ("Sigurado lang ako — bahay, negosyo, o pabrika ba ito: "
+                                    "residential, commercial, o industrial?")
+
+# Taglish-only on purpose — see _looks_like_short_taglish_cost_followup:
+# this fires only when the message already matched a Tagalog cost word, so
+# the reply is never shown to someone who typed in English.
+_CANNED_ASK_CONSUMPTION_TL = ("Para masagot ko nang tama, pakisabi muna kung magkano ang "
+                              "buwanang bill niyo (PHP) o kung ilang kWh ang gamit niyo kada buwan.")
+
 # Any reply exactly matching one of these is a fixed, LLM-free fallback, not
 # a grounded answer — the "Sources" line in the UI should never show for
 # one of these, even though retrieval may have run and found something
@@ -961,6 +1038,9 @@ _CANNED_REPLIES = {
     _CANNED_NO_INFO_EN, _CANNED_NO_INFO_TL,
     _CANNED_NO_FIGURE_EN, _CANNED_NO_FIGURE_TL,
     _GENERIC_RETRY_EN, _GENERIC_RETRY_TL,
+    _CANNED_ASK_PROPERTY_TYPE_EN, _CANNED_ASK_PROPERTY_TYPE_TL,
+    _CANNED_CLARIFY_PROPERTY_TYPE_EN, _CANNED_CLARIFY_PROPERTY_TYPE_TL,
+    _CANNED_ASK_CONSUMPTION_TL,
 }
 
 # Catches an off-topic decline the chat LLM composed in its own words
@@ -1106,6 +1186,61 @@ def _looks_numeric_question(text: str) -> bool:
     return any(h in t for h in _NUMERIC_HINTS)
 
 
+# Gates the suitability-verdict path (assess_suitability, solar_engine.py) —
+# 2026-09-24 bug report: "I have a bill of P1500 is it worth it to have a PV
+# system?" never matched _NUMERIC_HINTS at all ("worth it" isn't "cost"/
+# "price"/"savings"/etc.), so it fell straight to the unguided general chat
+# turn, which invented "7-8 hours of AC/day" and "cut that in half" with
+# nothing stopping it. Checked BEFORE _looks_numeric_question in the
+# dispatch — "sulit" is a member of both sets on purpose: a worth-it-style
+# question should get a worth-it verdict, not just a bare sizing preview
+# with no judgment attached, which was the same class of gap either way.
+_WORTH_IT_HINTS = (
+    "worth it", "worth", "sulit", "makakatulong", "kumikita", "matipid",
+    "payback", "should i get solar", "dapat ba akong kumuha ng solar",
+)
+
+# 2026-10-14: "magkano?"-style ultra-short Taglish follow-ups were flaky in
+# a 3x rag_eval.py run — the deterministic LANGUAGE instruction was always
+# correctly set to Taglish (the word itself is a _TAGALOG_MARKERS_STRONG
+# hit), but a local 4B model given almost nothing to anchor on sometimes
+# answered in English anyway. Rather than trust compliance with an
+# instruction, a message this short, with one of these words, while we
+# don't even have consumption data to compute anything from yet, skips the
+# model entirely — see _looks_like_short_taglish_cost_followup below.
+# Deliberately narrower than the full _TAGALOG_MARKERS_STRONG set: "saan
+# po?" (where) or "sino po?" (who) also hit a STRONG marker but have
+# nothing to do with cost, and would get a nonsensical "tell me your bill"
+# reply if this reused that set instead of this cost-specific one.
+_SHORT_FOLLOWUP_COST_MARKERS = {"magkano", "ilan", "ilang", "tipid", "presyo", "bayad", "sulit", "gaano"}
+_SHORT_FOLLOWUP_MAX_WORDS = 4
+
+
+def _looks_like_short_taglish_cost_followup(user_msg: str) -> bool:
+    words = _words(user_msg)
+    if not words or len(words) >= _SHORT_FOLLOWUP_MAX_WORDS:
+        return False
+    return bool(set(words) & _SHORT_FOLLOWUP_COST_MARKERS)
+
+
+def _looks_like_worth_it_question(text: str) -> bool:
+    t = text.lower()
+    return any(h in t for h in _WORTH_IT_HINTS)
+
+
+def _consumption_kwh(collected: dict):
+    """Resolves whatever consumption figure is already known to a kWh
+    number, converting a bill amount via the same ELECTRICITY_RATE
+    solar_compute() itself uses — so a suitability verdict and the sizing
+    preview can never disagree about what the customer's usage actually is.
+    None if neither field is known yet."""
+    if collected.get("kwh_monthly"):
+        return float(collected["kwh_monthly"])
+    if collected.get("monthly_bill_php"):
+        return float(collected["monthly_bill_php"]) / ELECTRICITY_RATE
+    return None
+
+
 def _run_preview_calc(collected: dict):
     """Runs the real sizing engine on whatever's been collected so far, purely
     to ground a mid-conversation numeric answer with real math instead of the
@@ -1189,6 +1324,14 @@ _NUM_UNIT_PATTERNS = [
     (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*years?", re.IGNORECASE), "year"),
     (re.compile(r"([\d,]+)[\s\-–—+]*panels?", re.IGNORECASE), "panel"),
     (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*w(?:atts?)?\b", re.IGNORECASE), "watt"),
+    # Added 2026-09-24: a worth-it answer invented "7-8 hours of AC/day"
+    # with nothing checking it — no caller currently has a legitimate
+    # "hours" figure to ground against (SUITABILITY_MODE_RULES forbids one
+    # outright), so this unit is effectively always ungrounded, same as a
+    # fabricated brand or company claim. Matches "8 hours" out of "7-8
+    # hours" (the second number in the range) — enough on its own to flag
+    # and drop the sentence.
+    (re.compile(r"([\d,]+(?:\.\d+)?)[\s\-–—+]*(?:hours?|hrs?)\b", re.IGNORECASE), "hours"),
 ]
 
 # Maps the field names used across `collected`, `result` (solar_engine.compute()),
@@ -1258,6 +1401,36 @@ def _context_block(sources: list) -> str:
     return "\n\n".join(f"[{s['title']}]\n{s['content']}" for s in sources)
 
 
+# 0.65 is a display-only cutoff, separate from RAG_MIN_SCORE (0.55, which
+# governs what's usable as CONTEXT) — a chunk can be relevant enough to help
+# ground the answer without being worth showing as a citation. Restored
+# 2026-09-24: this was lost (along with its frontend half in
+# solar-chat.js's addBubble and the "sources" key in solar_chat_msg's
+# jsonify) during the earlier multi-question/streaming refactor — confirmed
+# via `git log -S` that it was never a deliberate removal, just dropped
+# mid-rewrite.
+_SOURCES_DISPLAY_MIN_SCORE = 0.65
+_SOURCES_DISPLAY_MAX = 3
+
+
+def _top_source_titles(sources: list) -> list:
+    """The #1 source (by score — `sources` arrives pre-sorted from
+    retrieve()/_retrieve_multi()) is always shown if there is one, plus up
+    to two more that clear _SOURCES_DISPLAY_MIN_SCORE, deduped by title, in
+    score order."""
+    titles, seen = [], set()
+    for i, s in enumerate(sources):
+        if s["title"] in seen:
+            continue
+        if i > 0 and s["score"] < _SOURCES_DISPLAY_MIN_SCORE:
+            continue
+        titles.append(s["title"])
+        seen.add(s["title"])
+        if len(titles) == _SOURCES_DISPLAY_MAX:
+            break
+    return titles
+
+
 # Grounding instructions for a turn classified as a genuine solar question.
 # The "doesn't actually address" line exists because retrieval can surface a
 # chunk that scores above threshold on loose topical/language similarity (a
@@ -1298,6 +1471,44 @@ NUMERIC ANSWER MODE — the user asked a solar sizing/cost/savings question and 
 - Your sentences must not contain any digit, peso amount, percentage, kWp/kWh figure, panel count, or year count — none at all. If you feel the need to mention a number, don't — the block already has it.
 """
 
+# 2026-09-24 bug report: asked whether a ₱1,500 bill was "worth it" for
+# solar, the model invented "7-8 hours of AC/day" and "cut that in half" out
+# of nothing — nothing in the old flow even told it a verdict had been
+# reached in Python, let alone that it should stay quiet about everything
+# except that verdict. Same shape as NUMERIC_MODE_RULES, with two extra
+# lines aimed squarely at the two fabrications actually observed.
+SUITABILITY_MODE_RULES = """
+SUITABILITY ANSWER MODE — the user is asking whether solar is worth it for them, and a verdict has already been decided in Python from their actual monthly consumption.
+- The verdict and the reasoning are shown to the user in a separate, clearly worded block immediately after your reply — you must NOT restate, recompute, soften, or contradict it, and you must NOT state your own opinion on whether it's worth it.
+- Write ONLY 1-2 short, natural sentences of context or a next-step suggestion to sit alongside that block.
+- Never invent a usage pattern you weren't told (how many hours a day something runs, what appliances are in use) or a result you weren't given (e.g. that solar would "cut the bill in half" or "pay for itself" in some timeframe).
+- Your sentences must not contain any digit, peso amount, percentage, kWp/kWh figure, panel count, year count, or hour count — the consumption figure already shown in the block is the only number involved in this answer.
+"""
+
+
+# Your exact wording for not_worth/borderline (2026-09-24). "worthwhile"
+# needs no standalone text of its own — the sizing preview block itself IS
+# the answer there; _SUITABILITY_CLOSE_TO_MINIMUM_NOTE is appended
+# separately when note=True. "not_applicable"/"unknown_type" never reach
+# this function — see _answer_suitability_turn.
+def _suitability_template(verdict: str, kwh: float) -> str:
+    kwh_str = f"{kwh:.0f}"
+    if verdict == "not_worth":
+        return (f"At about {kwh_str} kWh a month, your household usage is below the level "
+                 "where solar usually pays off, so a system probably wouldn't be "
+                 "cost-effective. You can still request a consultation review to confirm.")
+    if verdict == "borderline":
+        return (f"At about {kwh_str} kWh a month, you're close to the level where solar "
+                 "starts to pay off. Whether it makes sense depends on your roof, when "
+                 "you use power, and the final system cost, so a consultation review is "
+                 "the best way to confirm.")
+    return ""
+
+
+_SUITABILITY_CLOSE_TO_MINIMUM_NOTE = ("You're close to the minimum level, so the exact system "
+                                       "size and cost will matter. A consultation review can "
+                                       "confirm the numbers.")
+
 
 def _cap_sentences(text: str, max_sentences: int = 2) -> str:
     """Deterministically enforces the '1-2 short sentences' limit instead of
@@ -1314,7 +1525,7 @@ def _cap_sentences(text: str, max_sentences: int = 2) -> str:
 def _answer_numeric_turn(user_msg: str, result: dict, collected: dict,
                           context_body_full: str, context_body_safe: str,
                           context_section: str, is_preview: bool = True,
-                          cancel_event: threading.Event = None) -> str:
+                          cancel_event: threading.Event = None, history: list = None) -> str:
     """Deterministic numeric answer: Python builds the real numbers from
     solar_engine.compute() (already run — passed in as `result`); the LLM may
     only add 1-2 short, number-free framing sentences. A post-generation check
@@ -1328,7 +1539,7 @@ def _answer_numeric_turn(user_msg: str, result: dict, collected: dict,
     calc_text = "\n".join(_calc_lines(result))
     allowed = _allowed_numbers_from(calc_text) | _raw_numbers_from_dict(collected)
 
-    numeric_rules = NUMERIC_MODE_RULES + _language_instruction(user_msg)
+    numeric_rules = NUMERIC_MODE_RULES + _language_instruction(user_msg, history=history)
     system_full = _build_grounded_system(context_body_full, numeric_rules, context_section, "")
     system_safe = _build_grounded_system(context_body_safe, numeric_rules, context_section, "")
 
@@ -1348,6 +1559,68 @@ def _answer_numeric_turn(user_msg: str, result: dict, collected: dict,
         print(f"[SOLAR] numeric answer discarded: model included an ungrounded figure or company claim — {framing!r}")
         return template
 
+    return f"{framing}\n\n{template}"
+
+
+def _answer_suitability_turn(user_msg: str, suitability: dict, collected: dict,
+                              context_body_full: str, context_body_safe: str,
+                              context_section: str, cancel_event: threading.Event = None,
+                              history: list = None) -> str:
+    """Routes a worth-it question to whichever verdict assess_suitability()
+    already decided in Python (2026-09-24). "worthwhile" and
+    "not_applicable" both still need the real sizing numbers, so they
+    delegate straight to _answer_numeric_turn — same template, same
+    model-framing/grounding-check machinery — rather than duplicating it.
+    Only "not_worth" skips the sizing calculation entirely (item 5: never
+    shown as if it were a recommendation when the verdict says it probably
+    isn't one); "borderline" still shows it, with the verdict sentence
+    prefixed above."""
+    verdict, kwh = suitability["verdict"], suitability["kwh"]
+
+    if verdict == "unknown_type":
+        return _pick_canned(user_msg, _CANNED_ASK_PROPERTY_TYPE_EN, _CANNED_ASK_PROPERTY_TYPE_TL)
+
+    if verdict in ("worthwhile", "not_applicable", "borderline"):
+        numeric_result = _run_preview_calc(collected)
+        if numeric_result is None:
+            # Consumption is guaranteed present by the caller's gating, so
+            # this is only reachable on genuinely malformed data — same
+            # fallback the rest of the file uses for "couldn't answer".
+            return _pick_canned(user_msg, _GENERIC_RETRY_EN, _GENERIC_RETRY_TL)
+        sizing = _answer_numeric_turn(
+            user_msg, numeric_result, collected,
+            context_body_full=context_body_full, context_body_safe=context_body_safe,
+            context_section=context_section, is_preview=True, cancel_event=cancel_event,
+            history=history,
+        )
+        if verdict == "borderline":
+            return f"{_suitability_template('borderline', kwh)}\n\n{sizing}"
+        if verdict == "worthwhile" and suitability["note"]:
+            return f"{sizing}\n\n{_SUITABILITY_CLOSE_TO_MINIMUM_NOTE}"
+        return sizing
+
+    # verdict == "not_worth" — no sizing at all. Only the kWh figure already
+    # in the verdict sentence is allowed in any model framing around it.
+    template = _suitability_template("not_worth", kwh)
+    allowed = {(round(kwh, 2), "kwh")}
+    rules = SUITABILITY_MODE_RULES + _language_instruction(user_msg, history=history)
+    system_full = _build_grounded_system(context_body_full, rules, context_section, "")
+    system_safe = _build_grounded_system(context_body_safe, rules, context_section, "")
+    try:
+        framing = _ai_chat([{"role": "user", "content": user_msg}],
+                            system=system_full, system_safe=system_safe, temperature=0.1,
+                            cancel_event=cancel_event)
+    except _RequestCancelled:
+        raise
+    except Exception as e:
+        print(f"[SOLAR] suitability framing call failed ({type(e).__name__}: {e}); using template alone.")
+        return template
+
+    framing = _cap_sentences(framing)
+    doe_grounded = _context_supports_doe_claim(context_section)
+    if not _numbers_are_grounded(framing, allowed) or _has_unverifiable_company_claim(framing, doe_grounded):
+        print(f"[SOLAR] suitability answer discarded: model included an ungrounded figure or claim — {framing!r}")
+        return template
     return f"{framing}\n\n{template}"
 
 
@@ -1537,6 +1810,11 @@ _TRACK_RECORD_PHRASES = (
 _COVERAGE_PHRASES = (
     "all provinces", "every province", "nationwide", "across the country",
     "all over the philippines", "all over the country",
+    # 2026-10-14: "across the Philippines" (country-name variant of "across
+    # the country", missed outright) and "throughout" as a second connector
+    # word neither the phrase list nor _COVERAGE_CLAIM_RE's
+    # most/all/every-provinces shape caught.
+    "across the philippines", "throughout the philippines", "throughout the country",
     "buong pilipinas", "sa buong bansa", "lahat ng probinsya",
 )
 # Regex, not a phrase list (2026-09-24 follow-up): the phrase list above
@@ -1598,6 +1876,49 @@ _UNDOCUMENTED_OFFERING_PHRASES = (
     "walang hidden", "hulugan",
 )
 
+# Added 2026-10-14: the inverse mistake from _UNDOCUMENTED_OFFERING_PHRASES
+# — not claiming an offering the KB doesn't document, but denying ones it
+# DOES. A live reply to "what services do you offer besides solar?" said
+# "we don't offer anything else beyond our solar PV solutions," which is
+# simply false: our-offerings-and-process.md's "DOE registration" section
+# lists energy audits, EnMS/ISO 50001 support, electrical products, and
+# MEPF solutions. Unconditional, not grounding-checked like the DOE
+# self-claim — there's no CONTEXT shape that could ever make "we only do
+# solar" true, since the KB itself always contradicts it.
+_NEGATIVE_SCOPE_PHRASES = (
+    "don't offer anything else", "do not offer anything else",
+    "don't offer any other services", "do not offer any other services",
+    "only solar", "just solar", "solely solar",
+    "nothing beyond", "nothing else beyond",
+    "we only do solar", "we only offer solar",
+    "no other services",
+)
+
+# Added 2026-09-24: a worth-it answer claimed solar would "cut that in
+# half" with no basis — an outcome promise about THIS customer's result,
+# not a claim about the company, but the same "the model asserted something
+# with no source" shape as everything else in this function, so it's
+# checked here too rather than building a second mechanism.
+_UNVERIFIED_OUTCOME_PHRASES = (
+    "cut that in half", "cut your bill in half", "cuts your bill in half",
+    "slash your bill", "slash that bill", "slashes your bill",
+    "pay for itself", "pays for itself", "paid for itself",
+)
+
+# Added 2026-10-14: a DOE-registration answer followed the real, grounded
+# fact ("registered with the Department of Energy...") with "so you can
+# trust that our processes are compliant" — a generic reassurance the model
+# tacked on itself, not a sentence anywhere in the KB. Same shape as every
+# other category here: a blanket sales-y assurance isn't the kind of claim
+# a CONTEXT match could ever actually ground (unlike the DOE self-claim,
+# which is a specific, checkable fact), so this is unconditional like
+# _TRACK_RECORD_PHRASES/_COVERAGE_PHRASES/_LICENSING_PHRASES, not
+# context-allowed like doe_grounded.
+_UNEARNED_ASSURANCE_PHRASES = (
+    "you can trust", "you can rest assured", "rest assured",
+    "fully compliant", "fully in compliance",
+)
+
 
 # NO_SELF_PROMOTION's own first rule already says this in words ("no years
 # of experience... no 'I've been helping people since…'"), but a rag_eval.py
@@ -1631,9 +1952,15 @@ def _context_supports_doe_claim(context_section: str) -> bool:
 
 def _has_unverifiable_company_claim(text: str, doe_grounded: bool = False) -> bool:
     """True for a track-record boast, a service-coverage/licensing claim, a
-    years-of-operation claim, or a mention of an offering (financing, a
+    years-of-operation claim, a mention of an offering (financing, a
     proprietary monitoring tool, a workmanship warranty, a fee promise) that
-    knowledge/solar/ doesn't document. Every category here is unconditional
+    knowledge/solar/ doesn't document, an unverified outcome promise
+    about THIS customer's result ("pays for itself", "cut in half" — not a
+    company claim, but the same unsourced-assertion shape), an unearned
+    blanket reassurance ("you can trust", "rest assured", "fully
+    compliant"), or a negative-scope denial ("we only do solar", "nothing
+    beyond...") that's actually false per the KB's own documented
+    offerings. Every category here is unconditional
     (never genuinely grounded by anything in the corpus — see the 2026-09-24
     comments above _COVERAGE_PHRASES and _LICENSING_PHRASES) EXCEPT the DOE
     self-claim, which — like a brand name via _mentions_ungrounded_brand —
@@ -1641,10 +1968,21 @@ def _has_unverifiable_company_claim(text: str, doe_grounded: bool = False) -> bo
     itself supports it; see _context_supports_doe_claim). Callers with no
     CONTEXT to check against (e.g. _llama_recommendations) leave
     doe_grounded at its default False, same as brands defaulting to an
-    empty set there."""
-    t = text.lower()
+    empty set there.
+
+    2026-10-14: the model's own text consistently uses a typographic
+    apostrophe (U+2019), not the straight one every phrase below is
+    written with — caught live when "We don't offer anything else" (curly
+    ') failed to match the literal "don't offer anything else" (straight
+    '), the exact sentence _NEGATIVE_SCOPE_PHRASES was just added to catch.
+    Pre-existing entries ("we've helped", "we're fully licensed") had the
+    same silent gap. Normalized once here rather than rewriting every
+    phrase with both characters."""
+    t = text.lower().replace("’", "'").replace("‘", "'")
     if any(p in t for p in _TRACK_RECORD_PHRASES + _COVERAGE_PHRASES
-           + _LICENSING_PHRASES + _UNDOCUMENTED_OFFERING_PHRASES):
+           + _LICENSING_PHRASES + _UNDOCUMENTED_OFFERING_PHRASES
+           + _UNVERIFIED_OUTCOME_PHRASES + _UNEARNED_ASSURANCE_PHRASES
+           + _NEGATIVE_SCOPE_PHRASES):
         return True
     if _YEARS_OF_OPERATION_RE.search(text) or _COVERAGE_CLAIM_RE.search(text):
         return True
@@ -1788,7 +2126,7 @@ def _answer_general_turn(messages_out: list, user_msg: str, context_section: str
     claim not in CONTEXT, or a brand name not in CONTEXT — the rest is kept
     if it's still substantial; only a reply with nothing substantial left
     falls back to the canned 'don't have that on hand' message."""
-    grounding = GROUNDING_RULES + _language_instruction(user_msg)
+    grounding = GROUNDING_RULES + _language_instruction(user_msg, history=messages_out[:-1])
     system_full = _build_grounded_system(context_body_full, grounding, context_section, "")
     system_safe = _build_grounded_system(context_body_safe, grounding, context_section, "")
     try:
@@ -2105,6 +2443,10 @@ def solar_chat_msg():
         # Snapshot before extraction so the turn classifier below can tell whether
         # this message actually answered a field, or was something else.
         fields_before_turn = set(collected.keys())
+        # Popped (not just read) so a resolved or abandoned worth-it
+        # question can never leak into a later, unrelated turn — see where
+        # this is used below, in the "RAG: classify the turn" section.
+        pending_worth_it = collected.pop("_pending_worth_it", False)
 
         FREE_TEXT = {"name", "address", "email", "contact", "notes"}
 
@@ -2274,13 +2616,71 @@ def solar_chat_msg():
         # keyword list this leans on (users write a lot of Taglish with no "?").
         newly_banked      = set(collected.keys()) - fields_before_turn
         field_answer_only = bool(newly_banked) and not _looks_like_question(user_msg) and len(user_msg) < 120
+
+        # A pending worth-it question (see _CANNED_ASK_PROPERTY_TYPE_* /
+        # _ESTABLISHMENT_TYPE_QI below) resolves on whatever the user's very
+        # next reply is, even a bare one-word answer like "residential" that
+        # would otherwise classify as a plain field-answer turn — the
+        # question the user actually asked is still open regardless of how
+        # short that reply is. pending_worth_it was already pop()ped off
+        # `collected` above (before extraction), so a stale flag can never
+        # survive past the one turn it's meant to resolve on.
+        has_consumption = "kwh_monthly" in collected or "monthly_bill_php" in collected
+        worth_it_now = has_consumption and (
+            _looks_like_worth_it_question(user_msg)
+            or (pending_worth_it and collected.get("establishment_type"))
+        )
+        if worth_it_now:
+            field_answer_only = False
         treat_as_question  = not field_answer_only
+
+        # Solara explicitly asked "what type of establishment" and this
+        # reply didn't resolve it (not a recognized value/synonym, and not
+        # shaped like a question of its own) — a clarifying follow-up is
+        # the right response, not the generic topic gate. Without this,
+        # a genuine but unrecognized answer like "our small sari-sari
+        # store" fell through to _gate_and_retrieve, which judged it
+        # off-topic in isolation and declined instead of asking again
+        # (2026-10-14 live finding).
+        property_type_unresolved = (
+            asked == "establishment_type" and "establishment_type" not in collected
+            and not worth_it_now and not _looks_like_question(user_msg) and len(user_msg) < 120
+        )
+
+        # "magkano?"-style ultra-short Taglish follow-up, no consumption data
+        # to compute anything from yet — see _looks_like_short_taglish_cost_followup.
+        # Deliberately skips the model rather than trusting it to comply with
+        # the LANGUAGE instruction (2026-10-14: observed English replies in
+        # 2 of 3 rag_eval.py runs on exactly this shape of message, even
+        # though the instruction was correctly set to Taglish every time).
+        short_cost_followup = not has_consumption and _looks_like_short_taglish_cost_followup(user_msg)
 
         sources = []
         context_section = ""
         numeric_result = None
         canned_text = None
-        if treat_as_question:
+        suitability = None
+        if worth_it_now and not pending_worth_it:
+            # Directly asked, with consumption already known — run the
+            # normal gate/retrieve first so any model framing still has
+            # real CONTEXT to ground against, same as the numeric path.
+            precomputed = _gate_future.result() if _gate_future is not None else _NOT_COMPUTED
+            canned_text, sources, context_section = _gate_and_retrieve(
+                user_msg, session.get("user_role"), history=messages[-4:],
+                precomputed_on_topic=precomputed)
+            if canned_text is None:
+                suitability = assess_suitability(_consumption_kwh(collected), collected.get("establishment_type"))
+        elif worth_it_now and pending_worth_it:
+            # Resolving on a bare follow-up turn ("residential") — not a
+            # natural retrieval query (the gate could easily misjudge a
+            # one-word reply as off-topic in isolation), so this always
+            # resolves without ever touching the gate.
+            suitability = assess_suitability(_consumption_kwh(collected), collected.get("establishment_type"))
+        elif property_type_unresolved:
+            canned_text = _pick_canned(user_msg, _CANNED_CLARIFY_PROPERTY_TYPE_EN, _CANNED_CLARIFY_PROPERTY_TYPE_TL)
+        elif short_cost_followup:
+            canned_text = _CANNED_ASK_CONSUMPTION_TL
+        elif treat_as_question:
             # Deterministic gate before any chat LLM call — off-topic and
             # zero-retrieval turns get a fixed reply and never reach the model at
             # all. See _gate_and_retrieve.
@@ -2301,6 +2701,17 @@ def solar_chat_msg():
                     ("kwh_monthly" in collected or "monthly_bill_php" in collected):
                 numeric_result = _run_preview_calc(collected)
 
+        # A fresh (not already-pending) "unknown_type" verdict means this
+        # turn's reply is the property-type question itself — override the
+        # normal next-field priority so the frontend (and the lenient
+        # bare-answer extractor on the NEXT turn) point at establishment_type
+        # specifically, and remember that a worth-it question is still
+        # waiting on it. A verdict that resolves to anything else clears the
+        # flag by simply never setting it again (already pop()ped above).
+        if suitability is not None and suitability["verdict"] == "unknown_type":
+            collected["_pending_worth_it"] = True
+            next_qi, next_label = _ESTABLISHMENT_TYPE_QI, _LABELS["establishment_type"]
+
         def _context_body(done_for_prompt: str) -> str:
             return (f"Already shared: {done_for_prompt[:1200]}\n"
                      f"Still need to gather: {missing_str}\n"
@@ -2308,8 +2719,27 @@ def solar_chat_msg():
 
         messages_out = messages + [{"role": "user", "content": user_msg}]
 
+        # Numbers (and a verdict) in these two paths come from solar_engine,
+        # not from the retrieved CONTEXT — even when a bit of that CONTEXT
+        # also helped ground the model's framing sentence, the Sources line
+        # would misleadingly imply the KNOWLEDGE BASE produced this answer.
+        is_calculator_answer = suitability is not None or numeric_result is not None
+
         if canned_text is not None:
             text = canned_text
+        elif suitability is not None:
+            # Deterministic verdict path — see _answer_suitability_turn.
+            # assess_suitability() already decided the verdict in Python;
+            # the model, if consulted at all, may only add short,
+            # number-free framing around it.
+            text = _answer_suitability_turn(
+                user_msg, suitability, collected,
+                context_body_full=_context_body(done_str),
+                context_body_safe=_context_body(done_str_safe),
+                context_section=context_section,
+                cancel_event=cancel_event,
+                history=messages[-4:],
+            )
         elif numeric_result is not None:
             # Deterministic path — see _answer_numeric_turn. The numbers never
             # touch the LLM; it may only supply short, number-free framing text,
@@ -2323,6 +2753,7 @@ def solar_chat_msg():
                 context_section=context_section,
                 is_preview=True,
                 cancel_event=cancel_event,
+                history=messages[-4:],
             )
         elif treat_as_question:
             # General grounded chat — see _answer_general_turn for the same
@@ -2337,7 +2768,7 @@ def solar_chat_msg():
             # Plain field-answer continuation — no grounding or number-check
             # applies here, same persona-driven flow as always. Still gets the
             # explicit language instruction, same as every other chat call.
-            lang = _language_instruction(user_msg)
+            lang = _language_instruction(user_msg, history=messages[-4:])
             system_full = _build_grounded_system(_context_body(done_str), lang, "", "")
             system_safe = _build_grounded_system(_context_body(done_str_safe), lang, "", "")
             try:
@@ -2355,11 +2786,13 @@ def solar_chat_msg():
         if text not in _CANNED_REPLIES and _looks_like_decline(text):
             text = _pick_canned(user_msg, _CANNED_OFF_TOPIC_EN, _CANNED_OFF_TOPIC_TL)
 
+        shown_sources = [] if (text in _CANNED_REPLIES or is_calculator_answer) else _top_source_titles(sources)
         return jsonify({
             "text":      text,
             "messages":  messages_out + [{"role": "assistant", "content": text}],
             "collected": collected,
             "q_index":   next_qi if next_qi is not None else q_index,
+            "sources":   shown_sources,
         })
     except _RequestCancelled:
         # Stop button, a genuine disconnect (see /solar/chat/cancel), or one
@@ -2487,7 +2920,11 @@ def solar_result(req_id):
     req = get_solar_request(req_id)
     if not req:
         return redirect("/solar")
-    return render_template("solar/solar_result.html", req=req)
+    # Computed fresh from columns the DB already has — never persisted, so
+    # it can't drift from what the chat path would say for the same
+    # consumption/property type (see assess_suitability, solar_engine.py).
+    suitability = assess_suitability(req.get("kwh_monthly"), req.get("establishment_type"))
+    return render_template("solar/solar_result.html", req=req, suitability=suitability)
 
 
 @solar_bp.route("/solar/decision/<int:req_id>", methods=["POST"])
@@ -2538,7 +2975,11 @@ def admin_solar_view(req_id):
     req = get_solar_request(req_id)
     if not req:
         return redirect("/admin/solar")
-    return render_template("solar/solar_admin_detail.html", request=req)
+    # Same function, same two columns, as solar_result() — chat, the
+    # customer-facing results page, and this admin view can never disagree
+    # about the verdict since none of them cache or duplicate it.
+    suitability = assess_suitability(req.get("kwh_monthly"), req.get("establishment_type"))
+    return render_template("solar/solar_admin_detail.html", request=req, suitability=suitability)
 
 
 @solar_bp.route("/admin/solar/<int:req_id>/data")

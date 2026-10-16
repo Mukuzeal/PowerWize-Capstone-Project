@@ -160,12 +160,67 @@ QUESTIONS = [
      "question": ("What brands of inverters do you use? What's the warranty on the panels? "
                    "How does net metering work?\nDo you install batteries too? "
                    "What's the difference between grid-tied and hybrid systems?")},
+    # worth_it (2026-10-14 follow-up): "is it worth it" questions must route
+    # to assess_suitability()'s Python-decided verdict, not a free-text model
+    # answer — this is what the live bug report caught (fabricated "7-8
+    # hours of AC/day" / "cut that in half" reasoning on a bill-only
+    # question). Every case below carries expected_verdict (and
+    # expected_note where relevant) so main() can assert the FINAL answer's
+    # verdict matches assess_suitability() exactly, not just eyeball it.
+    # kWh-direct, residential — covers every band boundary.
+    {"category": "worth_it", "question": "We only use about 200 kWh a month, is a solar system worth it for us?",
+     "collected": {"kwh_monthly": 200, "establishment_type": "residential"}, "expected_verdict": "not_worth"},
+    {"category": "worth_it", "question": "May 349 kWh na gamit kami kada buwan, sulit kaya kumuha ng solar?",
+     "collected": {"kwh_monthly": 349, "establishment_type": "residential"}, "expected_verdict": "not_worth"},
+    {"category": "worth_it", "question": "Our monthly usage is 350 kWh, is solar worth it for us?",
+     "collected": {"kwh_monthly": 350, "establishment_type": "residential"}, "expected_verdict": "borderline"},
+    {"category": "worth_it", "question": "399 kWh kada buwan ang gamit namin, sulit ba ang solar?",
+     "collected": {"kwh_monthly": 399, "establishment_type": "residential"}, "expected_verdict": "borderline"},
+    {"category": "worth_it", "question": "We use 400 kWh a month, is a solar system worth it?",
+     "collected": {"kwh_monthly": 400, "establishment_type": "residential"}, "expected_verdict": "worthwhile", "expected_note": True},
+    {"category": "worth_it", "question": "449 kWh kada buwan ang konsumo namin, sulit ba kumuha ng solar?",
+     "collected": {"kwh_monthly": 449, "establishment_type": "residential"}, "expected_verdict": "worthwhile", "expected_note": True},
+    {"category": "worth_it", "question": "Our household uses 450 kWh monthly, is solar worth it?",
+     "collected": {"kwh_monthly": 450, "establishment_type": "residential"}, "expected_verdict": "worthwhile", "expected_note": False},
+    {"category": "worth_it", "question": "600 kWh kada buwan ang gamit namin, makakatulong kaya ang solar?",
+     "collected": {"kwh_monthly": 600, "establishment_type": "residential"}, "expected_verdict": "worthwhile", "expected_note": False},
+    # Bill-only, residential — same boundaries, converted via ELECTRICITY_RATE.
+    {"category": "worth_it", "question": "I have a bill of P1500 is it worth it to have a PV system?",
+     "collected": {"monthly_bill_php": 1500, "establishment_type": "residential"}, "expected_verdict": "not_worth"},
+    {"category": "worth_it", "question": "Mga P5500 bill namin kada buwan, sulit ba kumuha ng solar?",
+     "collected": {"monthly_bill_php": 5500, "establishment_type": "residential"}, "expected_verdict": "borderline"},
+    {"category": "worth_it", "question": "Our bill runs about P6500 a month, is it worth it to get a PV system?",
+     "collected": {"monthly_bill_php": 6500, "establishment_type": "residential"}, "expected_verdict": "worthwhile", "expected_note": True},
+    {"category": "worth_it", "question": "Mga P8000 ang bill namin kada buwan, sulit ba ang solar sa amin?",
+     "collected": {"monthly_bill_php": 8000, "establishment_type": "residential"}, "expected_verdict": "worthwhile", "expected_note": False},
+    # Commercial/industrial — low consumption must never be blocked or
+    # discouraged; the check simply doesn't apply to them (per decision 3,
+    # no admin note either).
+    {"category": "worth_it", "question": "Our small office only uses about 150 kWh a month, is solar still worth it for a commercial space?",
+     "collected": {"kwh_monthly": 150, "establishment_type": "commercial"}, "expected_verdict": "not_applicable"},
+    {"category": "worth_it", "question": "100 kWh lang gamit ng factory namin kada buwan, sulit ba kumuha ng solar?",
+     "collected": {"kwh_monthly": 100, "establishment_type": "industrial"}, "expected_verdict": "not_applicable"},
+    # Unknown property type — must ask for it, never give a verdict. The
+    # first is the exact line from the live bug report (check B).
+    {"category": "worth_it", "question": "I have a bill of P1500 is it worth it to have a PV system?",
+     "collected": {"monthly_bill_php": 1500}, "expected_verdict": "unknown_type"},
+    {"category": "worth_it", "question": "500 kWh ang gamit namin, sulit ba kumuha ng solar?",
+     "collected": {"kwh_monthly": 500}, "expected_verdict": "unknown_type"},
 ]
+
+# A verdict-text leak check for not_worth answers specifically: that verdict
+# never shows sizing (kWp/panel count) as if it were a recommendation
+# (item 5) — this regex flags it if the model's framing sentence smuggled
+# one in anyway. Doesn't match the kWh figure the verdict sentence itself
+# always includes, since that's expected and not a sizing recommendation.
+_SIZING_LEAK_RE = re.compile(r"\d+(\.\d+)?\s*(kwp|panels?)\b", re.IGNORECASE)
 
 
 def run_one(category: str, question: str, collected: dict, history: list = None):
-    is_question = solar_bp._looks_like_question(question)
-    is_numeric  = solar_bp._looks_numeric_question(question)
+    collected = collected or {}
+    is_question  = solar_bp._looks_like_question(question)
+    is_numeric   = solar_bp._looks_numeric_question(question)
+    is_worth_it  = solar_bp._looks_like_worth_it_question(question)
 
     # Same deterministic gate + retrieval production uses (solar_bp._gate_and_retrieve)
     # — not a hand-rolled copy, so this harness can't drift from production
@@ -193,7 +248,11 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
 
     numeric_result = None
     ground_truth = None
-    if canned_text is None and collected and is_numeric:
+    suitability = None
+    if canned_text is None and is_worth_it:
+        suitability = solar_bp.assess_suitability(
+            solar_bp._consumption_kwh(collected), collected.get("establishment_type"))
+    elif canned_text is None and collected and is_numeric:
         numeric_result = solar_bp._run_preview_calc(collected)
         ground_truth = solar_compute(
             kwh_monthly=collected.get("kwh_monthly"),
@@ -208,12 +267,21 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
 
     if canned_text is not None:
         answer = canned_text
+    elif suitability is not None:
+        try:
+            answer = solar_bp._answer_suitability_turn(
+                question, suitability, collected,
+                context_body_full=context_body, context_body_safe=context_body,
+                context_section=context_section, history=history,
+            )
+        except Exception as e:
+            answer = f"[ERROR: {type(e).__name__}: {e}]"
     elif numeric_result is not None:
         try:
             answer = solar_bp._answer_numeric_turn(
                 question, numeric_result, collected,
                 context_body_full=context_body, context_body_safe=context_body,
-                context_section=context_section, is_preview=True,
+                context_section=context_section, is_preview=True, history=history,
             )
         except Exception as e:
             answer = f"[ERROR: {type(e).__name__}: {e}]"
@@ -242,11 +310,24 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
     # apply on this path (e.g. a canned/numeric-template answer, which is
     # always clean by construction). Not auto-failed; see main()'s reporting.
     context_brands = solar_bp._brands_in_context(context_section)
-    has_unverifiable_company_claim = solar_bp._has_unverifiable_company_claim(answer)
+    # Same doe_grounded computation production's _answer_general_turn uses
+    # (solar_bp.py _trim_ungrounded_sentences call site) — without it, every
+    # DOE-registration answer reports as an "unverifiable claim" even when
+    # the KB's own "DOE registration" section is exactly what grounded it,
+    # which would make this report wrong, not the answer.
+    doe_grounded = solar_bp._context_supports_doe_claim(context_section)
+    has_unverifiable_company_claim = solar_bp._has_unverifiable_company_claim(answer, doe_grounded)
     answer_lower = answer.lower()
     ungrounded_brands = [b for b in solar_bp._KNOWN_BRANDS
                           if b not in context_brands
                           and re.search(r"\b" + re.escape(b.lower()) + r"\b", answer_lower)]
+
+    # not_worth must never show sizing/cost as if it were a recommendation
+    # (item 5) — checked regardless of category, since the question-text
+    # heuristic that routes into assess_suitability() could in principle
+    # misfire on a non-worth_it question too.
+    sizing_leaked = (suitability is not None and suitability["verdict"] == "not_worth"
+                      and bool(_SIZING_LEAK_RE.search(answer)))
 
     return {
         "category": category, "question": question,
@@ -254,6 +335,7 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
         "sources": [{"title": s["title"], "score": s["score"]} for s in sources],
         "answer": answer, "ground_truth": ground_truth, "reply_language": reply_language,
         "has_unverifiable_company_claim": has_unverifiable_company_claim, "ungrounded_brands": ungrounded_brands,
+        "suitability": suitability, "sizing_leaked": sizing_leaked,
     }
 
 
@@ -274,6 +356,8 @@ def main():
     language_inconclusive = []
     unverifiable_claim_hits = []
     ungrounded_brand_hits = []
+    verdict_mismatches = []
+    sizing_leak_hits = []
     for i, q in enumerate(QUESTIONS):
         if i > 0 and args.provider == "groq":
             # 3s wasn't enough headroom once the eval set grew to ~30
@@ -300,11 +384,27 @@ def main():
         if result["ungrounded_brands"]:
             ungrounded_brand_hits.append((category, question, result["ungrounded_brands"], result["answer"]))
 
+        expected_verdict = q.get("expected_verdict")
+        if expected_verdict:
+            suitability = result["suitability"]
+            got_verdict = suitability["verdict"] if suitability else None
+            if got_verdict != expected_verdict:
+                verdict_mismatches.append((category, question, expected_verdict, got_verdict))
+            elif "expected_note" in q and bool(suitability.get("note")) != q["expected_note"]:
+                verdict_mismatches.append((category, question,
+                                            f"{expected_verdict} (note={q['expected_note']})",
+                                            f"{got_verdict} (note={suitability.get('note')})"))
+        if result["sizing_leaked"]:
+            sizing_leak_hits.append((category, question, result["answer"]))
+
         print(f"[{category}] {question}")
         print(f"  classified_as_question={result['is_question']}  numeric_intent={result['is_numeric']}  "
               f"gate_outcome={result['gate_outcome']}  reply_language={result['reply_language']}"
               + (f"  expected={expected_lang}" if expected_lang else ""))
         print(f"  sources: {result['sources']}")
+        if result["suitability"] is not None:
+            print(f"  suitability (assess_suitability): {result['suitability']}"
+                  + (f"  expected={expected_verdict}" if expected_verdict else ""))
         if result["ground_truth"] is not None:
             print(f"  ground_truth (solar_engine.compute): "
                   f"{result['ground_truth']['system_size_kw']} kWp, "
@@ -370,6 +470,25 @@ def main():
             print(f"  - [{category}] {q}  brands={brands}\n    answer: {answer}")
     else:
         print("Ungrounded brand names: none survived in any answer.")
+
+    print("=" * 70)
+    expected_verdict_total = sum(1 for q in QUESTIONS if q.get("expected_verdict"))
+    if verdict_mismatches:
+        print(f"VERDICT MISMATCHES ({len(verdict_mismatches)}/{expected_verdict_total} "
+              f"worth-it questions whose assess_suitability() verdict didn't match expected):")
+        for category, q, expected, got in verdict_mismatches:
+            print(f"  - [{category}] expected={expected} got={got}: {q}")
+    else:
+        print(f"Worth-it verdicts: all {expected_verdict_total} questions matched the "
+              f"expected assess_suitability() verdict (and note, where checked).")
+
+    if sizing_leak_hits:
+        print(f"SIZING LEAKED INTO {len(sizing_leak_hits)} not_worth ANSWER(S) "
+              f"(a kWp/panel figure appeared where item 5 says none should):")
+        for category, q, answer in sizing_leak_hits:
+            print(f"  - [{category}] {q}\n    answer: {answer}")
+    else:
+        print("Sizing leaks into not_worth answers: none.")
 
 
 if __name__ == "__main__":

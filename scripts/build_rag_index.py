@@ -9,6 +9,7 @@ import argparse
 import glob
 import hashlib
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -41,6 +42,25 @@ TOPIC_BY_FILENAME = {
 }
 
 
+# Headings that are notes to whoever edits the KB, not customer-facing
+# content ("Tone note" tells a writer how to phrase things; "What this file
+# doesn't say" tells a writer what belongs elsewhere) — indexing them let a
+# question retrieve the file's own writing guidance as if it were an answer
+# (2026-10-14 audit: 4 such chunks found live — see knowledge/solar/
+# batteries.md, inverters.md, system-sizing.md, our-offerings-and-process.md).
+_META_HEADING_RE = re.compile(
+    r"^(tone|style|writing|editorial|internal)\s+note$"
+    r"|^what this (file|document)(\s+deliberately)?\s+(doesn.t|does not)\s+say$",
+    re.IGNORECASE,
+)
+
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _strip_html_comments(text: str) -> str:
+    return _HTML_COMMENT_RE.sub("", text)
+
+
 def _split_long(content: str, max_chars: int, overlap: int) -> list:
     if len(content) <= max_chars:
         return [content]
@@ -56,13 +76,17 @@ def _split_long(content: str, max_chars: int, overlap: int) -> list:
 
 def chunk_markdown(text: str) -> list:
     """Split on H1/H2 headings; further split any oversized section by
-    character count. Returns [(title, content), ...]."""
+    character count. Returns [(title, content), ...]. HTML comments are
+    stripped first (never meant to be indexed at all), and a section whose
+    heading is an editorial/meta note about the file itself (see
+    _META_HEADING_RE) is dropped entirely rather than chunked."""
+    text = _strip_html_comments(text)
     lines = text.splitlines()
     sections, heading, buf = [], "Untitled", []
 
     def flush():
         content = "\n".join(buf).strip()
-        if content:
+        if content and not _META_HEADING_RE.match(heading.strip()):
             sections.append((heading, content))
 
     for line in lines:

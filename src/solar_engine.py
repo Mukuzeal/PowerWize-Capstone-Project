@@ -22,6 +22,69 @@ BATTERY_COST_MAX_PER_KWH = 28_000
 # ── Scope limit ──────────────────────────────────────────────────
 INDUSTRIAL_SCALE_KW_THRESHOLD = 100  # above this, needs a full engineering assessment
 
+# ── PV cost-effectiveness thresholds (residential only) ──────────
+# Source for 400: guidance from a professional client in the solar field.
+# 350 and 450 are the team's own tolerance margins, not from the
+# professional — 350 gives a borderline band instead of a flat no right at
+# the cutoff, 450 is how far above it a "worthwhile" verdict stops needing
+# the "close to the minimum" caveat at all.
+#
+# Residential only. Commercial/industrial are exempt from this check
+# entirely — not because a different (e.g. higher) number applies to them,
+# but because consumption this low is rare for a commercial/industrial
+# account in the first place (same professional's guidance), so the check
+# simply doesn't apply. See assess_suitability() below.
+MIN_KWH_RESIDENTIAL             = 400  # worthwhile at or above this
+MIN_KWH_RESIDENTIAL_BORDERLINE  = 350  # borderline from here up to just below MIN_KWH_RESIDENTIAL
+MIN_KWH_RESIDENTIAL_COMFORTABLE = 450  # below this, a worthwhile verdict still carries the "close to minimum" note
+
+
+def assess_suitability(kwh_monthly: float | None, property_type: str | None) -> dict:
+    """Deterministic cost-effectiveness verdict — no AI involved, same
+    "numbers never come from the model" principle as compute() itself.
+
+    kwh_monthly: the customer's resolved monthly consumption. If only a
+    bill amount is known, the CALLER converts it via ELECTRICITY_RATE
+    before calling this — kept out of here so these bands stay expressed in
+    kWh (actual usage), independent of whatever the rate TODO resolves to.
+    A rate change shifts which band a given PESO bill lands in, never the
+    bands themselves.
+
+    property_type: "residential" / "commercial" / "industrial", or
+    None/"" if not collected yet. Normalized (stripped + lowercased) here
+    defensively — every current write path (chat extraction's schema
+    enum, the form's radio buttons) already only ever produces one of
+    these three lowercase values, confirmed directly against the live DB
+    too, but the DB column itself has no CHECK constraint enforcing that,
+    so this doesn't assume it stays that way forever.
+
+    Returns {"verdict", "kwh", "note"}:
+      verdict: "unknown_type"   — property_type not given (or kwh_monthly
+                                   isn't either, though callers should
+                                   normally already have it by the time
+                                   they call this).
+               "not_applicable" — commercial/industrial; the minimum-
+                                   consumption check doesn't apply to them.
+               "not_worth" / "borderline" / "worthwhile" — residential only.
+      note: True only for "worthwhile" in the 400–449 kWh band.
+    """
+    ptype = (property_type or "").strip().lower()
+    if not ptype:
+        return {"verdict": "unknown_type", "kwh": kwh_monthly, "note": False}
+    if ptype != "residential":
+        return {"verdict": "not_applicable", "kwh": kwh_monthly, "note": False}
+    if kwh_monthly is None:
+        return {"verdict": "unknown_type", "kwh": None, "note": False}
+
+    kwh = float(kwh_monthly)
+    if kwh < MIN_KWH_RESIDENTIAL_BORDERLINE:
+        return {"verdict": "not_worth", "kwh": kwh, "note": False}
+    if kwh < MIN_KWH_RESIDENTIAL:
+        return {"verdict": "borderline", "kwh": kwh, "note": False}
+    if kwh < MIN_KWH_RESIDENTIAL_COMFORTABLE:
+        return {"verdict": "worthwhile", "kwh": kwh, "note": True}
+    return {"verdict": "worthwhile", "kwh": kwh, "note": False}
+
 
 def _target_ratio(target_savings: str) -> float:
     return {
