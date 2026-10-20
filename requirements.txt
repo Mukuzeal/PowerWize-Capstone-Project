@@ -12,3 +12,5 @@ pytesseract
 pdf2image
 pymupdf
 openpyxl
+fastembed
+numpy

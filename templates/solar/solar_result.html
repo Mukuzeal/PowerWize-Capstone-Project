@@ -23,6 +23,21 @@
       </div>
       {% endif %}
 
+      {# Computed fresh each render from kwh_monthly + establishment_type —
+         never persisted, so it can't drift from what chat told the same
+         customer. See assess_suitability() in solar_engine.py. #}
+      {% if suitability.verdict == 'not_worth' %}
+      <div class="prelim-badge" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        At about {{ "%.0f"|format(suitability.kwh) }} kWh/month, this usage is below the level where solar usually pays off — the figures below are for reference, not a recommendation.
+      </div>
+      {% elif suitability.verdict == 'borderline' %}
+      <div class="prelim-badge" style="background:#FEF3C7;color:#92400E;border-color:#FDE68A">
+        <i class="fa-solid fa-circle-info"></i>
+        At about {{ "%.0f"|format(suitability.kwh) }} kWh/month, this is close to the level where solar starts to pay off — a consultation review is the best way to confirm it makes sense.
+      </div>
+      {% endif %}
+
       <div class="status-line">
         Status:
         <span class="status-pill st-{{ status }}">
@@ -175,8 +190,13 @@
             <button type="submit" class="dec-btn">
               <div class="dec-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
               <div class="dec-text">
+                {% if suitability.verdict == 'not_worth' %}
+                <span class="dec-title">Request a Review Anyway</span>
+                <span class="dec-sub">The figures above are for reference only — our team can confirm whether solar still makes sense for you</span>
+                {% else %}
                 <span class="dec-title">Proceed with Estimate</span>
                 <span class="dec-sub">Acknowledge this as a preliminary figure and contact us to move forward</span>
+                {% endif %}
               </div>
               <i class="fa-solid fa-chevron-right dec-go"></i>
             </button>

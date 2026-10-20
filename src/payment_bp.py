@@ -1,55 +1,25 @@
 import os
+import secrets
 from datetime import datetime
-from flask import Blueprint, request, render_template, redirect, session, jsonify
+from flask import (Blueprint, request, render_template, redirect, session, jsonify,
+                   current_app)
 from dotenv import load_dotenv
 from db import (get_db, dict_cur, log_payment, mark_payment_paid, mark_payment_failed,
                 mark_user_paid, get_user_payment_status, get_registration_by_email,
                 save_blockchain_receipt, get_receipt_by_id, get_receipt_by_user,
-                get_user_id_for_paymongo)
+                get_user_id_for_paymongo, get_payment_discount, get_user_training_type,
+                validate_discount, redeem_discount)
 import paymongo
 from blockchain import generate_receipt_id, create_receipt_hash, store_hash_on_chain, verify_hash_on_chain
 from qr_gen import generate_receipt_qr
+from permissions import is_staff, home_url_for
+from pricing import calculate_fee, to_centavos
 from utils import base_url
 
 load_dotenv()
 
 payment_bp = Blueprint("payment", __name__)
 
-VAT_RATE = 0.12
-
-
-def calculate_fee(form_type, training_type):
-    ft = (form_type or "").lower()
-    tt = (training_type or "").lower()
-
-    if ft in ("cea_renewal", "cem_renewal"):
-        base = 10000 if "face" in tt else 7500
-        vat  = round(base * VAT_RATE, 2)
-        mode = "Face-to-Face" if "face" in tt else "Online"
-        return {"base": base, "vat": vat, "total": base + vat,
-                "label": f"Recertification · {mode}", "has_vat": True}
-
-    if ft in ("training", "cea_training"):
-        if "hybrid" in tt:
-            return {"base": 19500, "vat": 0, "total": 19500,
-                    "label": "Training · Hybrid (5 days Online + 2 days F2F)", "has_vat": False}
-        if "online" in tt and "self" not in tt:
-            return {"base": 18000, "vat": 0, "total": 18000,
-                    "label": "Training · Online (7 days, 56 hours)", "has_vat": False}
-        if "self" in tt:
-            mode = "Face-to-Face" if "face" in tt else "Online"
-            return {"base": 19500, "vat": 0, "total": 19500,
-                    "label": f"Training · Self-paced ({mode})", "has_vat": False}
-
-    if ft in ("gemp_lgu", "gemp_oge"):
-        base = 10000 if "face" in tt else 7500
-        vat  = round(base * VAT_RATE, 2)
-        mode = "Face-to-Face" if "face" in tt else "Online via Zoom"
-        prog = "GEMP Training (LGU)" if ft == "gemp_lgu" else "GEMP Training (Gov't Entity)"
-        return {"base": base, "vat": vat, "total": base + vat,
-                "label": f"{prog} · {mode}", "has_vat": True}
-
-    return None
 
 
 def _require_unpaid():
@@ -59,36 +29,163 @@ def _require_unpaid():
     return uid if get_user_payment_status(uid) == "unpaid" else None
 
 
+def _base_fee(email):
+    """The published fee for whoever is paying, read from their registration."""
+    reg = get_registration_by_email(email) if email else None
+    fee = calculate_fee(reg["form_type"], reg["training_type"]) if reg else None
+    if fee is None:
+        fallback = float(os.getenv("TRAINING_FEE", "5000"))
+        fee = {"base": fallback, "vat": 0, "total": fallback,
+               "label": "Training Fee", "has_vat": False}
+    return fee
+
+
+def _charge_for(user_id):
+    """What this trainee is actually charged, recomputed from scratch.
+
+    Called again on every gateway call rather than reading a total out of the
+    session: the base fee comes from the registration and the discount is
+    re-validated against the database each time, so a stale session or a
+    tampered request body cannot move the amount. Returns
+    (amount_php, amount_centavos, description, discount_row_or_None, discount_php).
+    """
+    fee  = _base_fee(session.get("user_email"))
+    code = session.get("discount_code")
+    discount, discount_php, desc = None, 0.0, fee["label"]
+    if code:
+        row, err = validate_discount(code, get_user_training_type(user_id))
+        if err:
+            # The code went stale between entry and payment (expired, hit its
+            # cap, deactivated). Drop it and charge full price rather than
+            # honouring a discount that is no longer valid.
+            session.pop("discount_code", None)
+        else:
+            discount     = row
+            discount_php = round(fee["total"] * row["percent_off"] / 100.0, 2)
+            desc         = f"{fee['label']} ({row['code']} -{row['percent_off']}%)"
+    amount_php = round(fee["total"] - discount_php, 2)
+    return amount_php, to_centavos(amount_php), desc, discount, discount_php
+
+
+def _log_intent(user_id, method, pi_id, amount_php, discount, discount_php):
+    log_payment(user_id, amount_php, method, pi_id,
+                discount_code_id=discount["id"] if discount else None,
+                discount_percent=discount["percent_off"] if discount else None,
+                discount_amount_php=discount_php if discount else None)
+
+
+def _settle_trainee_payment(user_id, paymongo_id):
+    """Mark one trainee payment paid, exactly once.
+
+    mark_payment_paid() only matches a still-pending row, so whichever of the
+    card attach, the QRPH poll or the webhook arrives first is the one that
+    burns the discount redemption; the rest are no-ops.
+    """
+    first = mark_payment_paid(paymongo_id)
+    mark_user_paid(user_id)
+    if first:
+        _redeem_for_payment(paymongo_id)
+    return first
+
+
+def _redeem_for_payment(paymongo_id):
+    code_id, percent = get_payment_discount(paymongo_id)
+    if not code_id:
+        return
+    if not redeem_discount(code_id):
+        # The payment already went through, so it is honoured regardless — but
+        # the cap was passed, which is worth knowing about.
+        current_app.logger.warning(
+            "Discount code %s was redeemed past its limit on payment %s",
+            code_id, paymongo_id)
+
+
 # ── Payment wall ──────────────────────────────────────────────────────────────
 
 @payment_bp.route("/payment")
 def payment():
     if "user_id" not in session:
         return redirect("/auth")
-    if session.get("user_role") == "employee":
-        return redirect("/employee")
-    if session.get("user_role") == "admin":
-        return redirect("/admin")
+    if is_staff():
+        return redirect(home_url_for(session.get("user_role")))
     if get_user_payment_status(session["user_id"]) == "paid":
         return redirect("/portal")
 
-    email = session.get("user_email")
-    reg   = get_registration_by_email(email) if email else None
-    fee   = calculate_fee(reg["form_type"], reg["training_type"]) if reg else None
-
-    if fee is None:
-        fallback = float(os.getenv("TRAINING_FEE", "5000"))
-        fee = {"base": fallback, "vat": 0, "total": fallback,
-               "label": "Training Fee", "has_vat": False}
-
-    session["payment_fee"]  = fee["total"]
-    session["payment_desc"] = fee["label"]
+    fee = _base_fee(session.get("user_email"))
+    amount_php, _, _, discount, discount_php = _charge_for(session["user_id"])
 
     error = "Payment was not completed. Please try again." if request.args.get("error") else None
     return render_template("payment/payment.html",
                            fee=fee,
+                           amount_due=amount_php,
+                           discount=discount,
+                           discount_php=discount_php,
                            public_key=os.getenv("PAYMONGO_PUBLIC_KEY", ""),
                            error=error)
+
+
+# ── Discount codes ────────────────────────────────────────────────────────────
+#
+# Applying a code only records *which* code the trainee typed. The charge is
+# recomputed from the database on every gateway call (_charge_for), so the
+# browser never gets to name a price.
+
+@payment_bp.route("/payment/discount/apply", methods=["POST"])
+def discount_apply():
+    uid = _require_unpaid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 403
+    code = (request.get_json(force=True) or {}).get("code", "")
+    row, err = validate_discount(code, get_user_training_type(uid))
+    if err:
+        session.pop("discount_code", None)
+        return jsonify({"error": err}), 400
+    session["discount_code"] = row["code"]
+    fee = _base_fee(session.get("user_email"))
+    amount_php, _, _, _, discount_php = _charge_for(uid)
+    return jsonify({
+        "code":          row["code"],
+        "percent_off":   row["percent_off"],
+        "base_total":    fee["total"],
+        "discount_php":  discount_php,
+        "amount_due":    amount_php,
+        "display":       f"₱{amount_php:,.2f}",
+    })
+
+
+@payment_bp.route("/payment/settle-free", methods=["POST"])
+def settle_free():
+    """Complete enrollment when a 100% code brings the charge to zero.
+
+    PayMongo will not take a zero-amount intent (and has a PHP 20 floor), so a
+    fully-discounted fee has to be settled here instead of at the gateway. The
+    amount is recomputed server-side first — this is refused for any charge
+    that is actually payable.
+    """
+    uid = _require_unpaid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 403
+    amount, centavos, desc, discount, discount_php = _charge_for(uid)
+    if centavos > 0:
+        return jsonify({"error": "This fee still has an amount due."}), 400
+    # Synthetic id so the payment row, its discount and the exactly-once
+    # redemption guard all work exactly as they do for a gateway payment.
+    free_id = f"FREE-{secrets.token_hex(8)}"
+    _log_intent(uid, "free", free_id, 0, discount, discount_php)
+    _settle_trainee_payment(uid, free_id)
+    session.pop("discount_code", None)
+    _store_receipt_on_chain(uid, free_id)
+    return jsonify({"status": "paid"})
+
+
+@payment_bp.route("/payment/discount/remove", methods=["POST"])
+def discount_remove():
+    uid = _require_unpaid()
+    if not uid:
+        return jsonify({"error": "Unauthorized"}), 403
+    session.pop("discount_code", None)
+    amount_php, _, _, _, _ = _charge_for(uid)
+    return jsonify({"amount_due": amount_php, "display": f"₱{amount_php:,.2f}"})
 
 
 # ── Card: create Payment Intent ───────────────────────────────────────────────
@@ -98,11 +195,10 @@ def card_initiate():
     uid = _require_unpaid()
     if not uid:
         return jsonify({"error": "Unauthorized"}), 403
-    amount = session.get("payment_fee", float(os.getenv("TRAINING_FEE", "5000")))
-    desc   = session.get("payment_desc", "EnergyWize Training Fee")
+    amount, centavos, desc, discount, discount_php = _charge_for(uid)
     try:
-        pi = paymongo.create_payment_intent(amount, desc)
-        log_payment(uid, amount, "card", pi["id"])
+        pi = paymongo.create_payment_intent(None, desc, amount_centavos=centavos)
+        _log_intent(uid, "card", pi["id"], amount, discount, discount_php)
         session["pending_pi"] = pi["id"]
         return jsonify({
             "pi_id":      pi["id"],
@@ -183,9 +279,9 @@ def card_return():
 
 
 def _complete_card_payment(user_id, pi_id):
-    mark_payment_paid(pi_id)
-    mark_user_paid(user_id)
+    _settle_trainee_payment(user_id, pi_id)
     session.pop("pending_pi", None)
+    session.pop("discount_code", None)
     _store_receipt_on_chain(user_id, pi_id)
 
 
@@ -229,12 +325,11 @@ def qrph_initiate():
     uid = _require_unpaid()
     if not uid:
         return jsonify({"error": "Unauthorized"}), 403
-    amount     = session.get("payment_fee", float(os.getenv("TRAINING_FEE", "5000")))
-    desc       = session.get("payment_desc", "EnergyWize Training Fee")
+    amount, centavos, desc, discount, discount_php = _charge_for(uid)
     return_url = base_url().rstrip("/") + "/payment/card/return"
     try:
-        result = paymongo.create_qrph_intent(amount, desc, return_url)
-        log_payment(uid, amount, "qrph", result["pi_id"])
+        result = paymongo.create_qrph_intent(None, desc, return_url, amount_centavos=centavos)
+        _log_intent(uid, "qrph", result["pi_id"], amount, discount, discount_php)
         session["pending_qr_pi"] = result["pi_id"]
         return jsonify({
             "pi_id":     result["pi_id"],
@@ -258,9 +353,9 @@ def qrph_poll(pi_id):
     try:
         pi = paymongo.retrieve_payment_intent(pi_id)
         if pi["status"] == "succeeded":
-            mark_payment_paid(pi_id)
-            mark_user_paid(uid)
+            _settle_trainee_payment(uid, pi_id)
             session.pop("pending_qr_pi", None)
+            session.pop("discount_code", None)
             _store_receipt_on_chain(uid, pi_id)
             return jsonify({"status": "paid"})
         if pi["status"] in ("payment_error", "failed"):
@@ -289,17 +384,51 @@ def webhook():
     etype = event.get("data", {}).get("attributes", {}).get("type", "")
 
     if etype == "payment.paid":
-        paymongo_id = event["data"]["attributes"]["data"]["id"]
-        _handle_payment_paid(paymongo_id)
+        payment_obj = event["data"]["attributes"]["data"]
+        attrs       = payment_obj.get("attributes", {}) or {}
+        paymongo_id = payment_obj["id"]
+        # The event carries a payment id (pay_...), but what we stored when we
+        # created the charge is the payment *intent* id (pi_...) — so both are
+        # tried. Corporate invoices additionally echo back their own reference
+        # in the intent metadata, which is the most direct match of the three.
+        intent_id   = attrs.get("payment_intent_id")
+        reference   = (attrs.get("metadata") or {}).get("reference")
+
+        if not _handle_corporate_paid(reference, intent_id, paymongo_id):
+            _handle_payment_paid(paymongo_id, intent_id)
 
     return jsonify({"received": True}), 200
 
 
-def _handle_payment_paid(paymongo_id):
-    user_id = get_user_id_for_paymongo(paymongo_id)
-    if user_id:
-        mark_payment_paid(paymongo_id)
-        mark_user_paid(user_id)
+def _handle_corporate_paid(reference, intent_id, paymongo_id):
+    """True if this event belonged to a corporate invoice (settled now or
+    already settled by an earlier delivery), so the trainee path is skipped."""
+    from admin.corporate import settle_corporate_payment
+    from db import get_corporate_payment
+
+    rec = None
+    if reference:
+        rec = get_corporate_payment(reference=reference)
+    for pmid in (intent_id, paymongo_id):
+        if rec is None and pmid:
+            rec = get_corporate_payment(paymongo_id=pmid)
+    if not rec:
+        return False
+    # Already paid/cancelled/expired -> settle_corporate_payment matches no
+    # row and returns None. Either way the event is accounted for here.
+    settle_corporate_payment(cid=rec["id"])
+    return True
+
+
+def _handle_payment_paid(paymongo_id, intent_id=None):
+    for pmid in (paymongo_id, intent_id):
+        if not pmid:
+            continue
+        user_id = get_user_id_for_paymongo(pmid)
+        if user_id:
+            _settle_trainee_payment(user_id, pmid)
+            return True
+    return False
 
 
 # ── Success / Failed pages ────────────────────────────────────────────────────
@@ -363,7 +492,7 @@ def verify_receipt():
     if receipt:
         uid = session.get("user_id")
         role = session.get("user_role")
-        full_disclosure = role in ("admin", "employee") or (uid is not None and uid == receipt.get("user_id"))
+        full_disclosure = is_staff(role) or (uid is not None and uid == receipt.get("user_id"))
 
     return render_template("payment/verify_receipt.html", result=result, receipt=receipt,
                            full_disclosure=full_disclosure)

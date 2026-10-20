@@ -55,9 +55,13 @@
           <label for="role-input">Role <span class="req">*</span></label>
           <select name="role" id="role-input" required>
             <option value="">— Select role —</option>
-            <option value="admin"    {% if fd.role == 'admin' %}selected{% endif %}>Admin</option>
-            <option value="employee" {% if fd.role == 'employee' %}selected{% endif %}>Employee / Trainer</option>
-            <option value="trainee"  {% if fd.role == 'trainee' %}selected{% endif %}>Trainee</option>
+            {# `employee` is the stored value for what the UI calls a Trainer — the
+               label changed, the value never did, so existing accounts keep working. #}
+            <option value="admin"      {% if fd.role == 'admin' %}selected{% endif %}>Admin</option>
+            <option value="super_user" {% if fd.role == 'super_user' %}selected{% endif %}>Super User</option>
+            <option value="secretary"  {% if fd.role == 'secretary' %}selected{% endif %}>Secretary</option>
+            <option value="employee"   {% if fd.role == 'employee' %}selected{% endif %}>Trainer</option>
+            <option value="trainee"    {% if fd.role == 'trainee' %}selected{% endif %}>Trainee</option>
           </select>
         </div>
 

@@ -1,0 +1,313 @@
+{% extends "admin/_page.html" %}
+{% set charged = rec.amount_centavos / 100 %}
+
+{% block title %}{{ rec.reference }} – Corporate Payment{% endblock %}
+{% block barlabel %}Corporate Payments{% endblock %}
+
+{% block content %}
+<div class="phead">
+  <div>
+    <h1>{{ rec.company_name }}</h1>
+    <p class="mono">{{ rec.reference }} · {{ rec.contact_person }}
+      {%- if rec.contact_email %} · {{ rec.contact_email }}{% endif %}
+      {%- if rec.contact_number %} · {{ rec.contact_number }}{% endif %}</p>
+  </div>
+  <div class="phead__acts">
+    <span class="pill pill--{{ rec.status }}" style="align-self:center">{{ rec.status }}</span>
+    <a class="btn" href="{{ url_for('admin.corporate_list') }}">Back to list</a>
+  </div>
+</div>
+
+<div class="sums">
+  <div class="sum">
+    <div class="sum__lab">List total</div>
+    <div class="sum__val">&#8369;{{ "{:,.2f}".format(rec.list_total_php) }}</div>
+    <div class="sum__note">{{ items|length }} trainee(s) at published prices</div>
+  </div>
+  <div class="sum">
+    <div class="sum__lab">Charged</div>
+    <div class="sum__val is-signal">&#8369;{{ "{:,.2f}".format(charged) }}</div>
+    <div class="sum__note">{{ rec.amount_centavos }} centavos</div>
+  </div>
+  <div class="sum">
+    <div class="sum__lab">{{ 'Paid' if rec.status == 'paid' else 'Expires' }}</div>
+    <div class="sum__val" style="font-size:15px">
+      {% if rec.status == 'paid' and rec.paid_at %}{{ rec.paid_at.strftime('%d %b %Y, %H:%M') }}
+      {% else %}{{ rec.expires_at.strftime('%d %b %Y, %H:%M') }}{% endif %}
+    </div>
+    <div class="sum__note">{{ rec.method or 'no method yet' }}</div>
+  </div>
+</div>
+
+{% if rec.custom_total_php is not none %}
+<div class="notice notice--warn">
+  <strong>Price override.</strong> List total was
+  &#8369;{{ "{:,.2f}".format(rec.list_total_php) }}; charged
+  &#8369;{{ "{:,.2f}".format(rec.custom_total_php) }}.<br>
+  Reason: {{ rec.override_note }}
+  {% if rec.override_at %}<span class="muted"> · set {{ rec.override_at.strftime('%d %b %Y, %H:%M') }}</span>{% endif %}
+</div>
+{% endif %}
+
+{% if rec.status == 'paid' %}
+  {% if rec.tx_hash %}
+  <div class="notice notice--ok">
+    <strong>Receipt {{ rec.receipt_id }} anchored on-chain.</strong>
+    <span class="mono" style="word-break:break-all">{{ rec.tx_hash }}</span>
+  </div>
+  {% else %}
+  <div class="notice notice--warn">
+    <strong>Off-chain.</strong> The payment went through and every listed trainee is marked
+    paid — only the blockchain receipt anchor failed.
+    <form method="post" action="{{ url_for('admin.corporate_reanchor', cid=rec.id) }}"
+          style="display:inline-block;margin-left:8px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn--sm" type="submit"><i class="fa-solid fa-link"></i> Re-anchor</button>
+    </form>
+  </div>
+  {% endif %}
+{% endif %}
+
+<div class="card">
+  <div class="card__h"><i class="fa-solid fa-user-group"></i> Trainees on this invoice</div>
+  <div class="tbl__scroll">
+    <table class="tbl">
+      <thead>
+        <tr><th>Trainee</th><th>Program</th><th>Account</th><th class="num">List price</th></tr>
+      </thead>
+      <tbody>
+        {% for i in items %}
+        <tr>
+          <td>
+            <div style="font-weight:600">{{ i.fname }} {{ i.lname }}</div>
+            <div class="muted" style="font-size:12px">{{ i.email }}</div>
+          </td>
+          <td class="muted">{{ i.price_label or i.training_type }}</td>
+          <td><span class="pill pill--{{ 'paid' if i.payment_status == 'paid' else 'pending' }}">
+            {{ i.payment_status }}</span></td>
+          <td class="num mono">&#8369;{{ "{:,.2f}".format(i.price_php) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if rec.status == 'pending' %}
+<div class="card" id="pay-card">
+  <div class="card__h"><i class="fa-solid fa-credit-card"></i> Collect &#8369;{{ "{:,.2f}".format(charged) }}</div>
+  <div class="notice notice--err" id="pay-err" hidden></div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+    <button class="btn" type="button" id="tab-card"><i class="fa-solid fa-credit-card"></i> Card</button>
+    <button class="btn" type="button" id="tab-qr"><i class="fa-solid fa-qrcode"></i> QR / E-wallet</button>
+  </div>
+
+  <div id="panel-card" hidden>
+    <div class="grid-2">
+      <div class="field">
+        <label for="c-number">Card number</label>
+        <input type="text" id="c-number" inputmode="numeric" maxlength="19"
+               placeholder="1234 5678 9012 3456" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="c-name">Name on card</label>
+        <input type="text" id="c-name" placeholder="Juan dela Cruz" autocomplete="off">
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="field">
+        <label for="c-exp">Expiry (MM / YY)</label>
+        <input type="text" id="c-exp" inputmode="numeric" maxlength="7" placeholder="MM / YY">
+      </div>
+      <div class="field">
+        <label for="c-cvc">CVC</label>
+        <input type="text" id="c-cvc" inputmode="numeric" maxlength="4" placeholder="123">
+      </div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-bottom:12px">
+      <i class="fa-solid fa-shield-halved"></i>
+      PayMongo processes the card. The number never touches our servers.
+    </p>
+    <button class="btn btn--go" type="button" id="btn-pay-card">
+      <i class="fa-solid fa-lock"></i> Charge &#8369;{{ "{:,.2f}".format(charged) }}
+    </button>
+  </div>
+
+  <div id="panel-qr" hidden>
+    <div class="qrwrap">
+      <div id="qr-box" hidden>
+        <div class="qrstate" id="qr-state"><i class="fa-solid fa-circle-notch fa-spin"></i> Waiting for payment…</div>
+        <img id="qr-img" src="" alt="QRPH payment code">
+        <p class="muted" style="font-size:12px;margin-top:10px">
+          Valid until {{ rec.expires_at.strftime('%d %b %Y, %H:%M') }}
+        </p>
+        <a id="qr-test" class="btn btn--sm" href="#" target="_blank" rel="noopener" hidden>
+          <i class="fa-solid fa-flask"></i> Simulate payment (test mode)
+        </a>
+      </div>
+      <button class="btn btn--go" type="button" id="btn-gen-qr">
+        <i class="fa-solid fa-qrcode"></i> Generate QR code
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card__h"><i class="fa-solid fa-ban"></i> Cancel this invoice</div>
+  <form method="post" action="{{ url_for('admin.corporate_cancel', cid=rec.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="reason">Reason (optional)</label>
+      <input type="text" id="reason" name="reason" placeholder="e.g. Company withdrew the booking">
+    </div>
+    <button class="btn btn--danger" type="submit">Cancel invoice</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card__h"><i class="fa-solid fa-clock-rotate-left"></i> Audit trail</div>
+  {% if events %}
+  <ul class="trail">
+    {% for e in events %}
+    <li>
+      <div class="trail__act">{{ e.action.replace('_', ' ') }}</div>
+      <div class="trail__meta">
+        {{ e.created_at.strftime('%d %b %Y, %H:%M') }}
+        {%- if e.fname %} · {{ e.fname }} {{ e.lname }} ({{ role_label(e.role) }}){% else %} · system{% endif %}
+      </div>
+      {% if e.details %}<div class="trail__det">{{ e.details }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty"><i class="fa-solid fa-clock-rotate-left"></i>Nothing recorded yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if rec.status == 'pending' %}
+<script>
+(function () {
+  var CID = {{ rec.id }};
+  var CSRF = document.querySelector('meta[name="csrf-token"]').content;
+  var poll = null;
+
+  function err(msg) {
+    var box = document.getElementById('pay-err');
+    box.textContent = msg; box.hidden = !msg;
+  }
+  function post(url, body) {
+    var opts = { method: 'POST', headers: { 'X-CSRFToken': CSRF } };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(url, opts).then(function (r) { return r.json(); });
+  }
+
+  function show(which) {
+    document.getElementById('panel-card').hidden = which !== 'card';
+    document.getElementById('panel-qr').hidden = which !== 'qr';
+    err('');
+  }
+  document.getElementById('tab-card').addEventListener('click', function () { show('card'); });
+  document.getElementById('tab-qr').addEventListener('click', function () { show('qr'); });
+  show('card');
+
+  document.getElementById('c-number').addEventListener('input', function () {
+    var v = this.value.replace(/\D/g, '').substring(0, 16);
+    this.value = v.match(/.{1,4}/g) ? v.match(/.{1,4}/g).join(' ') : v;
+  });
+  document.getElementById('c-exp').addEventListener('input', function () {
+    var v = this.value.replace(/\D/g, '').substring(0, 4);
+    if (v.length >= 2) v = v.substring(0, 2) + ' / ' + v.substring(2);
+    this.value = v;
+  });
+  document.getElementById('c-cvc').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').substring(0, 4);
+  });
+
+  document.getElementById('btn-pay-card').addEventListener('click', async function () {
+    err('');
+    var num = document.getElementById('c-number').value.replace(/\s/g, '');
+    var exp = document.getElementById('c-exp').value.replace(/\s|\//g, '');
+    var cvc = document.getElementById('c-cvc').value.trim();
+    var name = document.getElementById('c-name').value.trim();
+    if (!num || exp.length < 4 || !cvc || !name) { err('Fill in all card details.'); return; }
+
+    var btn = this;
+    btn.disabled = true;
+    var label = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing…';
+    try {
+      // The amount is never sent from here — the server charges what the
+      // stored record says, in integer centavos.
+      var init = await post('/admin/corporate/' + CID + '/pay/card/initiate');
+      if (init.error) { err(init.error); return; }
+
+      var pm = await post('/admin/corporate/' + CID + '/pay/card/method', {
+        number: num, exp_month: parseInt(exp.substring(0, 2), 10),
+        exp_year: parseInt('20' + exp.substring(2, 4), 10), cvc: cvc, name: name
+      });
+      if (pm.error) { err('Card error: ' + pm.error); return; }
+
+      var att = await post('/admin/corporate/' + CID + '/pay/card/attach', {
+        payment_method_id: pm.pm_id, client_key: init.client_key
+      });
+      if (att.status === 'paid') { window.location.reload(); return; }
+      if (att.status === 'redirect') { window.location.href = att.url; return; }
+      err(att.error || 'The payment could not be completed.');
+    } catch (e) {
+      err('Something went wrong. Please try again.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = label;
+    }
+  });
+
+  document.getElementById('btn-gen-qr').addEventListener('click', async function () {
+    err('');
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var res = await post('/admin/corporate/' + CID + '/pay/qrph');
+      if (res.error || !res.qr_image) { err(res.error || 'QR code could not be generated.'); btn.disabled = false; return; }
+      document.getElementById('qr-img').src = res.qr_image;
+      document.getElementById('qr-box').hidden = false;
+      btn.hidden = true;
+      if (res.test_url) {
+        var t = document.getElementById('qr-test');
+        t.href = res.test_url; t.hidden = false;
+      }
+      startPoll();
+    } catch (e) {
+      err('QR code could not be generated.');
+      btn.disabled = false;
+    }
+  });
+
+  function startPoll() {
+    clearInterval(poll);
+    poll = setInterval(async function () {
+      try {
+        var r = await fetch('/admin/corporate/' + CID + '/poll');
+        var res = await r.json();
+        if (res.status === 'paid') {
+          clearInterval(poll);
+          document.getElementById('qr-state').innerHTML =
+            '<i class="fa-solid fa-circle-check"></i> Payment received — reloading…';
+          setTimeout(function () { window.location.reload(); }, 1200);
+        } else if (res.status === 'expired' || res.status === 'cancelled') {
+          clearInterval(poll);
+          window.location.reload();
+        }
+      } catch (e) { /* network hiccup, keep polling */ }
+    }, 3000);
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

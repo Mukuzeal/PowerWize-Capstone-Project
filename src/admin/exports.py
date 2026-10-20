@@ -3,6 +3,7 @@ import io
 from flask import session, send_file
 
 from db import get_registrations, get_users, get_solar_requests, audit_log, get_db, dict_cur
+from permissions import require
 
 from . import admin_bp, require_admin
 
@@ -32,7 +33,7 @@ def _xl_header(ws, headers):
 
 @admin_bp.route("/admin/export/registrations")
 def export_registrations():
-    resp = require_admin()
+    resp = require("view_reports")
     if resp:
         return resp
     from openpyxl import Workbook
@@ -51,7 +52,7 @@ def export_registrations():
 
 @admin_bp.route("/admin/export/users")
 def export_users():
-    resp = require_admin()
+    resp = require("view_reports")
     if resp:
         return resp
     from openpyxl import Workbook
@@ -70,7 +71,7 @@ def export_users():
 
 @admin_bp.route("/admin/export/payments")
 def export_payments():
-    resp = require_admin()
+    resp = require("view_reports")
     if resp:
         return resp
     from openpyxl import Workbook
@@ -96,7 +97,7 @@ def export_payments():
 
 @admin_bp.route("/admin/export/lms-progress")
 def export_lms_progress():
-    resp = require_admin()
+    resp = require("view_reports")
     if resp:
         return resp
     from openpyxl import Workbook
@@ -128,7 +129,9 @@ def export_lms_progress():
 
 @admin_bp.route("/admin/export/solar-requests")
 def export_solar_requests():
-    resp = require_admin()
+    # PV consultation data — gated on the same capability as /admin/solar,
+    # so Secretary cannot pull it out through the reports tab.
+    resp = require("review_solar")
     if resp:
         return resp
     from openpyxl import Workbook

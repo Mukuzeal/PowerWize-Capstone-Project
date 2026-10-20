@@ -3,6 +3,7 @@ from datetime import datetime
 
 from flask import Blueprint, request, render_template, redirect, session, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
+from permissions import home_url_for
 from db import (get_db, dict_cur, create_reset_token, get_reset_token, mark_reset_token_used,
                 reset_user_password, get_user_by_email, register_failed_login,
                 reset_login_attempts, MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES)
@@ -59,13 +60,9 @@ def auth_login():
             session["user_role"] = user["role"]
             session["user_name"] = f"{user['fname']} {user['lname']}"
             session["user_email"] = user["email"]
-            if user["role"] == "admin":
-                return redirect("/admin")
-            if user["role"] == "employee":
-                return redirect("/employee")
             if user["role"] == "trainee" and user.get("payment_status") == "unpaid":
                 return redirect("/payment")
-            return redirect("/portal")
+            return redirect(home_url_for(user["role"]))
 
     return render_template("shared/landing.html",
                            login_errors=errors, login_data=request.form)

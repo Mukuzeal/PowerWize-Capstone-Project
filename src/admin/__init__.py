@@ -1,18 +1,19 @@
-from flask import Blueprint, session, redirect, abort
+from flask import Blueprint
+
+from permissions import require
 
 admin_bp = Blueprint("admin", __name__)
 
 
 def require_admin():
-    """None if the caller may proceed; otherwise the response to return.
-    Not logged in -> send to login. Logged in as the wrong role -> 403,
-    so the user sees "you don't have access" instead of being silently
-    bounced back to the login page as if they'd never signed in."""
-    if not session.get("user_id"):
-        return redirect("/auth")
-    if session.get("user_role") != "admin":
-        abort(403)
-    return None
+    """Guard for the admin console itself.
+
+    Kept as a named helper because most of this package only needs "may this
+    person be on /admin at all"; anything narrower (creating users, reviewing
+    registrations, exporting reports) calls require(<capability>) directly so
+    the permission table in permissions.py stays the single source of truth.
+    """
+    return require("view_admin_console")
 
 
 from . import dashboard      # noqa: E402,F401
@@ -20,3 +21,5 @@ from . import users          # noqa: E402,F401
 from . import registrations  # noqa: E402,F401
 from . import analytics      # noqa: E402,F401
 from . import exports        # noqa: E402,F401
+from . import corporate      # noqa: E402,F401
+from . import discounts      # noqa: E402,F401

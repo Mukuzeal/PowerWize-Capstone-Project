@@ -22,17 +22,30 @@ def _raise(r):
         raise Exception(f"PayMongo {r.status_code}: {detail}")
 
 
-def create_payment_intent(amount_php, description):
+def _intent_attrs(amount_php, description, methods, metadata=None, amount_centavos=None):
+    """Shared payment-intent body. `amount_centavos` wins when given so a
+    caller that already holds an exact integer amount (corporate invoices)
+    never round-trips it through a float."""
+    attrs = {
+        "amount": amount_centavos if amount_centavos is not None else int(round(amount_php * 100)),
+        "payment_method_allowed": list(methods),
+        "currency": "PHP",
+        "description": description,
+        "capture_type": "automatic",
+    }
+    if metadata:
+        # Carried back to us on the webhook, which is how a gateway callback
+        # is matched to the record that created it.
+        attrs["metadata"] = {k: str(v) for k, v in metadata.items()}
+    return attrs
+
+
+def create_payment_intent(amount_php, description, metadata=None, amount_centavos=None):
     r = requests.post(
         f"{BASE}/payment_intents",
         headers=_auth(),
-        json={"data": {"attributes": {
-            "amount": int(round(amount_php * 100)),
-            "payment_method_allowed": ["card"],
-            "currency": "PHP",
-            "description": description,
-            "capture_type": "automatic",
-        }}},
+        json={"data": {"attributes": _intent_attrs(
+            amount_php, description, ["card"], metadata, amount_centavos)}},
     )
     r.raise_for_status()
     d = r.json()["data"]
@@ -91,19 +104,15 @@ def retrieve_payment_intent(pi_id):
     return result
 
 
-def create_qrph_intent(amount_php, description, return_url):
+def create_qrph_intent(amount_php, description, return_url, metadata=None,
+                       amount_centavos=None):
     """Create Payment Intent + QRPH Payment Method, attach, return QR image."""
     # 1. Create Payment Intent
     r = requests.post(
         f"{BASE}/payment_intents",
         headers=_auth(),
-        json={"data": {"attributes": {
-            "amount": int(round(amount_php * 100)),
-            "payment_method_allowed": ["qrph"],
-            "currency": "PHP",
-            "description": description,
-            "capture_type": "automatic",
-        }}},
+        json={"data": {"attributes": _intent_attrs(
+            amount_php, description, ["qrph"], metadata, amount_centavos)}},
     )
     _raise(r)
     pi         = r.json()["data"]

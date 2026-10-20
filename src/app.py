@@ -7,6 +7,8 @@ from flask import Flask, request, session, render_template, jsonify
 from flask_wtf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from db import init_db
+from permissions import current_can, role_label, home_url_for
+from rag.embeddings import warm as warm_embedder
 from auth import auth_bp
 from admin import admin_bp
 from employee_bp import employee_bp
@@ -34,6 +36,11 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 csrf = CSRFProtect(app)
 
+# Templates gate on the same permission table the routes do, so a button that
+# is hidden and the route behind it can never disagree about who may act.
+app.jinja_env.globals["can"] = current_can
+app.jinja_env.globals["role_label"] = role_label
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(employee_bp)
@@ -48,9 +55,19 @@ app.register_blueprint(validation_bp)
 csrf.exempt(app.view_functions["payment.webhook"])
 csrf.exempt(app.view_functions["upload_validation.api_face_match"])
 csrf.exempt(app.view_functions["upload_validation.validate_upload"])
+# Not a "skip CSRF" exemption like the 3 above — navigator.sendBeacon() can't
+# set a custom header, so this view reads the token from the JSON body and
+# validates it manually (see solar_chat_cancel). Exempted only from
+# Flask-WTF's automatic header/form-only check.
+csrf.exempt(app.view_functions["solar.solar_chat_cancel"])
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 init_db()
+
+# Move the fastembed/ONNX model load off the first Solara request and into boot
+# — it is a per-process cost, so otherwise the first user of every gunicorn
+# worker pays it. See rag.embeddings.warm().
+warm_embedder()
 
 @app.errorhandler(403)
 def forbidden(e):
@@ -62,8 +79,7 @@ def forbidden(e):
                  or (len(accept) > 0 and "text/html" not in accept))
     if wants_json:
         return jsonify(error="Forbidden"), 403
-    home_url = {"admin": "/admin", "employee": "/employee", "trainee": "/portal"}.get(
-        session.get("user_role"), "/auth")
+    home_url = home_url_for(session.get("user_role"))
     return render_template("shared/access_denied.html", home_url=home_url), 403
 
 @app.after_request
@@ -75,5 +91,10 @@ def set_charset(response):
     return response
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # threaded=True matters beyond raw throughput: solar_bp's cancel endpoint
+    # (Stop button, refresh/close beacon) has to reach the server WHILE a slow
+    # LM Studio call is still being read — on the single-threaded default the
+    # dev server can't even accept that connection until the blocked request
+    # finishes, so cancellation silently can't work at all.
+    app.run(debug=True, threaded=True)
 

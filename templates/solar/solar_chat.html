@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="chat-timeout-ms" content="{{ lm_studio_timeout_ms }}">
 {% endblock %}
 
 {% block main %}
@@ -73,6 +74,10 @@
           <i class="fa-solid fa-circle-info"></i>
           Solara is an AI assistant. Final quotations are reviewed by human specialists.
         </div>
+        <div class="system-notice">
+          <i class="fa-solid fa-shield-halved"></i>
+          Data privacy: information you share is used only to generate your estimate and for consultation review. Cloud-based AI processing may apply. Handled under the Data Privacy Act of 2012 (RA 10173).
+        </div>
       </div>
 
       <div class="chat-starters" id="chat-starters" hidden>
@@ -89,6 +94,7 @@
           </button>
         </div>
         <div class="input-hint"><strong>Enter</strong> to send &nbsp;·&nbsp; <strong>Shift + Enter</strong> for new line</div>
+        <div class="input-hint">AI can be wrong — please double-check important information.</div>
       </div>
 
     </div>

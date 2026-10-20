@@ -131,6 +131,10 @@ ANCHOR_VERSION = 2
 ANCHOR_FIELDS = {
     "payment":     ("receipt_id", "user_id", "paymongo_id", "amount_php", "status"),
     "certificate": ("cert_id", "user_id", "issued_at", "expires_at"),
+    # A corporate invoice has no single user_id; what has to stay tamper-proof
+    # is which company was billed, how much, and under which gateway intent.
+    "corporate_payment": ("receipt_id", "reference", "company_name",
+                          "paymongo_id", "amount_centavos", "status"),
 }
 
 

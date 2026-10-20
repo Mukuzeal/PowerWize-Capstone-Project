@@ -5,6 +5,7 @@ from flask import Blueprint, request, render_template, session, redirect
 from db import (get_schedules, insert_registration, get_registration_by_email,
                 get_user_basic_info, lms_get_modules_for_trainee, lms_get_progress,
                 lms_get_module_requirements, lms_get_certificate)
+from permissions import is_staff, home_url_for
 from site_bp import render_home, render_programs
 from utils import save_file, check_required
 
@@ -73,10 +74,8 @@ def portal():
     if "user_id" not in session:
         return redirect("/auth")
 
-    if session.get("user_role") == "admin":
-        return redirect("/admin")
-    if session.get("user_role") == "employee":
-        return redirect("/employee")
+    if is_staff():
+        return redirect(home_url_for(session.get("user_role")))
 
     # Fetch user info and their registration
     user = get_user_basic_info(session["user_id"])
@@ -84,7 +83,7 @@ def portal():
     if not user:
         return redirect("/auth/logout")
 
-    if session.get("user_role") not in ("admin", "employee") and user["payment_status"] == "unpaid":
+    if not is_staff() and user["payment_status"] == "unpaid":
         return redirect("/payment")
 
     reg = get_registration_by_email(user["email"])

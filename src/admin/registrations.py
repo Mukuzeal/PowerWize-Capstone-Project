@@ -6,6 +6,7 @@ from db import (get_db, dict_cur, set_registration_status, build_batch_label,
                 build_label_from_dates, expand_offsets, TYPE_OFFSETS,
                 create_account_token, audit_log, get_pending_selfies)
 from email_utils import send_acceptance_email
+from permissions import require
 from utils import base_url
 
 from . import admin_bp, require_admin
@@ -13,7 +14,7 @@ from . import admin_bp, require_admin
 
 @admin_bp.route("/admin/registration/<reg_id>/status/<status>", methods=["POST"])
 def admin_registration_status(reg_id, status):
-    resp = require_admin()
+    resp = require("review_registrations")
     if resp:
         return resp
     if status not in ("accepted", "rejected", "pending"):
@@ -51,7 +52,7 @@ def admin_registration_status(reg_id, status):
 
 @admin_bp.route("/admin/schedule/delete/<int:schedule_id>", methods=["POST"])
 def admin_delete_schedule(schedule_id):
-    resp = require_admin()
+    resp = require("manage_schedules")
     if resp:
         return resp
     conn = get_db()
@@ -73,7 +74,7 @@ def admin_edit_schedule(schedule_id):
     as one repeated form field per day (in whatever order the admin's edit
     dialog rendered them) — exactly as many as the batch already has, since
     this only lets you move a day, not add or remove one."""
-    resp = require_admin()
+    resp = require("manage_schedules")
     if resp:
         return resp
     conn = get_db()
@@ -107,7 +108,7 @@ def admin_edit_schedule(schedule_id):
 
 @admin_bp.route("/admin/schedule/add", methods=["POST"])
 def admin_add_schedule():
-    resp = require_admin()
+    resp = require("manage_schedules")
     if resp:
         return resp
     name      = request.form.get("name",       "").strip()
@@ -131,7 +132,7 @@ def admin_add_schedule():
 
 @admin_bp.route("/admin/registration/<reg_id>/selfie")
 def admin_registration_selfie(reg_id):
-    resp = require_admin()
+    resp = require("review_registrations")
     if resp:
         return resp
     conn = get_db()
@@ -148,7 +149,7 @@ def admin_registration_selfie(reg_id):
 
 @admin_bp.route("/admin/selfie/<reg_id>/approve", methods=["POST"])
 def admin_approve_selfie(reg_id):
-    resp = require_admin()
+    resp = require("review_registrations")
     if resp:
         return resp
     conn = get_db()
@@ -175,7 +176,7 @@ def admin_approve_selfie(reg_id):
 
 @admin_bp.route("/admin/selfie/<reg_id>/reject", methods=["POST"])
 def admin_reject_selfie(reg_id):
-    resp = require_admin()
+    resp = require("review_registrations")
     if resp:
         return resp
     reason = request.form.get("reason", "").strip()

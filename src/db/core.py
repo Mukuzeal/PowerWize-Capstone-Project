@@ -485,6 +485,152 @@ def init_db():
         )
     """)
 
+    # Best-effort — pgvector is painful to install on Windows Postgres, so
+    # retrieval defaults to REAL[] + brute-force cosine similarity in Python
+    # regardless (fine at this corpus size). This just logs whether the
+    # extension happens to be available for a future ANN-backed path; a
+    # missing extension must never block startup.
+    try:
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS rag_chunks (
+            id           SERIAL PRIMARY KEY,
+            source_type  VARCHAR(30)  NOT NULL,
+            source_ref   VARCHAR(255) NOT NULL,
+            title        VARCHAR(200) NOT NULL,
+            content      TEXT         NOT NULL,
+            visibility   VARCHAR(10)  NOT NULL DEFAULT 'public',
+            topic        VARCHAR(40)  NULL,
+            embedding    REAL[]       NOT NULL,
+            embed_model  VARCHAR(100) NOT NULL,
+            content_hash VARCHAR(64)  NOT NULL,
+            updated_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_rag_chunks_visibility ON rag_chunks (visibility)")
+
+    # ── Corporate bulk payments ───────────────────────────────────────────
+    #
+    # A company settles one invoice covering several already-approved
+    # trainees. Deliberately its own table rather than a row in `payments`:
+    # `payments.user_id` is NOT NULL and one corporate record covers many
+    # users, and the per-trainee breakdown has to survive a price override.
+    #
+    # Account creation stays invitation-only — every trainee listed here got
+    # in through the public form -> admin review -> emailed token flow, so
+    # this table only ever *pays for* existing unpaid accounts.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS corporate_payments (
+            id                  SERIAL PRIMARY KEY,
+            reference           VARCHAR(40)   NOT NULL UNIQUE,
+            company_name        VARCHAR(200)  NOT NULL,
+            contact_person      VARCHAR(200)  NOT NULL,
+            contact_email       VARCHAR(150)  NULL,
+            contact_number      VARCHAR(30)   NULL,
+            -- list_total is the sum of the per-trainee program prices;
+            -- custom_total is what staff actually charged. Both are kept so
+            -- the discount given is auditable after the fact.
+            list_total_php      DECIMAL(12,2) NOT NULL,
+            custom_total_php    DECIMAL(12,2) NULL,
+            override_note       TEXT          NULL,
+            override_by         INT           NULL,
+            override_at         TIMESTAMP     NULL,
+            -- What PayMongo was actually asked to charge, in integer
+            -- centavos, so no float rounding can reach the gateway.
+            amount_centavos     BIGINT        NOT NULL,
+            status              VARCHAR(20)   NOT NULL DEFAULT 'pending',
+            method              VARCHAR(10)   NULL,
+            paymongo_id         VARCHAR(120)  NULL,
+            expires_at          TIMESTAMP     NOT NULL,
+            paid_at             TIMESTAMP     NULL,
+            cancelled_at        TIMESTAMP     NULL,
+            created_by          INT           NULL,
+            created_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+            receipt_id          VARCHAR(30)   NULL,
+            receipt_hash        VARCHAR(66)   NULL,
+            tx_hash             VARCHAR(66)   NULL,
+            -- see payments.anchor_version
+            anchor_version      SMALLINT      DEFAULT 2,
+            qr_code_path        VARCHAR(255)  NULL,
+            FOREIGN KEY (created_by)  REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (override_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_corp_pay_status ON corporate_payments (status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_corp_pay_pmid ON corporate_payments (paymongo_id)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS corporate_payment_items (
+            id                   SERIAL PRIMARY KEY,
+            corporate_payment_id INT           NOT NULL,
+            user_id              INT           NOT NULL,
+            training_type        VARCHAR(250)  NOT NULL,
+            form_type            VARCHAR(30)   NULL,
+            price_php            DECIMAL(10,2) NOT NULL,
+            price_label          VARCHAR(150)  NULL,
+            CONSTRAINT uq_corp_item UNIQUE (corporate_payment_id, user_id),
+            FOREIGN KEY (corporate_payment_id) REFERENCES corporate_payments(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id)              REFERENCES users(id)              ON DELETE CASCADE
+        )
+    """)
+
+    # Append-only audit trail shown on the record's detail page. Separate from
+    # `audit_logs` because it is surfaced to staff inline per record, not as a
+    # global admin feed.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS corporate_payment_events (
+            id                   SERIAL PRIMARY KEY,
+            corporate_payment_id INT          NOT NULL,
+            actor_id             INT          NULL,
+            action               VARCHAR(60)  NOT NULL,
+            details              TEXT         NULL,
+            created_at           TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (corporate_payment_id) REFERENCES corporate_payments(id) ON DELETE CASCADE,
+            FOREIGN KEY (actor_id)             REFERENCES users(id)              ON DELETE SET NULL
+        )
+    """)
+
+    # ── Discount codes (individual trainees only) ─────────────────────────
+    #
+    # code_key is lower(code) with its own UNIQUE constraint — that is what
+    # makes the code case-insensitively unique and lets a lookup be an index
+    # hit instead of a sequential scan over lower(code).
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS discount_codes (
+            id            SERIAL PRIMARY KEY,
+            code          VARCHAR(40)  NOT NULL,
+            code_key      VARCHAR(40)  NOT NULL UNIQUE,
+            percent_off   SMALLINT     NOT NULL,
+            expires_on    DATE         NOT NULL,
+            max_uses      INT          NOT NULL,
+            used          INT          NOT NULL DEFAULT 0,
+            -- NULL = valid for every program; otherwise one training_type code
+            training_type VARCHAR(250) NULL,
+            is_active     SMALLINT     NOT NULL DEFAULT 1,
+            created_by    INT          NULL,
+            created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT ck_discount_pct CHECK (percent_off BETWEEN 1 AND 100),
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+    """)
+
+    # Which code a trainee's payment was taken at. Recorded when the intent is
+    # created so an amount that reached PayMongo can always be explained.
+    cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS discount_code_id INT NULL")
+    cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS discount_percent SMALLINT NULL")
+    cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS discount_amount_php DECIMAL(10,2) NULL")
+    cur.execute("""
+        ALTER TABLE payments DROP CONSTRAINT IF EXISTS fk_payments_discount_code
+    """)
+    cur.execute("""
+        ALTER TABLE payments ADD CONSTRAINT fk_payments_discount_code
+        FOREIGN KEY (discount_code_id) REFERENCES discount_codes(id) ON DELETE SET NULL
+    """)
+
     # Seed GEMP 2026 batches (only once)
     cur.execute("SELECT COUNT(*) FROM batches WHERE type='gemp_training'")
     if cur.fetchone()[0] == 0:
