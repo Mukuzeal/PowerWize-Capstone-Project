@@ -6,7 +6,7 @@ top of it would discount the same fee twice.
 """
 from datetime import datetime
 
-from flask import request, render_template, redirect, session, flash, url_for
+from flask import request, redirect, session, flash, jsonify
 
 from db import (audit_log, create_discount_code, update_discount_code,
                 set_discount_active, delete_discount_code, get_discount_codes,
@@ -75,14 +75,20 @@ def _parse(form):
             "max_uses": max_use, "training_type": program or None}, errors
 
 
+def dashboard_context():
+    """What the console's Discount Codes pane renders. Shaped here, next to the
+    feature, and handed to admin/dashboard.py — the screen is a pane of
+    /admin, not a page of its own."""
+    return {"discount_codes": get_discount_codes(), "discount_programs": PROGRAMS}
+
+
 @admin_bp.route("/admin/discounts")
 def discounts_list():
+    """Kept so existing links still resolve; the screen is now a console pane."""
     resp = require("discount_codes")
     if resp:
         return resp
-    return render_template("admin/discounts.html",
-                           codes=get_discount_codes(), programs=PROGRAMS,
-                           errors=[], form_data=None, edit_id=None)
+    return redirect("/admin#discounts")
 
 
 @admin_bp.route("/admin/discounts/create", methods=["POST"])
@@ -103,10 +109,8 @@ def discounts_create():
                       new_id, f"Created {values['code']} — {values['percent_off']}% off, "
                               f"max {values['max_uses']} uses, expires {values['expires_on']}")
             flash(f"Discount code {values['code']} created.", "success")
-            return redirect(url_for("admin.discounts_list"))
-    return render_template("admin/discounts.html", codes=get_discount_codes(),
-                           programs=PROGRAMS, errors=errors,
-                           form_data=request.form, edit_id=None), 400
+            return jsonify(ok=True, id=new_id)
+    return jsonify(errors=errors), 400
 
 
 @admin_bp.route("/admin/discounts/<int:code_id>/edit", methods=["POST"])
@@ -117,7 +121,7 @@ def discounts_edit(code_id):
     row = get_discount_code(code_id)
     if not row:
         flash("That discount code no longer exists.", "error")
-        return redirect(url_for("admin.discounts_list"))
+        return redirect("/admin#discounts")
     values, errors = _parse(request.form)
     if not errors and values["max_uses"] < (row["used"] or 0):
         errors.append(f"Maximum redemptions cannot be lower than the "
@@ -130,11 +134,9 @@ def discounts_edit(code_id):
                       code_id, f"Edited {values['code']} — {values['percent_off']}% off, "
                                f"max {values['max_uses']} uses, expires {values['expires_on']}")
             flash(f"Discount code {values['code']} updated.", "success")
-            return redirect(url_for("admin.discounts_list"))
+            return jsonify(ok=True, id=code_id)
         errors.append(f"The code \"{values['code']}\" is already used by another entry.")
-    return render_template("admin/discounts.html", codes=get_discount_codes(),
-                           programs=PROGRAMS, errors=errors,
-                           form_data=request.form, edit_id=code_id), 400
+    return jsonify(errors=errors), 400
 
 
 @admin_bp.route("/admin/discounts/<int:code_id>/toggle", methods=["POST"])
@@ -145,7 +147,7 @@ def discounts_toggle(code_id):
     row = get_discount_code(code_id)
     if not row:
         flash("That discount code no longer exists.", "error")
-        return redirect(url_for("admin.discounts_list"))
+        return redirect("/admin#discounts")
     activate = not row["is_active"]
     set_discount_active(code_id, activate)
     audit_log(session.get("user_id"),
@@ -154,7 +156,7 @@ def discounts_toggle(code_id):
               f"{'Activated' if activate else 'Deactivated'} {row['code']}")
     flash(f"{row['code']} {'activated' if activate else 'deactivated'}.",
           "success" if activate else "warning")
-    return redirect(url_for("admin.discounts_list"))
+    return redirect("/admin#discounts")
 
 
 @admin_bp.route("/admin/discounts/<int:code_id>/delete", methods=["POST"])
@@ -165,9 +167,9 @@ def discounts_delete(code_id):
     row = get_discount_code(code_id)
     if not row:
         flash("That discount code no longer exists.", "error")
-        return redirect(url_for("admin.discounts_list"))
+        return redirect("/admin#discounts")
     delete_discount_code(code_id)
     audit_log(session.get("user_id"), "discount_code_deleted", "discount_code",
               code_id, f"Deleted {row['code']} (had {row['used']} redemption(s))")
     flash(f"Discount code {row['code']} deleted.", "error")
-    return redirect(url_for("admin.discounts_list"))
+    return redirect("/admin#discounts")

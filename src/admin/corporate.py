@@ -68,26 +68,44 @@ def _programs_for(trainee):
     return out
 
 
-# ── List ──────────────────────────────────────────────────────────────────────
+# ── Dashboard section ─────────────────────────────────────────────────────────
+
+def dashboard_context():
+    """Everything the admin console's Corporate Payments pane renders.
+
+    This screen lives inside /admin as a hash-routed section like every other
+    pane, so the data is shaped here (next to the feature) and handed to
+    admin/dashboard.py rather than served from a page of its own.
+    """
+    expire_stale_corporate_payments()
+    records = get_corporate_payments()
+    totals = {st: 0 for st in STATUSES}
+    for r in records:
+        if r["status"] in totals:
+            totals[r["status"]] += 1
+
+    trainees = get_unpaid_trainees()
+    for t in trainees:
+        t["programs"] = _programs_for(t)
+        t["default_price"] = _price_for(t)["total"]
+
+    return {
+        "corp_records":  records,
+        "corp_totals":   totals,
+        "corp_statuses": STATUSES,
+        "corp_trainees": trainees,
+        "corp_default_expiry_hours": DEFAULT_EXPIRY_HOURS,
+    }
+
 
 @admin_bp.route("/admin/corporate")
 def corporate_list():
+    """Kept so existing links and bookmarks still resolve; the screen itself is
+    now a pane of the console."""
     resp = require("corporate_payments")
     if resp:
         return resp
-    expire_stale_corporate_payments()
-    status = request.args.get("status", "").strip()
-    q      = request.args.get("q", "").strip()
-    if status not in STATUSES:
-        status = ""
-    records = get_corporate_payments(status=status or None, q=q or None)
-    totals = {s: 0 for s in STATUSES}
-    for r in get_corporate_payments():
-        if r["status"] in totals:
-            totals[r["status"]] += 1
-    return render_template("admin/corporate_list.html",
-                           records=records, status=status, q=q,
-                           statuses=STATUSES, totals=totals)
+    return redirect("/admin#corporate")
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
@@ -98,15 +116,14 @@ def corporate_new():
     if resp:
         return resp
 
+    if request.method == "GET":
+        # The create form is a modal on the console pane, not a page.
+        return redirect("/admin#corporate")
+
     trainees = get_unpaid_trainees()
     for t in trainees:
         t["programs"] = _programs_for(t)
         t["default_price"] = _price_for(t)["total"]
-
-    if request.method == "GET":
-        return render_template("admin/corporate_form.html", trainees=trainees,
-                               errors=[], form_data=None,
-                               default_expiry_hours=DEFAULT_EXPIRY_HOURS)
 
     f = request.form
     company_name   = f.get("company_name", "").strip()
@@ -164,9 +181,9 @@ def corporate_new():
                 errors.append("A note is required when overriding the computed total.")
 
     if errors:
-        return render_template("admin/corporate_form.html", trainees=trainees,
-                               errors=errors, form_data=f,
-                               default_expiry_hours=DEFAULT_EXPIRY_HOURS), 400
+        # The modal posts over XHR so it can show these inline and keep what
+        # the staff member already typed.
+        return jsonify(errors=errors), 400
 
     amount_php      = custom_total if custom_total is not None else round(list_total, 2)
     amount_centavos = to_centavos(amount_php)
@@ -189,7 +206,7 @@ def corporate_new():
     audit_log(session.get("user_id"), "corporate_payment_created", "corporate_payment",
               cid, detail)
     flash(f"Corporate invoice {reference} created.", "success")
-    return redirect(url_for("admin.corporate_detail", cid=cid))
+    return jsonify(ok=True, id=cid, reference=reference)
 
 
 # ── Detail ────────────────────────────────────────────────────────────────────
@@ -199,12 +216,26 @@ def corporate_detail(cid):
     resp = require("corporate_payments")
     if resp:
         return resp
+    return redirect("/admin#corporate")
+
+
+@admin_bp.route("/admin/corporate/<int:cid>/panel")
+def corporate_panel(cid):
+    """Server-rendered body for the record's modal.
+
+    Returned as an HTML fragment rather than JSON: the panel is mostly static
+    markup (summary, trainee table, audit trail), and rendering it in Jinja
+    keeps it consistent with the rest of the console instead of duplicating
+    the layout as string concatenation in JavaScript.
+    """
+    resp = require("corporate_payments")
+    if resp:
+        return resp
     expire_stale_corporate_payments()
     rec = get_corporate_payment(cid=cid)
     if not rec:
-        flash("That corporate payment no longer exists.", "error")
-        return redirect(url_for("admin.corporate_list"))
-    return render_template("admin/corporate_detail.html",
+        return "<p class=\"empty\">That corporate payment no longer exists.</p>", 404
+    return render_template("admin/_corporate_panel.html",
                            rec=rec,
                            items=get_corporate_items(cid),
                            events=get_corporate_events(cid))
@@ -218,7 +249,7 @@ def corporate_cancel(cid):
     rec = get_corporate_payment(cid=cid)
     if not rec:
         flash("That corporate payment no longer exists.", "error")
-        return redirect(url_for("admin.corporate_list"))
+        return redirect("/admin#corporate")
     if cancel_corporate_payment(cid):
         reason = request.form.get("reason", "").strip()
         add_corporate_event(cid, session.get("user_id"), "cancelled",
@@ -228,7 +259,7 @@ def corporate_cancel(cid):
         flash("Invoice cancelled.", "warning")
     else:
         flash("Only a pending invoice can be cancelled.", "error")
-    return redirect(url_for("admin.corporate_detail", cid=cid))
+    return redirect("/admin#corporate")
 
 
 # ── Payment: shared guards ────────────────────────────────────────────────────
@@ -388,7 +419,7 @@ def corporate_card_return(cid):
         return resp
     rec = get_corporate_payment(cid=cid)
     if not rec or not rec["paymongo_id"]:
-        return redirect(url_for("admin.corporate_detail", cid=cid))
+        return redirect("/admin#corporate")
     try:
         pi = paymongo.retrieve_payment_intent(rec["paymongo_id"])
         if pi["status"] == "succeeded":
@@ -398,7 +429,7 @@ def corporate_card_return(cid):
             flash("The card payment was not completed.", "error")
     except Exception as e:
         flash(f"Could not confirm the payment: {e}", "error")
-    return redirect(url_for("admin.corporate_detail", cid=cid))
+    return redirect("/admin#corporate")
 
 
 # ── Settlement ────────────────────────────────────────────────────────────────
@@ -473,7 +504,7 @@ def corporate_reanchor(cid):
     rec = get_corporate_payment(cid=cid)
     if not rec:
         flash("That corporate payment no longer exists.", "error")
-        return redirect(url_for("admin.corporate_list"))
+        return redirect("/admin#corporate")
     if rec.get("tx_hash"):
         flash("This receipt is already anchored on-chain.", "success")
     elif rec["status"] != "paid":
@@ -482,7 +513,7 @@ def corporate_reanchor(cid):
         flash("Receipt successfully anchored on-chain.", "success")
     else:
         flash("Re-anchor attempt failed again — still Off-chain.", "warning")
-    return redirect(url_for("admin.corporate_detail", cid=cid))
+    return redirect("/admin#corporate")
 
 
 def _notify_creator(rec):

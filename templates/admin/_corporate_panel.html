@@ -1,0 +1,174 @@
+{# Body of the Corporate Payments detail modal, fetched by openCorpDetail().
+   A server-rendered fragment rather than JS string building: it is mostly
+   static markup, so Jinja keeps it consistent with the rest of the console. #}
+{% set charged = rec.amount_centavos / 100 %}
+
+<div class="stats-grid" style="margin-bottom:1.25rem">
+  <div class="stat-card c-blue">
+    <div class="s-label">List total</div>
+    <div class="s-value">&#8369;{{ "{:,.2f}".format(rec.list_total_php) }}</div>
+    <div class="s-sub">{{ items|length }} trainee(s) at published prices</div>
+  </div>
+  <div class="stat-card c-green">
+    <div class="s-label">Charged</div>
+    <div class="s-value">&#8369;{{ "{:,.2f}".format(charged) }}</div>
+    <div class="s-sub">{{ rec.amount_centavos }} centavos</div>
+  </div>
+  <div class="stat-card c-gold">
+    <div class="s-label">{{ 'Paid' if rec.status == 'paid' else 'Expires' }}</div>
+    <div class="s-value" style="font-size:14px">
+      {% if rec.status == 'paid' and rec.paid_at %}{{ rec.paid_at.strftime('%d %b %Y, %H:%M') }}
+      {% else %}{{ rec.expires_at.strftime('%d %b %Y, %H:%M') }}{% endif %}
+    </div>
+    <div class="s-sub">{{ rec.method or 'no method yet' }}</div>
+  </div>
+</div>
+
+{% if rec.custom_total_php is not none %}
+<div class="corp-note corp-note--warn">
+  <strong>Price override.</strong>
+  List total was &#8369;{{ "{:,.2f}".format(rec.list_total_php) }}; charged
+  &#8369;{{ "{:,.2f}".format(rec.custom_total_php) }}.<br>
+  Reason: {{ rec.override_note }}
+  {% if rec.override_at %}<span style="color:var(--text-tertiary)"> · set {{ rec.override_at.strftime('%d %b %Y, %H:%M') }}</span>{% endif %}
+</div>
+{% endif %}
+
+{% if rec.status == 'paid' %}
+  {% if rec.tx_hash %}
+  <div class="corp-note corp-note--ok">
+    <strong>Receipt {{ rec.receipt_id }} anchored on-chain.</strong><br>
+    <span style="font-size:11px;word-break:break-all">{{ rec.tx_hash }}</span>
+  </div>
+  {% else %}
+  <div class="corp-note corp-note--warn">
+    <strong>Off-chain.</strong> The payment went through and every listed trainee is
+    marked paid — only the blockchain receipt anchor failed.
+    <form method="post" action="{{ url_for('admin.corporate_reanchor', cid=rec.id) }}"
+          style="display:inline-block;margin-left:8px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn-docs" type="submit"><i class="fa-solid fa-link"></i> Re-anchor</button>
+    </form>
+  </div>
+  {% endif %}
+{% endif %}
+
+<div class="corp-sub">Trainees on this invoice</div>
+<div class="table-card" style="margin-bottom:1.25rem">
+  <table style="min-width:520px">
+    <thead>
+      <tr><th>Trainee</th><th>Program</th><th>Account</th><th style="text-align:right">List price</th></tr>
+    </thead>
+    <tbody>
+      {% for i in items %}
+      <tr>
+        <td>
+          <div style="font-weight:600;font-size:13px">{{ i.fname }} {{ i.lname }}</div>
+          <div style="font-size:11px;color:var(--gray)">{{ i.email }}</div>
+        </td>
+        <td style="font-size:12px;color:var(--gray)">{{ i.price_label or i.training_type }}</td>
+        <td>
+          <span class="badge {{ 'b-accepted' if i.payment_status == 'paid' else 'b-pending' }}">
+            {{ i.payment_status }}
+          </span>
+        </td>
+        <td class="corp-num">&#8369;{{ "{:,.2f}".format(i.price_php) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if rec.status == 'pending' %}
+<div class="corp-sub">Collect &#8369;{{ "{:,.2f}".format(charged) }}</div>
+<div id="corp-pay-err" class="corp-note corp-note--err" style="display:none"></div>
+
+<div class="corp-tabs">
+  <button type="button" class="corp-tab active" id="corp-tab-card"
+          onclick="corpTab('card', this)"><i class="fa-solid fa-credit-card"></i> Card</button>
+  <button type="button" class="corp-tab" id="corp-tab-qr"
+          onclick="corpTab('qr', this)"><i class="fa-solid fa-qrcode"></i> QR / E-wallet</button>
+</div>
+
+<div id="corp-panel-card" class="corp-pay-panel">
+  <div class="corp-grid-2">
+    <div>
+      <label class="corp-lab" for="corp-c-number">Card number</label>
+      <input class="corp-in" type="text" id="corp-c-number" inputmode="numeric"
+             maxlength="19" placeholder="1234 5678 9012 3456" autocomplete="off">
+    </div>
+    <div>
+      <label class="corp-lab" for="corp-c-name">Name on card</label>
+      <input class="corp-in" type="text" id="corp-c-name" placeholder="Juan dela Cruz" autocomplete="off">
+    </div>
+    <div>
+      <label class="corp-lab" for="corp-c-exp">Expiry (MM / YY)</label>
+      <input class="corp-in" type="text" id="corp-c-exp" inputmode="numeric"
+             maxlength="7" placeholder="MM / YY">
+    </div>
+    <div>
+      <label class="corp-lab" for="corp-c-cvc">CVC</label>
+      <input class="corp-in" type="text" id="corp-c-cvc" inputmode="numeric"
+             maxlength="4" placeholder="123">
+    </div>
+  </div>
+  <p class="corp-hint"><i class="fa-solid fa-shield-halved"></i>
+     PayMongo processes the card. The number never touches our servers.</p>
+  <button type="button" class="btn-add" id="corp-btn-card" onclick="corpPayCard({{ rec.id }})">
+    <i class="fa-solid fa-lock"></i> Charge &#8369;{{ "{:,.2f}".format(charged) }}
+  </button>
+</div>
+
+<div id="corp-panel-qr" class="corp-pay-panel" style="display:none">
+  <div style="text-align:center">
+    <div id="corp-qr-box" style="display:none">
+      <div id="corp-qr-state" class="corp-hint" style="justify-content:center">
+        <i class="fa-solid fa-circle-notch fa-spin"></i> Waiting for payment…
+      </div>
+      <img id="corp-qr-img" src="" alt="QRPH payment code"
+           style="max-width:220px;width:100%;background:#fff;padding:10px;border-radius:10px">
+      <p class="corp-hint" style="justify-content:center">
+        Valid until {{ rec.expires_at.strftime('%d %b %Y, %H:%M') }}
+      </p>
+      <a id="corp-qr-test" class="btn-docs" href="#" target="_blank" rel="noopener"
+         style="display:none"><i class="fa-solid fa-flask"></i> Simulate payment (test mode)</a>
+    </div>
+    <button type="button" class="btn-add" id="corp-btn-qr" onclick="corpGenQR({{ rec.id }})">
+      <i class="fa-solid fa-qrcode"></i> Generate QR code
+    </button>
+  </div>
+</div>
+
+<div class="corp-sub">Cancel this invoice</div>
+<form method="post" action="{{ url_for('admin.corporate_cancel', cid=rec.id) }}"
+      style="margin-bottom:1.25rem">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="corp-grid-2" style="align-items:end">
+    <div>
+      <label class="corp-lab" for="corp-reason">Reason (optional)</label>
+      <input class="corp-in" type="text" id="corp-reason" name="reason"
+             placeholder="e.g. Company withdrew the booking">
+    </div>
+    <div><button class="btn-reject" type="submit"><i class="fa-solid fa-ban"></i> Cancel invoice</button></div>
+  </div>
+</form>
+{% endif %}
+
+<div class="corp-sub">Audit trail</div>
+{% if events %}
+<ul class="corp-trail">
+  {% for e in events %}
+  <li>
+    <div class="corp-trail-act">{{ e.action.replace('_', ' ') }}</div>
+    <div class="corp-trail-meta">
+      {{ e.created_at.strftime('%d %b %Y, %H:%M') }}
+      {%- if e.fname %} · {{ e.fname }} {{ e.lname }} ({{ role_label(e.role) }})
+      {%- else %} · system{% endif %}
+    </div>
+    {% if e.details %}<div class="corp-trail-det">{{ e.details }}</div>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty" style="padding:1.5rem">Nothing recorded yet.</p>
+{% endif %}

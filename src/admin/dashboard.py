@@ -41,6 +41,17 @@ def admin():
     # to leak through view-source either.
     solar_requests = get_solar_requests() if current_can("review_solar") else []
 
+    # Billing panes. Imported inside the view so this module stays independent
+    # of the package's import order, and gated the same way the nav is: a role
+    # that cannot see a pane never has its data rendered into the page.
+    extra = {}
+    if current_can("corporate_payments"):
+        from .corporate import dashboard_context as corporate_context
+        extra.update(corporate_context())
+    if current_can("discount_codes"):
+        from .discounts import dashboard_context as discounts_context
+        extra.update(discounts_context())
+
     return render_template("admin/admin.html",
                            registrations=get_registrations(),
                            pending_selfies=get_pending_selfies(),
@@ -51,4 +62,5 @@ def admin():
                            solar_requests=solar_requests,
                            modules=modules,
                            archived_modules=archived_modules,
-                           trainee_progress=trainee_progress)
+                           trainee_progress=trainee_progress,
+                           **extra)
