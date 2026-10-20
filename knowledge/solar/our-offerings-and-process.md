@@ -25,14 +25,15 @@ Everything Solara or the request form produces before specialist review is expli
 
 EnergyWize Solutions Inc. (E-Wize Solutions) is a DOE-Registered Energy Service Company (ESCO) and a DOE-Recognized Training Institution (RTI).
 
-Services offered:
+Training programs are aligned with Republic Act No. 11285 (Energy Efficiency and Conservation Act).
+
+## Other services EnergyWize provides
+
 - Comprehensive energy audits (Level 1, Level 2, and Investment Grade) and compliance consulting.
 - Energy Management Systems (EnMS) development and support, aligned with ISO 50001.
 - Solar PV system sales, design, and installation.
 - Supply of electrical products and energy-efficient technologies.
 - MEPF (mechanical, electrical, plumbing, fire protection) solutions.
-
-Training programs are aligned with Republic Act No. 11285 (Energy Efficiency and Conservation Act).
 
 ## Tone note
 
