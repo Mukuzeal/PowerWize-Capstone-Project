@@ -36,6 +36,8 @@ Edit any file under `knowledge/solar/` and re-run the indexer (no `--rebuild` ne
 
 Every fact not already sourced from code carries a `TODO: verify ...` marker — treat those as unverified until checked against a real source (DOE/ERC/DU guideline, manufacturer datasheet) before relying on them for a real customer conversation.
 
+**"Licensed" is intentionally not claimed anywhere in the knowledge base.** EnergyWize's DOE status is documented as *registered* (ESCO) and *recognized* (RTI) — see `our-offerings-and-process.md`'s "DOE registration" section and `faq.md`'s "Is EnergyWize certified?" entry. Don't add "licensed" to either until the team supplies a real source for it; `_DOE_SELF_CLAIM_RE`/`_context_supports_doe_claim` in `solar_bp.py` only ground what the KB actually states, so an unsupported "licensed" claim from the model gets trimmed regardless — but the KB itself shouldn't assert it first.
+
 ## Where the calculation assumptions live
 
 `src/solar_engine.py::compute()` — the single deterministic source for system size, panel count, cost range, battery sizing, savings, and payback. Named module-level constants (`ELECTRICITY_RATE`, `PEAK_SUN_HOURS`, `COST_MIN_PER_KWP`/`COST_MAX_PER_KWP`, `PANEL_WATTAGE_W`, `MAINTENANCE_ANNUAL_PCT`, the battery cost/DOD/autonomy constants) are what to edit to change an assumption — update the constant, not any prompt text. `ELECTRICITY_RATE` specifically carries a `TODO: verify ... against the current published Meralco/DU rate` comment; confirm it before trusting it for a real quotation.
