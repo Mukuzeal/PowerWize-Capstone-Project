@@ -95,7 +95,7 @@ def _strip_emojis(text: str) -> str:
     return stripped.strip()
 
 
-def _detect_repetition(text: str, min_repeats: int = 3) -> str:
+def _detect_repetition(text: str, min_repeats: int = 3, min_phrase_words: int = 4) -> str:
     """Deterministic loop guard: small local models occasionally degenerate
     into repeating the same sentence instead of stopping cleanly (observed on
     qwen3-vl-4b, specifically on Tagalog off-topic redirects). If any
@@ -112,6 +112,24 @@ def _detect_repetition(text: str, min_repeats: int = 3) -> str:
             first_idx = next(i for i, s2 in enumerate(sentences)
                               if re.sub(r"\s+", " ", s2.strip().lower()) == norm)
             return " ".join(sentences[:first_idx]).strip()
+
+    # Hard cap, 2026-10-14: the sentence-level check above only catches an
+    # EXACT normalized-sentence match, and missed a live loop where a
+    # 2-sentence block repeated 3+ times with tiny punctuation/quote-
+    # character drift between "identical" repeats (a trailing period or a
+    # curly vs straight quote defeats the exact-string comparison). This
+    # works on raw words instead of sentences, so it isn't thrown off by
+    # punctuation: any run of 4+ consecutive words that repeats 3+ times
+    # anywhere in the text truncates to just before its first occurrence.
+    words = re.findall(r"\S+", text)
+    phrase_first_seen = {}
+    for i in range(len(words) - min_phrase_words + 1):
+        phrase = " ".join(w.lower() for w in words[i:i + min_phrase_words])
+        occurrences = phrase_first_seen.setdefault(phrase, [])
+        occurrences.append(i)
+        if len(occurrences) >= min_repeats:
+            return " ".join(words[:occurrences[0]]).strip()
+
     return text
 
 
@@ -401,7 +419,7 @@ def _ai_chat(messages: list, system: str, system_safe: str = None,
             return _RATE_LIMITED_MSG
 
     text = _strip_emojis(_detect_repetition(_strip_think(text)))
-    if len(text.strip()) < 15:
+    if len(text.strip()) < 60:
         last_user = messages[-1]["content"] if messages else ""
         text = _pick_canned(last_user, _GENERIC_RETRY_EN, _GENERIC_RETRY_TL)
     return text
@@ -1265,7 +1283,7 @@ def _looks_like_short_taglish_cost_followup(user_msg: str) -> bool:
 # registered/recognized" too, since they're all the same underlying
 # question about EnergyWize's official status.
 _CERTIFICATION_HINTS = (
-    "certified", "certification", "licensed", "license", "accredited", "accreditation",
+    "certified", "certification", "accredited", "accreditation",
     "doe registered", "doe-registered", "doe recognized", "doe-recognized", "doe recognised",
     "lisensyado", "sertipikado",
 )
@@ -1274,9 +1292,36 @@ _CERTIFICATION_HINTS = (
 # different (unanswered) question from asking about DOE registration.
 _LICENSE_SPECIFIC_HINTS = ("licensed", "license", "lisensyado")
 
+# 2026-10-14, third pass: "licensed"/"license" live outside _CERTIFICATION_
+# HINTS now — "Do I need a licensed electrician for solar?" and "Kailangan
+# ba ng licensed electrician?" both contain the bare word and were getting
+# misrouted into this company-status template, a completely different
+# question (whether the CUSTOMER needs a licensed electrician — a safety
+# question CHAT_BASE_SYSTEM's own ACCURACY rule already answers correctly
+# on its own) hijacked by the trigger meant for "is EnergyWize licensed?".
+# Matched via negative lookahead instead of dropping the word entirely —
+# "Is EnergyWize licensed?" (no "electrician"/"professional" following)
+# must still trigger this path.
+_LICENSE_WORD_RE = re.compile(r"\blicense[d]?\b(?!\s+(?:electrician|professional))", re.IGNORECASE)
+
+# 2026-10-14, fourth pass: a rag_eval.py run caught a compound question —
+# "Do you install nationwide, are your technicians licensed, and do you
+# offer financing with no hidden fees?" — getting swallowed whole by this
+# trigger (via the bare "licensed") and answered with ONLY the DOE
+# template, silently dropping the nationwide/financing/hidden-fees clauses
+# the rest of the question asked about. Every genuine certification/
+# other-services question tested so far is short (3-8 words); a longer,
+# clearly multi-topic message is routed to the normal grounded chat
+# instead, where each claim gets checked individually.
+_FIXED_ANSWER_MAX_WORDS = 12
+
 
 def _looks_like_certification_question(user_msg: str) -> bool:
+    if len(_words(user_msg)) > _FIXED_ANSWER_MAX_WORDS:
+        return False
     t = user_msg.lower()
+    if _LICENSE_WORD_RE.search(t):
+        return True
     return any(h in t for h in _CERTIFICATION_HINTS)
 
 
@@ -1312,25 +1357,62 @@ def _answer_certification_turn(user_msg: str) -> str:
 # _answer_certification_turn: skip retrieval and the model, answer from a
 # fixed template built straight from the KB section's own bullets.
 _OTHER_SERVICES_HINTS = (
-    "besides solar", "other than solar", "aside from solar", "other services",
-    "else do you offer", "else do you provide",
+    "besides solar", "other than solar", "aside from solar", "apart from solar", "other services",
+    "else do you offer", "else do you provide", "energy audit",
+    # 2026-10-14, second pass: a plain "What services do you offer?" (no
+    # "other"/"else"/"besides") hit none of the above and fell through to
+    # the model entirely — rag_eval.py's new fixed_answer cases caught it.
+    "what services", "services do you offer", "services do you provide",
     "bukod sa solar", "maliban sa solar",
 )
 
+# 2026-10-14, second pass: a question phrased to specifically EXCLUDE solar
+# ("...besides solar?") still had the template answer list "solar PV
+# system sales, design, and installation" as one of the "other" services —
+# technically a true fact (it IS one of the five bullets EnergyWize's DOE
+# registration covers), but a strange thing to include in direct answer to
+# a question that just excluded it. Checked separately from
+# _OTHER_SERVICES_HINTS (which only decides whether this is an
+# "other services" question at all) via the bare connector word, not
+# "<word> solar" — broader on purpose so "what else, besides the basics,
+# do you offer?" still omits it too.
+_EXCLUDES_SOLAR_WORDS = ("besides", "other than", "aside from", "apart from", "bukod sa", "maliban sa")
+
 
 def _looks_like_other_services_question(user_msg: str) -> bool:
+    # Same compound-question guard as _looks_like_certification_question.
+    if len(_words(user_msg)) > _FIXED_ANSWER_MAX_WORDS:
+        return False
     t = user_msg.lower()
     return any(h in t for h in _OTHER_SERVICES_HINTS)
 
 
-_OTHER_SERVICES_ANSWER = (
+def _other_services_excludes_solar(user_msg: str) -> bool:
+    t = user_msg.lower()
+    return any(w in t for w in _EXCLUDES_SOLAR_WORDS)
+
+
+_OTHER_SERVICES_ANSWER_FULL = (
+    "EnergyWize's services include comprehensive energy audits (Level 1, Level 2, "
+    "and Investment Grade) and compliance consulting; Energy Management Systems "
+    "(EnMS) development and support, aligned with ISO 50001; solar PV system "
+    "sales, design, and installation; supply of electrical products and "
+    "energy-efficient technologies; and MEPF (mechanical, electrical, plumbing, "
+    "fire protection) solutions."
+)
+_OTHER_SERVICES_ANSWER_EXCLUDING_SOLAR = (
     "Beyond solar PV, EnergyWize's services include comprehensive energy audits "
     "(Level 1, Level 2, and Investment Grade) and compliance consulting; Energy "
     "Management Systems (EnMS) development and support, aligned with ISO 50001; "
-    "solar PV system sales, design, and installation; supply of electrical "
-    "products and energy-efficient technologies; and MEPF (mechanical, "
-    "electrical, plumbing, fire protection) solutions."
+    "supply of electrical products and energy-efficient technologies; and MEPF "
+    "(mechanical, electrical, plumbing, fire protection) solutions."
 )
+
+
+def _answer_other_services_turn(user_msg: str) -> str:
+    if _other_services_excludes_solar(user_msg):
+        return _OTHER_SERVICES_ANSWER_EXCLUDING_SOLAR
+    return _OTHER_SERVICES_ANSWER_FULL
 
 
 def _looks_like_worth_it_question(text: str) -> bool:
@@ -1981,14 +2063,21 @@ _DOE_SELF_CLAIM_RE = re.compile(
 # shapes, these words are flagged wherever they appear at all — strictly
 # broader than (and replaces) the first-pass regex. Includes the Tagalog
 # equivalents since a Taglish reply can assert the identical unverified
-# claim in Tagalog. Known, accepted trade-off: this also flags a
-# genuinely grounded, unrelated use like "needs a licensed electrician"
-# (installation-and-maintenance.md's own Safety section) — no attempt is
-# made to distinguish "EnergyWize is licensed" from "hire a licensed
-# electrician"; both get trimmed. Caller's choice to accept that cost for
-# the simplicity of a single unconditional word check.
+# claim in Tagalog.
+#
+# Third pass, same day: that word-anywhere net also caught a genuinely
+# grounded, unrelated use — "needs a licensed electrician or has to go
+# through the distribution utility" is installation-and-maintenance.md's
+# own Safety section (and CHAT_BASE_SYSTEM's own ACCURACY rule), about a
+# THIRD PARTY the customer hires, not a claim about EnergyWize. Tested live
+# on "Do I need a licensed electrician for solar?" and confirmed the
+# answer was discarded entirely. Exempted via negative lookahead — only
+# "licensed"/"licensed electrician"/"licensed professional"; "certified"/
+# "accredited" have no equivalent grounded third-party use in this domain,
+# so they stay fully unconditional.
 _UNGROUNDED_CERTIFICATION_WORDS_RE = re.compile(
-    r"\b(certified|licensed|accredited|lisensyado|sertipikado)\b",
+    r"\b(certified|accredited|lisensyado|sertipikado)\b"
+    r"|\blicensed\b(?!\s+(?:electrician|professional))",
     re.IGNORECASE,
 )
 # NOT "smart monitoring" alone — that offering IS documented
@@ -2925,8 +3014,8 @@ def solar_chat_msg():
             # Fixed answer, fixed source — see _answer_certification_turn.
             text = _answer_certification_turn(user_msg)
         elif is_other_services_question:
-            # Fixed answer, fixed source — see _OTHER_SERVICES_ANSWER.
-            text = _OTHER_SERVICES_ANSWER
+            # Fixed answer, fixed source — see _answer_other_services_turn.
+            text = _answer_other_services_turn(user_msg)
         elif canned_text is not None:
             text = canned_text
         elif suitability is not None:
