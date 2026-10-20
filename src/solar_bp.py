@@ -967,14 +967,44 @@ def _language_instruction(user_msg: str, history: list = None) -> str:
     Taglish conversation. When the current message has zero marker hits
     (not even a weak one) and a prior turn is available, inherit that
     turn's language instead of guessing English."""
+    if _resolve_taglish(user_msg, history):
+        return "\nLANGUAGE: Reply in the same Taglish style the user used.\n"
+    return "\nLANGUAGE: Reply in English.\n"
+
+
+def _resolve_taglish(user_msg: str, history: list = None) -> bool:
+    """The actual yes/no language decision behind _language_instruction,
+    pulled out so the post-generation compliance check (see
+    _reply_has_tagalog_marker / the regenerate-once-then-fallback logic in
+    _answer_general_turn) can ask the identical question the directive was
+    built from, instead of re-deriving it and risking the two drifting
+    apart."""
     text_for_detection = user_msg
     if not ({w for w in _words(user_msg) if w in _TAGALOG_MARKERS}):
         prev = _previous_user_message(history)
         if prev is not None:
             text_for_detection = prev
-    if _looks_taglish(text_for_detection):
-        return "\nLANGUAGE: Reply in the same Taglish style the user used.\n"
-    return "\nLANGUAGE: Reply in English.\n"
+    return _looks_taglish(text_for_detection)
+
+
+def _reply_has_tagalog_marker(text: str) -> bool:
+    return bool({w for w in _words(text) if w in _TAGALOG_MARKERS})
+
+
+# 2026-10-14: a rag_eval.py run caught the plain LANGUAGE directive being
+# ignored outright 3/10 times on short, context-dependent Taglish follow-
+# ups ("magkano?", "ilan panels?", "paano yun?") — the directive was
+# correctly set to Taglish every time (confirmed via _resolve_taglish),
+# so this is model non-compliance, not a detection gap. Rather than trust
+# a stronger wording to fix compliance on the first try either, this is
+# used for exactly one regeneration attempt; if that also comes back with
+# no Tagalog marker, _answer_general_turn gives up on the model entirely
+# and returns the fixed _GENERIC_RETRY_TL canned reply.
+_STRONGER_TAGLISH_INSTRUCTION = (
+    "\nLANGUAGE (retry — your previous reply ignored this): You MUST write this reply in "
+    "Tagalog/Taglish, mixing natural Filipino words and sentence structure throughout — not "
+    "plain English with an occasional Filipino word. This is not optional.\n"
+)
 
 
 # Fixed, LLM-free replies. Used when the deterministic topic gate says a
@@ -1223,6 +1253,84 @@ def _looks_like_short_taglish_cost_followup(user_msg: str) -> bool:
     if not words or len(words) >= _SHORT_FOLLOWUP_MAX_WORDS:
         return False
     return bool(set(words) & _SHORT_FOLLOWUP_COST_MARKERS)
+
+
+# 2026-10-14: "Are you certified?" kept reaching the model, which — primed
+# by faq.md's own "Is EnergyWize certified?" heading — answered "Yes, ...
+# is certified" even though the KB never actually says that (only
+# "registered"/"recognized"). Rather than keep hardening the trim checks
+# against every paraphrase the model invents, this question type gets a
+# fixed Python answer and never reaches the model at all — same philosophy
+# as assess_suitability()'s verdicts. Covers "licensed"/"accredited"/"DOE
+# registered/recognized" too, since they're all the same underlying
+# question about EnergyWize's official status.
+_CERTIFICATION_HINTS = (
+    "certified", "certification", "licensed", "license", "accredited", "accreditation",
+    "doe registered", "doe-registered", "doe recognized", "doe-recognized", "doe recognised",
+    "lisensyado", "sertipikado",
+)
+# Narrower subset — only these trigger the "I don't have information about
+# other licenses" caveat, since asking about a license specifically is a
+# different (unanswered) question from asking about DOE registration.
+_LICENSE_SPECIFIC_HINTS = ("licensed", "license", "lisensyado")
+
+
+def _looks_like_certification_question(user_msg: str) -> bool:
+    t = user_msg.lower()
+    return any(h in t for h in _CERTIFICATION_HINTS)
+
+
+_CERTIFICATION_ANSWER = ("EnergyWize Solutions Inc. is a DOE-Registered Energy Service Company "
+                         "(ESCO), and its services include solar PV system sales, design, and "
+                         "installation. It is also a DOE-Recognized Training Institution (RTI).")
+_CERTIFICATION_ANSWER_LICENSE_CAVEAT = (" I don't have information about other licenses; "
+                                        "our team can confirm that.")
+
+
+def _answer_certification_turn(user_msg: str) -> str:
+    """Fully deterministic, no model call — the DOE registration facts
+    verbatim from our-offerings-and-process.md, same template regardless of
+    exact phrasing or language, since the fact itself doesn't change. Only
+    varies by appending the license caveat when the question specifically
+    asked about a license (something the KB doesn't document)."""
+    text = _CERTIFICATION_ANSWER
+    t = user_msg.lower()
+    if any(h in t for h in _LICENSE_SPECIFIC_HINTS):
+        text += _CERTIFICATION_ANSWER_LICENSE_CAVEAT
+    return text
+
+
+# 2026-10-14: "What services do you offer besides solar?" relies on
+# retrieval pulling "Other services EnergyWize provides" (score 0.68,
+# rank 5 — barely inside the top-5 cutoff) alongside several OTHER
+# retrieved chunks, including "What EnergyWize offers" (the solar-specific
+# list, which has its own "Smart monitoring" entry). A live reply blended
+# the two: it listed "smart monitoring systems" as if it were one of the
+# non-solar services and dropped EnMS and electrical products entirely —
+# not a fabrication exactly, but an inaccurate rendering of which list a
+# given item actually belongs to. Same fix as assess_suitability() and
+# _answer_certification_turn: skip retrieval and the model, answer from a
+# fixed template built straight from the KB section's own bullets.
+_OTHER_SERVICES_HINTS = (
+    "besides solar", "other than solar", "aside from solar", "other services",
+    "else do you offer", "else do you provide",
+    "bukod sa solar", "maliban sa solar",
+)
+
+
+def _looks_like_other_services_question(user_msg: str) -> bool:
+    t = user_msg.lower()
+    return any(h in t for h in _OTHER_SERVICES_HINTS)
+
+
+_OTHER_SERVICES_ANSWER = (
+    "Beyond solar PV, EnergyWize's services include comprehensive energy audits "
+    "(Level 1, Level 2, and Investment Grade) and compliance consulting; Energy "
+    "Management Systems (EnMS) development and support, aligned with ISO 50001; "
+    "solar PV system sales, design, and installation; supply of electrical "
+    "products and energy-efficient technologies; and MEPF (mechanical, "
+    "electrical, plumbing, fire protection) solutions."
+)
 
 
 def _looks_like_worth_it_question(text: str) -> bool:
@@ -1863,23 +1971,24 @@ _DOE_SELF_CLAIM_RE = re.compile(
     r"|\bdoe[\s-]+(registered|recognized|recognised)\b",
     re.IGNORECASE,
 )
-# 2026-10-14: split out from _DOE_SELF_CLAIM_RE above. That regex used to
-# treat licensed/certified/accredited/registered as interchangeable for
-# grounding purposes — any ONE of them appearing in CONTEXT (which only
-# ever actually says "registered"/"recognized", never the other three)
-# made doe_grounded True for ALL of them, so a reply saying "EnergyWize is
-# certified by the DOE" survived untrimmed just because CONTEXT elsewhere
-# said "DOE-Registered" — caught live testing faq.md's "Is EnergyWize
-# certified?" entry. The KB never asserts "licensed"/"certified"/
-# "accredited" for EnergyWize's own DOE status (see the note in
-# docs/RAG_SETUP.md), so these are never grounded, period — same
-# unconditional treatment as _LICENSING_PHRASES' "doe-accredited" entry,
-# just covering the verb-plus-preposition shape that phrase list can't.
-_DOE_UNGROUNDED_SELF_CLAIM_RE = re.compile(
-    r"\b(licensed|certified|accredited)\b"
-    r"(?:\s+and\s+(?:licensed|certified|accredited|registered|recognized|recognised))?"
-    r"\s+(?:by|with)\s+the\s+(department\s+of\s+energy|doe)\b"
-    r"|\bdoe[\s-]+(licensed|certified|accredited)\b",
+# 2026-10-14, second pass: the verb+preposition/adjective-prefix regex
+# above (first pass, same day) still missed a looser paraphrase —
+# "EnergyWize Solutions Inc. is certified — we're a DOE-Registered ESCO..."
+# has no "by/with the DOE" and no "DOE-" prefix immediately before the
+# word, so it slipped through. The KB never asserts "licensed"/
+# "certified"/"accredited" for EnergyWize's own status in ANY shape (see
+# the note in docs/RAG_SETUP.md), so rather than keep chasing grammatical
+# shapes, these words are flagged wherever they appear at all — strictly
+# broader than (and replaces) the first-pass regex. Includes the Tagalog
+# equivalents since a Taglish reply can assert the identical unverified
+# claim in Tagalog. Known, accepted trade-off: this also flags a
+# genuinely grounded, unrelated use like "needs a licensed electrician"
+# (installation-and-maintenance.md's own Safety section) — no attempt is
+# made to distinguish "EnergyWize is licensed" from "hire a licensed
+# electrician"; both get trimmed. Caller's choice to accept that cost for
+# the simplicity of a single unconditional word check.
+_UNGROUNDED_CERTIFICATION_WORDS_RE = re.compile(
+    r"\b(certified|licensed|accredited|lisensyado|sertipikado)\b",
     re.IGNORECASE,
 )
 # NOT "smart monitoring" alone — that offering IS documented
@@ -1938,6 +2047,13 @@ _UNVERIFIED_OUTCOME_PHRASES = (
 _UNEARNED_ASSURANCE_PHRASES = (
     "you can trust", "you can rest assured", "rest assured",
     "fully compliant", "fully in compliance",
+    # Added 2026-10-14, second pass: the same unearned-reassurance shape,
+    # attached to a quality/safety claim instead of a compliance one
+    # ("that means we follow strict standards for solar installations...
+    # which helps ensure safety and quality"). Confirmed against every
+    # knowledge/solar/*.md file — none of these phrases appear anywhere,
+    # so there's no CONTEXT shape that could ever ground them either.
+    "strict standards", "ensure safety", "ensures quality", "high quality standards",
 )
 
 
@@ -1962,10 +2078,10 @@ def _context_supports_doe_claim(context_section: str) -> bool:
     """True only if the retrieved CONTEXT itself contains EnergyWize's own
     DOE registered/recognized statement — same allow-if-grounded shape as
     _brands_in_context, one level down (a regex match instead of a fixed
-    name). Only "registered"/"recognized" ground anything here — see
-    _DOE_SELF_CLAIM_RE vs _DOE_UNGROUNDED_SELF_CLAIM_RE; "licensed"/
-    "certified"/"accredited" are never in the KB's own wording for this, so
-    they're checked unconditionally in _has_unverifiable_company_claim
+    name). Only "registered"/"recognized" ground anything here — "licensed"/
+    "certified"/"accredited" (EN or TL) are never in the KB's own wording
+    for this, so they're flagged unconditionally wherever they appear, via
+    _UNGROUNDED_CERTIFICATION_WORDS_RE in _has_unverifiable_company_claim,
     instead of through this function."""
     return bool(_DOE_SELF_CLAIM_RE.search(context_section or ""))
 
@@ -1986,13 +2102,11 @@ def _has_unverifiable_company_claim(text: str, doe_grounded: bool = False) -> bo
     self-claim using "registered"/"recognized" — like a brand name via
     _mentions_ungrounded_brand, that one is allowed through when
     doe_grounded is True (the retrieved CONTEXT itself supports it; see
-    _context_supports_doe_claim). The same claim using "licensed"/
-    "certified"/"accredited" instead is a SEPARATE, always-unconditional
-    check (_DOE_UNGROUNDED_SELF_CLAIM_RE) — those words never appear in the
-    KB's own wording, so no CONTEXT could ever ground them, and treating
-    all five words as interchangeable (the old single-regex design) let
-    "certified by the DOE" survive just because CONTEXT elsewhere grounded
-    "DOE-Registered". Callers with no CONTEXT to check against (e.g.
+    _context_supports_doe_claim). "Licensed"/"certified"/"accredited" (EN
+    or TL) are checked completely separately and unconditionally — see
+    _UNGROUNDED_CERTIFICATION_WORDS_RE — flagged the instant the bare word
+    appears anywhere in the reply, not only in a "certified by/with the
+    DOE" sentence shape. Callers with no CONTEXT to check against (e.g.
     _llama_recommendations) leave doe_grounded at its default False, same
     as brands defaulting to an empty set there.
 
@@ -2012,7 +2126,7 @@ def _has_unverifiable_company_claim(text: str, doe_grounded: bool = False) -> bo
         return True
     if _YEARS_OF_OPERATION_RE.search(text) or _COVERAGE_CLAIM_RE.search(text):
         return True
-    if _DOE_UNGROUNDED_SELF_CLAIM_RE.search(text):
+    if _UNGROUNDED_CERTIFICATION_WORDS_RE.search(text):
         return True
     return (not doe_grounded) and bool(_DOE_SELF_CLAIM_RE.search(text))
 
@@ -2145,6 +2259,27 @@ def _trim_ungrounded_sentences(text: str, allowed: set, context_brands: set = fr
     return result
 
 
+# CHAT_BASE_SYSTEM already says "Never open with a re-introduction on
+# later turns" — a soft instruction the model doesn't always follow
+# (2026-10-14: observed with a standalone test harness call that lacked
+# conversation history, which made the model treat a genuine follow-up
+# question as if it were the first turn). Deterministic backstop: strip a
+# leading self-introduction sentence whenever messages_out proves this
+# ISN'T actually the first turn, same "don't just trust the prompt"
+# philosophy as the language-compliance check below.
+_SELF_INTRO_OPENER_RE = re.compile(
+    r"^(?:hey|hi|hello)!?\s+i'?m\s+solara\b[^.!?]*[.!?]\s*",
+    re.IGNORECASE,
+)
+
+
+def _strip_repeat_intro(text: str, messages_out: list) -> str:
+    if len(messages_out) <= 1:
+        return text
+    stripped = _SELF_INTRO_OPENER_RE.sub("", text, count=1).strip()
+    return stripped or text
+
+
 def _answer_general_turn(messages_out: list, user_msg: str, context_section: str,
                           collected: dict, context_body_full: str, context_body_safe: str,
                           cancel_event: threading.Event = None) -> str:
@@ -2165,6 +2300,29 @@ def _answer_general_turn(messages_out: list, user_msg: str, context_section: str
     except Exception as e:
         print(f"[SOLAR CHAT ERROR] {e}")
         return "I'm having a bit of trouble right now — please try again in a moment."
+
+    # Don't trust compliance with the LANGUAGE directive above — verify it
+    # deterministically. See _STRONGER_TAGLISH_INSTRUCTION for why this is
+    # one regeneration attempt, then a fixed fallback, not an infinite retry.
+    if _resolve_taglish(user_msg, messages_out[:-1]) and not _reply_has_tagalog_marker(text):
+        print(f"[SOLAR] Taglish instructed but reply had no Tagalog marker — regenerating once: {text!r}")
+        retry_grounding = GROUNDING_RULES + _STRONGER_TAGLISH_INSTRUCTION
+        retry_system_full = _build_grounded_system(context_body_full, retry_grounding, context_section, "")
+        retry_system_safe = _build_grounded_system(context_body_safe, retry_grounding, context_section, "")
+        try:
+            retry_text = _ai_chat(messages_out, system=retry_system_full, system_safe=retry_system_safe,
+                                   temperature=0.25, max_tokens=384, cancel_event=cancel_event)
+        except _RequestCancelled:
+            raise
+        except Exception:
+            retry_text = None
+        if retry_text is not None and _reply_has_tagalog_marker(retry_text):
+            text = retry_text
+        else:
+            print("[SOLAR] Taglish regeneration still non-compliant — using fixed canned fallback")
+            return _GENERIC_RETRY_TL
+
+    text = _strip_repeat_intro(text, messages_out)
 
     allowed = _allowed_numbers_from(context_section) | _raw_numbers_from_dict(collected)
     context_brands = _brands_in_context(context_section)
@@ -2683,12 +2841,22 @@ def solar_chat_msg():
         # though the instruction was correctly set to Taglish every time).
         short_cost_followup = not has_consumption and _looks_like_short_taglish_cost_followup(user_msg)
 
+        # A question about EnergyWize's own certification/licensing/DOE
+        # status gets a fixed Python answer and never reaches the model —
+        # see _answer_certification_turn. Checked first: it's the cheapest,
+        # narrowest, and least likely to collide with anything else in this
+        # chain (no worth-it/property-type/cost-followup overlap).
+        is_certification_question = _looks_like_certification_question(user_msg)
+        is_other_services_question = _looks_like_other_services_question(user_msg)
+
         sources = []
         context_section = ""
         numeric_result = None
         canned_text = None
         suitability = None
-        if worth_it_now and not pending_worth_it:
+        if is_certification_question or is_other_services_question:
+            pass  # handled in the text-assembly section below, own fixed source
+        elif worth_it_now and not pending_worth_it:
             # Directly asked, with consumption already known — run the
             # normal gate/retrieve first so any model framing still has
             # real CONTEXT to ground against, same as the numeric path.
@@ -2753,7 +2921,13 @@ def solar_chat_msg():
         # would misleadingly imply the KNOWLEDGE BASE produced this answer.
         is_calculator_answer = suitability is not None or numeric_result is not None
 
-        if canned_text is not None:
+        if is_certification_question:
+            # Fixed answer, fixed source — see _answer_certification_turn.
+            text = _answer_certification_turn(user_msg)
+        elif is_other_services_question:
+            # Fixed answer, fixed source — see _OTHER_SERVICES_ANSWER.
+            text = _OTHER_SERVICES_ANSWER
+        elif canned_text is not None:
             text = canned_text
         elif suitability is not None:
             # Deterministic verdict path — see _answer_suitability_turn.
@@ -2814,7 +2988,14 @@ def solar_chat_msg():
         if text not in _CANNED_REPLIES and _looks_like_decline(text):
             text = _pick_canned(user_msg, _CANNED_OFF_TOPIC_EN, _CANNED_OFF_TOPIC_TL)
 
-        shown_sources = [] if (text in _CANNED_REPLIES or is_calculator_answer) else _top_source_titles(sources)
+        if is_certification_question:
+            shown_sources = ["DOE registration"]
+        elif is_other_services_question:
+            shown_sources = ["Other services EnergyWize provides"]
+        elif text in _CANNED_REPLIES or is_calculator_answer:
+            shown_sources = []
+        else:
+            shown_sources = _top_source_titles(sources)
         return jsonify({
             "text":      text,
             "messages":  messages_out + [{"role": "assistant", "content": text}],
