@@ -311,6 +311,7 @@ function clip(s, max) {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
 }
 
+// fallow-ignore-next-line complexity -- flat lookup; one case per rail row, not interacting branches
 function railValue(field, c) {
   var v = c[field];
   switch (field) {
@@ -396,12 +397,9 @@ function stopGeneration() {
   cancelServerRequest(currentRequestId, false);
 }
 
-async function sendMessage() {
-  if (isWaiting) return;
-  var input = document.getElementById('chat-input');
-  var text  = input.value.trim();
-  if (!text) return;
-
+// Optimistic UI first, then per-turn request state: the user's own words land
+// in the thread before the network is touched.
+function beginTurn(text, input) {
   hideStarters();
   addBubble(text, 'user');
   input.value = '';
@@ -415,6 +413,82 @@ async function sendMessage() {
   setSendButtonMode('stop');
   showTyping();
   playFaces([['sent', 600], ['thinking', 700], ['answering', 0]]);
+}
+
+async function postTurn(text) {
+  var res = await fetch('/solar/chat/msg', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+    body: JSON.stringify({
+      messages: messages.slice(0, -1), user_message: text, collected: collected,
+      q_index: qIndex, request_id: currentRequestId
+    }),
+    signal: currentController.signal
+  });
+  return res.json();
+}
+
+function applyReply(data, bankedBefore, qBefore) {
+  addBubble(data.text, 'ai', data.sources);
+  if (data.messages)  messages  = data.messages;
+  else messages.push({ role: 'assistant', content: data.text });
+  if (data.collected) { collected = data.collected; renderRail(collected); }
+  if (data.q_index !== undefined) qIndex = data.q_index;
+
+  // Nothing newly banked and no question advanced means the turn went
+  // nowhere, so the face reacts to that instead of looking pleased.
+  var stalled = bankedCount(collected) === bankedBefore && qIndex === qBefore;
+  playFaces(stalled ? [['offtopic', 2200], ['neutral', 0]]
+                    : [['done', 1500], ['neutral', 0]]);
+}
+
+// Terminal state: the estimate exists, so the composer stays disabled rather
+// than being re-enabled the way an ordinary turn would.
+function endConversation(redirect) {
+  addBubble(
+    'Your solar estimate is ready!<br>' +
+    '<a href="' + redirect + '" class="chat-cta">' +
+    '<i class="fa-solid fa-solar-panel"></i> View My Estimate</a>',
+    'ai'
+  );
+  setFace('done');   // the conversation is over, so she stays pleased
+  isWaiting = false;
+  currentRequestId = null; currentController = null;
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('chat-input').disabled = true;
+}
+
+function reportTurnError(e) {
+  if (e.name !== 'AbortError') {
+    // A real network failure (connection refused, DNS, TLS, etc.) — always
+    // visible, same as before.
+    addBubble('Sorry, something went wrong. Please try again or switch to form mode.', 'ai');
+    playFaces([['error', 3200], ['neutral', 0]]);
+  } else if (!_stopClicked) {
+    // Aborted, but not by the user — the watchdog gave up because nothing
+    // came back in time. Silence here is exactly the bug this was added
+    // to fix, so this is the one AbortError case that still gets shown.
+    addBubble('That took longer than expected and the connection was lost — please try again.', 'ai');
+    playFaces([['error', 3200], ['neutral', 0]]);
+  }
+  // else: the user clicked Stop — nothing to show, as always.
+}
+
+function endTurn(input) {
+  isWaiting = false;
+  currentRequestId = null; currentController = null;
+  setSendButtonMode('send');
+  document.getElementById('send-btn').disabled = false;
+  input.focus();
+}
+
+async function sendMessage() {
+  if (isWaiting) return;
+  var input = document.getElementById('chat-input');
+  var text  = input.value.trim();
+  if (!text) return;
+
+  beginTurn(text, input);
 
   var bankedBefore = bankedCount(collected);
   var qBefore      = qIndex;
@@ -427,69 +501,26 @@ async function sendMessage() {
   var watchdog = setTimeout(function () { thisController.abort(); }, REPLY_TIMEOUT_MS);
 
   try {
-    var res = await fetch('/solar/chat/msg', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-      body: JSON.stringify({
-        messages: messages.slice(0, -1), user_message: text, collected: collected,
-        q_index: qIndex, request_id: currentRequestId
-      }),
-      signal: currentController.signal
-    });
-    var data = await res.json();
+    var data = await postTurn(text);
     removeTyping();
 
     if (data.cancelled) {
       // Stopped by the user (or the tab was closed and this response just
       // never found anyone listening) — nothing to show.
     } else if (data.redirect) {
-      addBubble(
-        'Your solar estimate is ready!<br>' +
-        '<a href="' + data.redirect + '" class="chat-cta">' +
-        '<i class="fa-solid fa-solar-panel"></i> View My Estimate</a>',
-        'ai'
-      );
-      setFace('done');   // the conversation is over, so she stays pleased
-      isWaiting = false;
-      currentRequestId = null; currentController = null;
-      document.getElementById('send-btn').disabled = true;
-      document.getElementById('chat-input').disabled = true;
+      endConversation(data.redirect);
       return;
     } else if (data.text) {
-      addBubble(data.text, 'ai', data.sources);
-      if (data.messages)  messages  = data.messages;
-      else messages.push({ role: 'assistant', content: data.text });
-      if (data.collected) { collected = data.collected; renderRail(collected); }
-      if (data.q_index !== undefined) qIndex = data.q_index;
-
-      var stalled = bankedCount(collected) === bankedBefore && qIndex === qBefore;
-      playFaces(stalled ? [['offtopic', 2200], ['neutral', 0]]
-                        : [['done', 1500], ['neutral', 0]]);
+      applyReply(data, bankedBefore, qBefore);
     }
   } catch (e) {
     removeTyping();
-    if (e.name !== 'AbortError') {
-      // A real network failure (connection refused, DNS, TLS, etc.) — always
-      // visible, same as before.
-      addBubble('Sorry, something went wrong. Please try again or switch to form mode.', 'ai');
-      playFaces([['error', 3200], ['neutral', 0]]);
-    } else if (!_stopClicked) {
-      // Aborted, but not by the user — the watchdog gave up because nothing
-      // came back in time. Silence here is exactly the bug this was added
-      // to fix, so this is the one AbortError case that still gets shown.
-      addBubble('That took longer than expected and the connection was lost — please try again.', 'ai');
-      playFaces([['error', 3200], ['neutral', 0]]);
-    }
-    // else: the user clicked Stop — nothing to show, as always.
+    reportTurnError(e);
   } finally {
     clearTimeout(watchdog);
   }
 
-  isWaiting = false;
-  currentRequestId = null; currentController = null;
-  setSendButtonMode('send');
-  document.getElementById('send-btn').disabled = false;
-  input.focus();
+  endTurn(input);
 }
 
 function confirmSwitchToForm(e) {
