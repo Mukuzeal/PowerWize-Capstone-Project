@@ -108,3 +108,7 @@ memory/
 
 .bat
 *.bat
+
+# fallow analysis artifacts
+fallow-viz.html
+fallow-baseline.json
