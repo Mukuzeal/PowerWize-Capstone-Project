@@ -206,6 +206,33 @@ QUESTIONS = [
      "collected": {"monthly_bill_php": 1500}, "expected_verdict": "unknown_type"},
     {"category": "worth_it", "question": "500 kWh ang gamit namin, sulit ba kumuha ng solar?",
      "collected": {"kwh_monthly": 500}, "expected_verdict": "unknown_type"},
+    # fixed_answer (2026-10-14): these must never reach the gate, retrieval,
+    # or the model at all — see is_certification_question/
+    # is_other_services_question in run_one. expected_fixed_answer is
+    # checked for an EXACT string match (not just "contains"), and
+    # expected_fixed_source for an exact single-item sources list, so any
+    # drift in the production templates in solar_bp.py shows up here too.
+    {"category": "fixed_answer", "question": "Are you certified?",
+     "expected_fixed_answer": solar_bp._CERTIFICATION_ANSWER,
+     "expected_fixed_source": "DOE registration"},
+    {"category": "fixed_answer", "question": "Licensed ba kayo?",
+     "expected_fixed_answer": solar_bp._CERTIFICATION_ANSWER + solar_bp._CERTIFICATION_ANSWER_LICENSE_CAVEAT,
+     "expected_fixed_source": "DOE registration"},
+    {"category": "fixed_answer", "question": "Is EnergyWize DOE registered?",
+     "expected_fixed_answer": solar_bp._CERTIFICATION_ANSWER,
+     "expected_fixed_source": "DOE registration"},
+    {"category": "fixed_answer", "question": "Are you accredited?",
+     "expected_fixed_answer": solar_bp._CERTIFICATION_ANSWER,
+     "expected_fixed_source": "DOE registration"},
+    {"category": "fixed_answer", "question": "What services do you offer?",
+     "expected_fixed_answer": solar_bp._OTHER_SERVICES_ANSWER_FULL,
+     "expected_fixed_source": "Other services EnergyWize provides"},
+    {"category": "fixed_answer", "question": "What services do you offer besides solar?",
+     "expected_fixed_answer": solar_bp._OTHER_SERVICES_ANSWER_EXCLUDING_SOLAR,
+     "expected_fixed_source": "Other services EnergyWize provides"},
+    {"category": "fixed_answer", "question": "May energy audit ba kayo?",
+     "expected_fixed_answer": solar_bp._OTHER_SERVICES_ANSWER_FULL,
+     "expected_fixed_source": "Other services EnergyWize provides"},
 ]
 
 # A verdict-text leak check for not_worth answers specifically: that verdict
@@ -221,6 +248,30 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
     is_question  = solar_bp._looks_like_question(question)
     is_numeric   = solar_bp._looks_numeric_question(question)
     is_worth_it  = solar_bp._looks_like_worth_it_question(question)
+
+    # Fixed-answer paths (2026-10-14) — mirrors solar_chat_msg's own
+    # highest-priority dispatch check: these never touch the gate,
+    # retrieval, or the model at all, so this harness has to short-circuit
+    # here too rather than let the question fall through to
+    # _gate_and_retrieve, or it would silently test a different code path
+    # than production actually takes.
+    if solar_bp._looks_like_certification_question(question):
+        answer = solar_bp._answer_certification_turn(question)
+        fixed_source = "DOE registration"
+    elif solar_bp._looks_like_other_services_question(question):
+        answer = solar_bp._answer_other_services_turn(question)
+        fixed_source = "Other services EnergyWize provides"
+    else:
+        answer = None
+    if answer is not None:
+        return {
+            "category": category, "question": question,
+            "is_question": is_question, "is_numeric": is_numeric, "gate_outcome": "fixed_answer_no_gate",
+            "sources": [{"title": fixed_source, "score": None}],
+            "answer": answer, "ground_truth": None, "reply_language": "english",
+            "has_unverifiable_company_claim": False, "ungrounded_brands": [],
+            "suitability": None, "sizing_leaked": False, "fixed_source": fixed_source,
+        }
 
     # Same deterministic gate + retrieval production uses (solar_bp._gate_and_retrieve)
     # — not a hand-rolled copy, so this harness can't drift from production
@@ -335,7 +386,7 @@ def run_one(category: str, question: str, collected: dict, history: list = None)
         "sources": [{"title": s["title"], "score": s["score"]} for s in sources],
         "answer": answer, "ground_truth": ground_truth, "reply_language": reply_language,
         "has_unverifiable_company_claim": has_unverifiable_company_claim, "ungrounded_brands": ungrounded_brands,
-        "suitability": suitability, "sizing_leaked": sizing_leaked,
+        "suitability": suitability, "sizing_leaked": sizing_leaked, "fixed_source": None,
     }
 
 
@@ -358,6 +409,7 @@ def main():
     ungrounded_brand_hits = []
     verdict_mismatches = []
     sizing_leak_hits = []
+    fixed_answer_mismatches = []
     for i, q in enumerate(QUESTIONS):
         if i > 0 and args.provider == "groq":
             # 3s wasn't enough headroom once the eval set grew to ~30
@@ -369,7 +421,12 @@ def main():
             time.sleep(15)
         category, question = q["category"], q["question"]
         result = run_one(category, question, q.get("collected"), q.get("history"))
-        scores_by_category.setdefault(category, []).extend(s["score"] for s in result["sources"])
+        # Fixed-answer questions never touch retrieval at all — their
+        # sources entry carries score=None by construction (see run_one),
+        # so they contribute nothing here rather than poisoning this
+        # category's min/max/mean with a None.
+        scores_by_category.setdefault(category, []).extend(
+            s["score"] for s in result["sources"] if s["score"] is not None)
         if category != "off_topic" and result["gate_outcome"] == "gate_said_off_topic":
             gate_false_negatives.append((category, question))
 
@@ -396,6 +453,19 @@ def main():
                                             f"{got_verdict} (note={suitability.get('note')})"))
         if result["sizing_leaked"]:
             sizing_leak_hits.append((category, question, result["answer"]))
+
+        expected_fixed_answer = q.get("expected_fixed_answer")
+        if expected_fixed_answer:
+            got_source = result["sources"][0]["title"] if result["sources"] else None
+            problems = []
+            if result["gate_outcome"] != "fixed_answer_no_gate":
+                problems.append("did not take the fixed-answer path at all (reached the gate/model)")
+            if result["answer"] != expected_fixed_answer:
+                problems.append("answer text did not match the template exactly")
+            if got_source != q.get("expected_fixed_source"):
+                problems.append(f"source was {got_source!r}, expected {q.get('expected_fixed_source')!r}")
+            if problems:
+                fixed_answer_mismatches.append((category, question, problems, result["answer"]))
 
         print(f"[{category}] {question}")
         print(f"  classified_as_question={result['is_question']}  numeric_intent={result['is_numeric']}  "
@@ -489,6 +559,17 @@ def main():
             print(f"  - [{category}] {q}\n    answer: {answer}")
     else:
         print("Sizing leaks into not_worth answers: none.")
+
+    print("=" * 70)
+    fixed_answer_total = sum(1 for q in QUESTIONS if q.get("expected_fixed_answer"))
+    if fixed_answer_mismatches:
+        print(f"FIXED-ANSWER MISMATCHES ({len(fixed_answer_mismatches)}/{fixed_answer_total} "
+              f"certification/other-services questions didn't take the exact expected fixed path):")
+        for category, q, problems, answer in fixed_answer_mismatches:
+            print(f"  - [{category}] {q}: {'; '.join(problems)}\n    answer: {answer}")
+    else:
+        print(f"Fixed-answer paths: all {fixed_answer_total} certification/other-services "
+              f"questions matched their template and source exactly, with no gate/model call.")
 
 
 if __name__ == "__main__":

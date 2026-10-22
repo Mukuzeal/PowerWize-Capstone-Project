@@ -84,8 +84,13 @@
           </div>
           <label class="check">
             <input type="checkbox" name="terms" required>
-            <span>I accept the terms and conditions and consent to EnergyWize Solutions contacting me about this enquiry.</span>
+            <span>I accept the <a href="{{ url_for('site.terms_conditions') }}" target="_blank" rel="noopener">terms and conditions</a>
+              and consent to EnergyWize Solutions contacting me about this enquiry.</span>
           </label>
+          <p class="field__help"><strong>Data Privacy Notice:</strong> your name, organisation, email, and phone number
+            are collected only to respond to this enquiry and are handled in accordance with the Data Privacy Act of
+            2012 (RA 10173). See our <a href="{{ url_for('site.privacy_policy') }}" target="_blank" rel="noopener">Privacy Policy</a>
+            for your rights as a data subject.</p>
           <div class="btnrow">
             <button class="btn" type="submit" data-magnetic>
               <span class="btn__label">Send enquiry</span>

@@ -1,0 +1,28 @@
+{#
+  Shared renderer for the legal documents in site_content.py.
+
+  Used by the full page (site/legal.html) and by the /api/legal/<slug> payload
+  that the registration forms open in a SweetAlert modal, so the page and the
+  modal can never drift apart.
+
+  `reveal` adds the scroll-reveal hooks. Only pass it on the page: [data-reveal]
+  is opacity:0 until the IntersectionObserver in ewize.js adds .is-in, and markup
+  injected into a modal after load is never observed -- the sections would stay
+  invisible.
+#}
+{% for s in doc.sections %}
+<div style="margin-bottom:2.5rem"{% if reveal %} data-reveal{% endif %}>
+  <h2 class="d3" style="margin-bottom:1.1rem">{{ s.heading }}</h2>
+  {% for p in s.paragraphs or [] %}
+  <p class="prose" style="margin-bottom:1rem;white-space:pre-line">{{ p }}</p>
+  {% endfor %}
+  {% if s.list %}
+  <ul class="prose" style="margin:0 0 1rem 1.25rem;padding:0">
+    {% for item in s.list %}<li style="margin-bottom:.5rem">{{ item }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% for p in s.closing or [] %}
+  <p class="prose" style="margin-bottom:1rem;white-space:pre-line">{{ p }}</p>
+  {% endfor %}
+</div>
+{% endfor %}

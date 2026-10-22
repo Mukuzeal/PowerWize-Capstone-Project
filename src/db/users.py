@@ -153,3 +153,59 @@ def get_users():
     cur.close()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ── Per-user capability overrides ─────────────────────────────────────────────
+#
+# Only deviations from the role default are stored, so an untouched account has
+# no rows and follows its role exactly. See src/permissions.py for which
+# capabilities and roles this applies to.
+
+def get_user_capabilities(user_id):
+    """{capability: bool} overrides for one user; empty dict if none."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT capability, granted FROM user_capabilities WHERE user_id = %s",
+                (user_id,))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return {r["capability"]: bool(r["granted"]) for r in rows}
+
+
+def get_all_user_capabilities():
+    """{user_id: {capability: bool}} for every user that has an override.
+
+    One query for the whole admin users table rather than one per row.
+    """
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT user_id, capability, granted FROM user_capabilities")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    out = {}
+    for r in rows:
+        out.setdefault(r["user_id"], {})[r["capability"]] = bool(r["granted"])
+    return out
+
+
+def set_user_capability(user_id, capability, granted, set_by=None):
+    """Record an override. `granted=None` clears it, falling back to the role
+    default — that keeps the table free of rows that merely restate the role."""
+    conn = get_db(); cur = conn.cursor()
+    if granted is None:
+        cur.execute("DELETE FROM user_capabilities WHERE user_id=%s AND capability=%s",
+                    (user_id, capability))
+    else:
+        cur.execute("""
+            INSERT INTO user_capabilities (user_id, capability, granted, set_by)
+            VALUES (%s,%s,%s,%s)
+            ON CONFLICT (user_id, capability)
+            DO UPDATE SET granted=EXCLUDED.granted, set_by=EXCLUDED.set_by, set_at=NOW()
+        """, (user_id, capability, 1 if granted else 0, set_by))
+    conn.commit(); cur.close(); conn.close()
+
+
+def clear_user_capabilities(user_id):
+    """Drop every override for a user — used when their role changes, so stale
+    deviations from an old role cannot linger."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM user_capabilities WHERE user_id = %s", (user_id,))
+    conn.commit(); cur.close(); conn.close()

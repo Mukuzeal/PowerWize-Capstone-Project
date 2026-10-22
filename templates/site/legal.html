@@ -14,22 +14,8 @@
   <div class="shell">
     <div class="grid">
       <div class="c8 start2" data-reveal-group>
-        {% for s in doc.sections %}
-        <div style="margin-bottom:2.5rem" data-reveal>
-          <h2 class="d3" style="margin-bottom:1.1rem">{{ s.heading }}</h2>
-          {% for p in s.paragraphs or [] %}
-          <p class="prose" style="margin-bottom:1rem;white-space:pre-line">{{ p }}</p>
-          {% endfor %}
-          {% if s.list %}
-          <ul class="prose" style="margin:0 0 1rem 1.25rem;padding:0">
-            {% for item in s.list %}<li style="margin-bottom:.5rem">{{ item }}</li>{% endfor %}
-          </ul>
-          {% endif %}
-          {% for p in s.closing or [] %}
-          <p class="prose" style="margin-bottom:1rem;white-space:pre-line">{{ p }}</p>
-          {% endfor %}
-        </div>
-        {% endfor %}
+        {% set reveal = true %}
+        {% include "site/_legal_body.html" %}
       </div>
     </div>
   </div>

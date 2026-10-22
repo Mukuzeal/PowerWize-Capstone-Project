@@ -3,8 +3,9 @@ from datetime import date
 from flask import render_template
 
 from db import (get_users, get_batches_full, get_registrations, get_solar_requests,
-                lms_get_modules_with_counts, lms_get_trainee_progress_overview, get_pending_selfies)
-from permissions import VALID_ROLES, current_can
+                lms_get_modules_with_counts, lms_get_trainee_progress_overview,
+                get_pending_selfies, get_all_user_capabilities)
+from permissions import VALID_ROLES, current_can, can, OVERRIDABLE, OVERRIDABLE_ROLES
 
 from . import admin_bp, require_admin
 
@@ -15,6 +16,19 @@ def admin():
     if resp:
         return resp
     users = get_users()
+
+    # A Trainer's work areas are set per account, so each row carries its own
+    # effective capabilities: the role default with that user's override
+    # applied. One query for the whole table rather than one per row.
+    overrides = get_all_user_capabilities()
+    for u in users:
+        own = overrides.get(u["id"], {})
+        u["caps"] = {
+            cap: (own.get(cap, can(u["role"], cap))
+                  if u["role"] in OVERRIDABLE_ROLES else can(u["role"], cap))
+            for cap in OVERRIDABLE
+        }
+
     uc = {role: sum(1 for u in users if u["role"] == role) for role in VALID_ROLES}
     uc.update({
         "archived":       sum(1 for u in users if u["archived_at"] is not None),
@@ -41,6 +55,17 @@ def admin():
     # to leak through view-source either.
     solar_requests = get_solar_requests() if current_can("review_solar") else []
 
+    # Billing panes. Imported inside the view so this module stays independent
+    # of the package's import order, and gated the same way the nav is: a role
+    # that cannot see a pane never has its data rendered into the page.
+    extra = {}
+    if current_can("corporate_payments"):
+        from .corporate import dashboard_context as corporate_context
+        extra.update(corporate_context())
+    if current_can("discount_codes"):
+        from .discounts import dashboard_context as discounts_context
+        extra.update(discounts_context())
+
     return render_template("admin/admin.html",
                            registrations=get_registrations(),
                            pending_selfies=get_pending_selfies(),
@@ -51,4 +76,5 @@ def admin():
                            solar_requests=solar_requests,
                            modules=modules,
                            archived_modules=archived_modules,
-                           trainee_progress=trainee_progress)
+                           trainee_progress=trainee_progress,
+                           **extra)

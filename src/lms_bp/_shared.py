@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import session, request, redirect, url_for
 import requests as _http
 
-from permissions import can, home_url_for
+from permissions import current_can, home_url_for
 
 from db import (lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms_update_progress,
                lms_get_modules_for_trainee)
@@ -39,7 +39,9 @@ def _role():
     return session.get('user_role', '')
 
 def _is_instructor():
-    return can(_role(), 'manage_modules')
+    # current_can, not can: a Trainer's module access can be granted or
+    # revoked per account (see permissions.OVERRIDABLE).
+    return current_can('manage_modules')
 
 def _is_trainee():
     return _role() == 'trainee'
@@ -53,7 +55,7 @@ def _owns_module(mod):
     Only Admin holds `manage_any_module`; every other instructor role —
     Super User, Secretary, Trainer — is limited to modules they created.
     """
-    return (can(_role(), 'manage_any_module')
+    return (current_can('manage_any_module')
             or (mod is not None and mod.get('instructor_id') == _uid()))
 
 def _back_to_modules():
@@ -70,7 +72,7 @@ def _back_to_modules():
         return redirect('/employee#modules')
     if request.referrer:
         return redirect(request.referrer)
-    if can(_role(), 'view_admin_console'):
+    if current_can('view_admin_console'):
         return redirect(home_url_for(_role()))
     return redirect(url_for('lms.modules'))
 

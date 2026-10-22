@@ -1414,6 +1414,227 @@
             border-color: #16A34A;
             color: #fff
         }
+        /* ── Billing panes (corporate payments, discount codes) ── */
+
+        .corp-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 1.25rem
+        }
+
+        .corp-chip {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: background 0.15s, color 0.15s, border-color 0.15s
+        }
+
+        .corp-chip:hover {
+            background: var(--bg-tertiary)
+        }
+
+        .corp-chip.active {
+            background: var(--green-lt);
+            color: var(--green-pr);
+            border-color: var(--green-md)
+        }
+
+        .corp-num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap
+        }
+
+        .corp-sub {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .corp-note {
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 1rem
+        }
+
+        .corp-note--warn {
+            background: var(--gold-lt);
+            color: #92400E;
+            border: 1px solid #D97706
+        }
+
+        .corp-note--ok {
+            background: var(--green-lt);
+            color: var(--green-pr);
+            border: 1px solid var(--green-md)
+        }
+
+        .corp-note--err {
+            background: #FEF2F2;
+            color: #991B1B;
+            border: 1px solid #FECACA
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .corp-note--warn { color: #FCD34D }
+            .corp-note--err  { background: rgba(185,28,28,.2); color: #FCA5A5; border-color: #B91C1C }
+        }
+
+        html[data-theme="dark"] .corp-note--warn { color: #FCD34D }
+        html[data-theme="dark"] .corp-note--err  { background: rgba(185,28,28,.2); color: #FCA5A5; border-color: #B91C1C }
+        html[data-theme="light"] .corp-note--warn { color: #92400E }
+        html[data-theme="light"] .corp-note--err  { background: #FEF2F2; color: #991B1B; border-color: #FECACA }
+
+        .corp-lab {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px
+        }
+
+        .corp-in {
+            width: 100%;
+            padding: 9px 11px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            background: var(--bg-primary);
+            color: var(--text-primary)
+        }
+
+        .corp-in:focus {
+            outline: none;
+            border-color: var(--green-md);
+            box-shadow: 0 0 0 3px var(--green-lt)
+        }
+
+        .corp-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px
+        }
+
+        .corp-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px
+        }
+
+        .corp-hint {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin: 8px 0 12px
+        }
+
+        .corp-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px
+        }
+
+        .corp-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 15px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer
+        }
+
+        .corp-tab.active {
+            background: var(--green-lt);
+            color: var(--green-pr);
+            border-color: var(--green-md)
+        }
+
+        .corp-pay-panel {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 1.25rem
+        }
+
+        .corp-trail {
+            list-style: none;
+            border-left: 2px solid var(--border);
+            margin: 0 0 0 7px;
+            padding: 0
+        }
+
+        .corp-trail li {
+            position: relative;
+            padding: 0 0 16px 18px
+        }
+
+        .corp-trail li::before {
+            content: '';
+            position: absolute;
+            left: -7px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 2px solid var(--green-md)
+        }
+
+        .corp-trail-act {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--green-pr)
+        }
+
+        .corp-trail-meta {
+            font-size: 11px;
+            color: var(--text-tertiary)
+        }
+
+        .corp-trail-det {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            margin-top: 2px
+        }
+
+        .corp-pick-wrap {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px
+        }
+
+        .corp-pick-wrap table {
+            min-width: 100%
+        }
+
     </style>
 </head>
 
@@ -1465,14 +1686,14 @@
         {% if can('corporate_payments') or can('discount_codes') %}
         <span class="nav-section">Billing</span>
         {% if can('corporate_payments') %}
-        <a class="nav-item" href="/admin/corporate">
+        <button class="nav-item" onclick="showSection('corporate', this)">
     <span class="nav-icon"><i class="fa-solid fa-building-columns"></i></span> Corporate Payments
-  </a>
+  </button>
         {% endif %}
         {% if can('discount_codes') %}
-        <a class="nav-item" href="/admin/discounts">
+        <button class="nav-item" onclick="showSection('discounts', this)">
     <span class="nav-icon"><i class="fa-solid fa-tags"></i></span> Discount Codes
-  </a>
+  </button>
         {% endif %}
         {% endif %}
 
@@ -1717,6 +1938,14 @@
                                     {% elif tt == 'gemp_oge' %}<span class="badge" style="background:#A7F3D0;color:#064E3B">GEMP (Gov't)</span>
                                     {% else %}<span style="color:var(--text-secondary)">{{ tt }}</span>
                                     {% endif %}
+                                {% elif u.role == 'employee' %}
+                                    {# A Trainer's remit is per account, so the column that holds a
+                                       trainee's program shows which areas this trainer covers. #}
+                                    {% if u.caps.manage_modules %}<span class="badge b-training">Modules</span>{% endif %}
+                                    {% if u.caps.review_solar %}<span class="badge b-cea">PV</span>{% endif %}
+                                    {% if not u.caps.manage_modules and not u.caps.review_solar %}
+                                    <span class="badge b-rejected">No areas</span>
+                                    {% endif %}
                                 {% else %}<span style="color:var(--text-tertiary)">—</span>{% endif %}
                             </td>
                             <td style="color:var(--gray);font-size:12px">{{ u.created_at.strftime('%b %d, %Y') }}</td>
@@ -1725,7 +1954,9 @@
                                     "id": u.id, "fname": u.fname, "lname": u.lname, "email": u.email,
                                     "role": u.role, "contact_number": u.contact_number or "",
                                     "company_name": u.company_name or "", "training_type": u.training_type or "",
-                                    "payment_status": u.payment_status or "unpaid"
+                                    "payment_status": u.payment_status or "unpaid",
+                                    "cap_manage_modules": u.caps.manage_modules,
+                                    "cap_review_solar": u.caps.review_solar
                                 } | tojson }})'>
                                     <i class="fa-solid fa-pen-to-square"></i> Edit
                                 </button>
@@ -2148,9 +2379,244 @@
             </div>
         </div>
 
-        <!-- ═══ MODULES ═══ -->
         {% endif %}
 
+        <!-- ═══ CORPORATE PAYMENTS ═══ -->
+        {% if can('corporate_payments') %}
+        <div id="section-corporate" class="section">
+            <div class="page-head">
+                <div>
+                    <h1>Corporate Payments</h1>
+                    <span class="count-badge">{{ corp_records|length }} invoice{{ '' if corp_records|length == 1 else 's' }}</span>
+                </div>
+                <button type="button" class="btn-add" onclick="openCorpNew()">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> New Corporate Payment
+                </button>
+            </div>
+
+            <p style="font-size:12.5px;color:var(--text-secondary);margin:-0.75rem 0 1.25rem;max-width:72ch">
+                One invoice covering several already-approved trainees. Employees still register
+                and get verified through the normal flow — this only settles their fee.
+            </p>
+
+            <div class="stats-grid">
+                <div class="stat-card c-gold">
+                    <div class="s-label">Pending</div>
+                    <div class="s-value">{{ corp_totals['pending'] }}</div>
+                    <div class="s-sub">awaiting payment</div>
+                </div>
+                <div class="stat-card c-green">
+                    <div class="s-label">Paid</div>
+                    <div class="s-value">{{ corp_totals['paid'] }}</div>
+                    <div class="s-sub">settled invoices</div>
+                </div>
+                <div class="stat-card c-blue">
+                    <div class="s-label">Expired</div>
+                    <div class="s-value">{{ corp_totals['expired'] }}</div>
+                    <div class="s-sub">window closed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="s-label">Cancelled</div>
+                    <div class="s-value">{{ corp_totals['cancelled'] }}</div>
+                    <div class="s-sub">withdrawn</div>
+                </div>
+            </div>
+
+            <div class="corp-chips">
+                <button type="button" class="corp-chip active" onclick="filterCorp('', this)">All</button>
+                {% for st in corp_statuses %}
+                <button type="button" class="corp-chip" onclick="filterCorp('{{ st }}', this)">
+                    {{ st|capitalize }} ({{ corp_totals[st] }})
+                </button>
+                {% endfor %}
+                <input type="search" id="corp-search" placeholder="Company, contact or reference…"
+                       oninput="filterCorp(null, null)"
+                       style="padding:6px 12px;border:1px solid var(--border);border-radius:20px;font-size:12px;outline:none;width:230px;background:var(--bg-secondary);color:var(--text-primary);font-family:'DM Sans',sans-serif">
+            </div>
+
+            <div class="table-card">
+                {% if corp_records %}
+                <table id="corp-table">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>Company</th>
+                            <th>Contact</th>
+                            <th style="text-align:right">Trainees</th>
+                            <th style="text-align:right">List total</th>
+                            <th style="text-align:right">Charged</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in corp_records %}
+                        <tr data-status="{{ r.status }}"
+                            data-search="{{ (r.company_name ~ ' ' ~ r.contact_person ~ ' ' ~ r.reference)|lower }}">
+                            <td><span class="ref">{{ r.reference }}</span></td>
+                            <td style="font-weight:600;font-size:13px">{{ r.company_name }}</td>
+                            <td style="font-size:12px;color:var(--gray)">{{ r.contact_person }}</td>
+                            <td class="corp-num">{{ r.trainee_count }}</td>
+                            <td class="corp-num" style="color:var(--gray)">&#8369;{{ "{:,.2f}".format(r.list_total_php) }}</td>
+                            <td class="corp-num" style="font-weight:600">
+                                &#8369;{{ "{:,.2f}".format(r.amount_centavos / 100) }}
+                                {% if r.custom_total_php is not none %}
+                                <span class="badge b-cea" title="{{ r.override_note }}">override</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.status == 'pending' %}<span class="badge b-pending">Pending</span>
+                                {% elif r.status == 'paid' %}<span class="badge b-accepted">Paid</span>
+                                {% elif r.status == 'expired' %}<span class="badge b-rejected">Expired</span>
+                                {% else %}<span class="badge b-archived">Cancelled</span>{% endif %}
+                            </td>
+                            <td style="font-size:12px;color:var(--gray)">{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at }}</td>
+                            <td>
+                                <button type="button" class="btn-docs" onclick="openCorpDetail({{ r.id }}, this)">
+                                    <i class="fa-solid fa-building-columns"></i> Open
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="empty" id="corp-none" style="display:none">No invoices match that filter.</p>
+                {% else %}
+                <p class="empty">
+                    <i class="fa-solid fa-building-columns" style="display:block;font-size:32px;margin-bottom:12px;color:#E5E7EB"></i>
+                    No corporate payments yet.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ DISCOUNT CODES ═══ -->
+        {% if can('discount_codes') %}
+        <div id="section-discounts" class="section">
+            <div class="page-head">
+                <div>
+                    <h1>Discount Codes</h1>
+                    <span class="count-badge">{{ discount_codes|length }} code{{ '' if discount_codes|length == 1 else 's' }}</span>
+                </div>
+            </div>
+
+            <p style="font-size:12.5px;color:var(--text-secondary);margin:-0.75rem 0 1.25rem;max-width:72ch">
+                Codes trainees enter on the payment page. They apply to individual training fees
+                only — a corporate invoice already carries its own negotiated total.
+            </p>
+
+            <div class="panel-card">
+                <div class="corp-sub"><i class="fa-solid fa-plus" style="color:var(--green-md)"></i> Create a code</div>
+                <div id="disc-create-err" class="corp-note corp-note--err" style="display:none"></div>
+                <form id="disc-create-form" onsubmit="return submitDiscount(event, null)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="corp-grid-3">
+                        <div>
+                            <label class="corp-lab" for="dc-code">Code *</label>
+                            <input class="corp-in" type="text" id="dc-code" name="code" required
+                                   maxlength="40" placeholder="EARLYBIRD25" style="text-transform:uppercase">
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="dc-pct">Discount % *</label>
+                            <input class="corp-in" type="number" id="dc-pct" name="percent_off"
+                                   min="1" max="100" required placeholder="25">
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="dc-exp">Expires on *</label>
+                            <input class="corp-in" type="date" id="dc-exp" name="expires_on" required>
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="dc-max">Max redemptions *</label>
+                            <input class="corp-in" type="number" id="dc-max" name="max_uses"
+                                   min="1" required placeholder="50">
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="dc-prog">Applies to</label>
+                            <select class="corp-in" id="dc-prog" name="training_type">
+                                {% for code, label in discount_programs %}
+                                <option value="{{ code }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <p class="corp-hint">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Codes are case-insensitive — <code>earlybird25</code> is the same code.
+                    </p>
+                    <button type="submit" class="btn-add"><i class="fa-solid fa-tag"></i> Create code</button>
+                </form>
+            </div>
+
+            <div class="table-card">
+                {% if discount_codes %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th style="text-align:right">Off</th>
+                            <th>Applies to</th>
+                            <th>Expires</th>
+                            <th style="text-align:right">Used</th>
+                            <th>Status</th>
+                            <th>Created by</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in discount_codes %}
+                        <tr>
+                            <td><span class="ref">{{ c.code }}</span></td>
+                            <td class="corp-num">{{ c.percent_off }}%</td>
+                            <td style="font-size:12px;color:var(--gray)">
+                                {%- for code, label in discount_programs %}{% if code == (c.training_type or '') %}{{ label }}{% endif %}{% endfor -%}
+                            </td>
+                            <td style="font-size:12px;color:var(--gray)">{{ c.expires_on.strftime('%Y-%m-%d') }}</td>
+                            <td class="corp-num">{{ c.used }} / {{ c.max_uses }}</td>
+                            <td>
+                                {% if c.status == 'active' %}<span class="badge b-active">Active</span>
+                                {% elif c.status == 'expired' %}<span class="badge b-rejected">Expired</span>
+                                {% elif c.status == 'exhausted' %}<span class="badge b-rejected">Exhausted</span>
+                                {% else %}<span class="badge b-archived">Inactive</span>{% endif %}
+                            </td>
+                            <td style="font-size:12px;color:var(--gray)">
+                                {{ (c.fname ~ ' ' ~ (c.lname or '')) if c.fname else '—' }}
+                            </td>
+                            <td style="white-space:nowrap">
+                                <button type="button" class="btn-docs" onclick='openDiscountEdit({{ {
+                                    "id": c.id, "code": c.code, "percent_off": c.percent_off,
+                                    "expires_on": c.expires_on.strftime("%Y-%m-%d"),
+                                    "max_uses": c.max_uses, "used": c.used,
+                                    "training_type": c.training_type or ""
+                                }|tojson }})'>Edit</button>
+                                <form method="post" action="/admin/discounts/{{ c.id }}/toggle" style="display:inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-docs"
+                                            style="border-color:#D97706;color:#D97706">
+                                        {{ 'Activate' if not c.is_active else 'Deactivate' }}
+                                    </button>
+                                </form>
+                                <button type="button" class="btn-docs" style="border-color:#DC2626;color:#DC2626"
+                                        onclick="swalDeleteDiscount({{ c.id }}, '{{ c.code }}', {{ c.used }})">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="empty">
+                    <i class="fa-solid fa-tags" style="display:block;font-size:32px;margin-bottom:12px;color:#E5E7EB"></i>
+                    No discount codes yet.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══ MODULES ═══ -->
         {% if can('manage_modules') %}
         <div id="section-modules" class="section">
             <div class="page-head">
@@ -3280,15 +3746,20 @@
             document.getElementById('solar-overlay').classList.remove('open');
         }
 
-        // Restore active section from URL hash on load
+        // Restore active section from URL hash on load.
+        //
+        // The valid panes are read off the nav rather than listed here: a
+        // hardcoded allowlist silently dropped every pane added after it was
+        // written (reports, feedback, auditlog, and later the billing panes),
+        // so reloading on those hashes stranded the user on the Dashboard.
+        // A pane only counts if both its nav button and its section exist,
+        // which also means a hash the current role may not see is ignored.
         (function() {
             const hash = location.hash.replace('#', '');
-            const validSections = ['dashboard', 'users', 'schedules', 'registrations', 'solar', 'modules'];
-            if (validSections.includes(hash)) {
-                const btn = [...document.querySelectorAll('.nav-item')]
-                    .find(b => b.getAttribute('onclick').includes("'" + hash + "'"));
-                if (btn) showSection(hash, btn);
-            }
+            if (!hash || !document.getElementById('section-' + hash)) return;
+            const btn = [...document.querySelectorAll('.nav-item')]
+                .find(b => (b.getAttribute('onclick') || '').includes("'" + hash + "'"));
+            if (btn) showSection(hash, btn);
         })();
 
         // Module Detail Modal
@@ -3511,6 +3982,230 @@
         </div>
     </div>
 
+    {% if can('corporate_payments') %}
+    <!-- Corporate payment detail modal (body fetched from /admin/corporate/<id>/panel) -->
+    <div id="corp-overlay" class="docs-overlay" onclick="closeCorpDetail(event)">
+        <div class="docs-box" style="max-width:820px">
+            <div class="docs-head">
+                <div>
+                    <div class="docs-head-title" id="corp-title">Corporate Payment</div>
+                    <div class="docs-head-sub" id="corp-sub"></div>
+                </div>
+                <button class="docs-close" onclick="closeCorpDetail()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="docs-body" id="corp-body">
+                <div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New corporate payment modal -->
+    <div id="corp-new-overlay" class="docs-overlay" onclick="closeCorpNew(event)">
+        <div class="docs-box" style="max-width:860px">
+            <div class="docs-head">
+                <div>
+                    <div class="docs-head-title">New Corporate Payment</div>
+                    <div class="docs-head-sub">
+                        Prices come from the published program pricing. Only approved, still-unpaid
+                        trainees can be selected.
+                    </div>
+                </div>
+                <button class="docs-close" onclick="closeCorpNew()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="docs-body">
+                <div id="corp-new-err" class="corp-note corp-note--err" style="display:none"></div>
+                <form id="corp-new-form" onsubmit="return submitCorpNew(event)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="corp-sub"><i class="fa-solid fa-building"></i> Company</div>
+                    <div class="corp-grid-2">
+                        <div>
+                            <label class="corp-lab" for="cn-company">Company name *</label>
+                            <input class="corp-in" type="text" id="cn-company" name="company_name" required>
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="cn-contact">Contact person *</label>
+                            <input class="corp-in" type="text" id="cn-contact" name="contact_person" required>
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="cn-email">Contact email</label>
+                            <input class="corp-in" type="email" id="cn-email" name="contact_email">
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="cn-number">Contact number</label>
+                            <input class="corp-in" type="text" id="cn-number" name="contact_number">
+                        </div>
+                    </div>
+
+                    <div class="corp-sub" style="margin-top:1.25rem">
+                        <i class="fa-solid fa-user-group"></i> Trainees
+                    </div>
+                    {% if corp_trainees %}
+                    <div class="corp-pick-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width:36px"></th>
+                                    <th>Trainee</th>
+                                    <th>Program</th>
+                                    <th style="text-align:right">List price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in corp_trainees %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="trainee_id" value="{{ t.id }}"
+                                               class="corp-pick" data-id="{{ t.id }}">
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600;font-size:13px">{{ t.fname }} {{ t.lname }}</div>
+                                        <div style="font-size:11px;color:var(--gray)">{{ t.email }}</div>
+                                        {% if t.company_name %}
+                                        <div style="font-size:11px;color:var(--text-tertiary)">{{ t.company_name }}</div>
+                                        {% endif %}
+                                        {% if t.pending_corp_id %}
+                                        <span class="badge b-pending" title="Already listed on another unsettled invoice">
+                                            on another invoice
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <select class="corp-in corp-prog" name="program_{{ t.id }}"
+                                                data-id="{{ t.id }}" style="min-width:215px;font-size:12px">
+                                            {% for p in t.programs %}
+                                            <option value="{{ p.code }}" data-price="{{ p.total }}">
+                                                {{ p.label }} — &#8369;{{ "{:,.2f}".format(p.total) }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="corp-num" id="cn-price-{{ t.id }}">
+                                        &#8369;{{ "{:,.2f}".format(t.default_price) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="empty" style="padding:1.5rem">
+                        No unpaid trainees right now. Approve registrations first — trainees have to
+                        come through the normal registration and verification flow.
+                    </p>
+                    {% endif %}
+
+                    <div class="corp-sub" style="margin-top:1.25rem">
+                        <i class="fa-solid fa-peso-sign"></i> Amount
+                    </div>
+                    <div class="stats-grid" style="margin-bottom:1rem">
+                        <div class="stat-card c-blue">
+                            <div class="s-label">Selected</div>
+                            <div class="s-value" id="cn-count">0</div>
+                            <div class="s-sub">trainees</div>
+                        </div>
+                        <div class="stat-card c-gold">
+                            <div class="s-label">List total</div>
+                            <div class="s-value" id="cn-total">&#8369;0.00</div>
+                            <div class="s-sub">at published prices</div>
+                        </div>
+                        <div class="stat-card c-green">
+                            <div class="s-label">To be charged</div>
+                            <div class="s-value" id="cn-charge">&#8369;0.00</div>
+                            <div class="s-sub" id="cn-charge-note">no override</div>
+                        </div>
+                    </div>
+
+                    <div class="corp-grid-2">
+                        <div>
+                            <label class="corp-lab" for="cn-custom">Custom total (optional)</label>
+                            <input class="corp-in" type="text" id="cn-custom" name="custom_total"
+                                   inputmode="decimal" placeholder="Leave blank to charge the list total">
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="cn-expiry">Payment window (hours)</label>
+                            <input class="corp-in" type="number" id="cn-expiry" name="expiry_hours"
+                                   min="1" max="336" value="{{ corp_default_expiry_hours }}">
+                        </div>
+                    </div>
+
+                    <div id="cn-note-field" style="display:none">
+                        <label class="corp-lab" for="cn-note">Reason for the override *</label>
+                        <textarea class="corp-in" id="cn-note" name="override_note" rows="2"
+                                  placeholder="e.g. Negotiated corporate rate approved by management"></textarea>
+                        <p class="corp-hint">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Required whenever the charged amount differs from the list total. Stored
+                            with your name and the time on the record's audit trail.
+                        </p>
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:1.25rem">
+                        <button type="button" class="btn-ghost" onclick="closeCorpNew()">Cancel</button>
+                        <button type="submit" class="btn-add" id="cn-submit"
+                                {% if not corp_trainees %}disabled{% endif %}>
+                            <i class="fa-solid fa-file-invoice-dollar"></i> Create invoice
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can('discount_codes') %}
+    <!-- Edit discount code modal -->
+    <div id="disc-overlay" class="docs-overlay" onclick="closeDiscountEdit(event)">
+        <div class="docs-box" style="max-width:560px">
+            <div class="docs-head">
+                <div>
+                    <div class="docs-head-title" id="disc-title">Edit Discount Code</div>
+                    <div class="docs-head-sub" id="disc-sub"></div>
+                </div>
+                <button class="docs-close" onclick="closeDiscountEdit()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="docs-body">
+                <div id="disc-edit-err" class="corp-note corp-note--err" style="display:none"></div>
+                <form id="disc-edit-form" onsubmit="return submitDiscount(event, window._discEditId)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="corp-grid-2">
+                        <div>
+                            <label class="corp-lab" for="de-code">Code *</label>
+                            <input class="corp-in" type="text" id="de-code" name="code" required maxlength="40">
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="de-pct">Discount % *</label>
+                            <input class="corp-in" type="number" id="de-pct" name="percent_off"
+                                   min="1" max="100" required>
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="de-exp">Expires on *</label>
+                            <input class="corp-in" type="date" id="de-exp" name="expires_on" required>
+                        </div>
+                        <div>
+                            <label class="corp-lab" for="de-max">Max redemptions *</label>
+                            <input class="corp-in" type="number" id="de-max" name="max_uses" min="1" required>
+                            <p class="corp-hint" id="de-max-hint"></p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="corp-lab" for="de-prog">Applies to</label>
+                        <select class="corp-in" id="de-prog" name="training_type">
+                            {% for code, label in discount_programs %}
+                            <option value="{{ code }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:1.25rem">
+                        <button type="button" class="btn-ghost" onclick="closeDiscountEdit()">Cancel</button>
+                        <button type="submit" class="btn-add"><i class="fa-solid fa-check"></i> Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Add / Edit User Modal -->
     <div id="user-form-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:16px">
         <div style="position:relative;background:#fff;border-radius:14px;padding:32px;max-width:480px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,0.2);max-height:92vh;overflow-y:auto">
@@ -3530,7 +4225,11 @@
                         <select name="role" id="um-role" required style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px" onchange="umSyncTraineeFields()">
                             <option value="">— Select role —</option>
                             <option value="admin">Admin</option>
-                            <option value="employee">Employee / Trainer</option>
+                            <option value="super_user">Super User</option>
+                            <option value="secretary">Secretary</option>
+                            <!-- `employee` is the stored value for a Trainer: the label
+                                 changed, the value never did. -->
+                            <option value="employee">Trainer</option>
                             <option value="trainee">Trainee</option>
                         </select>
                     </div>
@@ -3562,6 +4261,22 @@
                             <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Company</label>
                             <input type="text" name="company_name" id="um-company" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
                         </div>
+                    </div>
+                    <div id="um-trainer-fields" style="display:none;padding:14px;background:var(--bg-tertiary);border-radius:10px">
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Work areas *</label>
+                        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-primary);margin-bottom:8px;cursor:pointer">
+                            <input type="checkbox" name="cap_manage_modules" id="um-cap-modules" value="1" checked>
+                            <span><strong>Training modules</strong><br>
+                                <span style="font-size:11px;color:var(--text-tertiary)">Create and manage modules, quizzes, exam submissions and trainee progress</span></span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-primary);cursor:pointer">
+                            <input type="checkbox" name="cap_review_solar" id="um-cap-solar" value="1" checked>
+                            <span><strong>PV consultations</strong><br>
+                                <span style="font-size:11px;color:var(--text-tertiary)">Review AI-assisted solar estimates and finalise client quotations</span></span>
+                        </label>
+                        <p style="margin:10px 0 0;font-size:11px;color:var(--text-tertiary)">
+                            Only the areas ticked here appear in this trainer's console. Pick at least one.
+                        </p>
                     </div>
                     <div id="um-trainee-fields" style="display:none;padding:14px;background:#F9FAFB;border-radius:10px">
                         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Training Type *</label>
@@ -3596,10 +4311,17 @@
 // ── Add / Edit User modal ────────────────────────────────────────────────────
 
 function umSyncTraineeFields() {
-    var isTrainee = document.getElementById('um-role').value === 'trainee';
+    var role = document.getElementById('um-role').value;
+    var isTrainee = role === 'trainee';
     var fields = document.getElementById('um-trainee-fields');
     fields.style.display = isTrainee ? 'block' : 'none';
     document.getElementById('um-training-type').required = isTrainee;
+
+    // Work areas are a Trainer-only concern: every other role's capabilities
+    // come from the role itself (see permissions.OVERRIDABLE_ROLES), so the
+    // block is hidden rather than offering choices the server would ignore.
+    document.getElementById('um-trainer-fields').style.display =
+        role === 'employee' ? 'block' : 'none';
 }
 
 function openUserModal(mode, user) {
@@ -3621,6 +4343,8 @@ function openUserModal(mode, user) {
         document.getElementById('um-company').value = user.company_name || '';
         document.getElementById('um-training-type').value = user.training_type || '';
         document.getElementById('um-payment-status').value = user.payment_status || 'unpaid';
+        document.getElementById('um-cap-modules').checked = !!user.cap_manage_modules;
+        document.getElementById('um-cap-solar').checked = !!user.cap_review_solar;
         document.getElementById('um-submit-label').textContent = 'Save Changes';
     } else {
         document.getElementById('user-modal-title').textContent = 'Add User';
@@ -3628,6 +4352,9 @@ function openUserModal(mode, user) {
         form.action = '/admin/user/create';
         document.getElementById('um-password-field').style.display = 'block';
         document.getElementById('um-password').required = true;
+        // A new Trainer starts on the role default: both areas.
+        document.getElementById('um-cap-modules').checked = true;
+        document.getElementById('um-cap-solar').checked = true;
         document.getElementById('um-submit-label').textContent = 'Create User';
     }
     umSyncTraineeFields();
@@ -3846,6 +4573,397 @@ function fmtDate(s) {
     return isNaN(d) ? s : d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
         + ' ' + d.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'});
 }
+</script>
+<script>
+/* ── Billing panes: corporate payments + discount codes ──────────────────────
+   Both live inside this console as hash-routed sections. Amounts shown here
+   are presentation only: every charge is recomputed server-side from the
+   stored record, so nothing posted from this file can name a price. */
+
+function _billCsrf() {
+    return document.querySelector('meta[name="csrf-token"]').content;
+}
+
+function _billPeso(n) {
+    return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/* Reload onto a specific pane after a save.
+   A fresh document is needed so the pane re-renders with the new row. Setting
+   the hash updates the URL synchronously, so the following reload fetches the
+   pane's own URL; assigning location.href first raced that update. */
+function _billReturnTo(pane) {
+    if (window.location.hash !== '#' + pane) window.location.hash = pane;
+    window.location.reload();
+}
+
+function _billErr(id, msgOrList) {
+    var box = document.getElementById(id);
+    if (!box) return;
+    if (!msgOrList || (Array.isArray(msgOrList) && !msgOrList.length)) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+    }
+    var list = Array.isArray(msgOrList) ? msgOrList : [msgOrList];
+    box.innerHTML = list.length > 1
+        ? '<ul style="margin:0 0 0 18px">' + list.map(function (e) { return '<li>' + e + '</li>'; }).join('') + '</ul>'
+        : list[0];
+    box.style.display = 'block';
+}
+
+/* ── Corporate: list filtering ─────────────────────────────────────────────── */
+
+var _corpStatus = '';
+
+function filterCorp(status, btn) {
+    if (status !== null) {
+        _corpStatus = status;
+        document.querySelectorAll('.corp-chip').forEach(function (c) { c.classList.remove('active'); });
+        if (btn) btn.classList.add('active');
+    }
+    var search = (document.getElementById('corp-search').value || '').trim().toLowerCase();
+    var table = document.getElementById('corp-table');
+    if (!table) return;
+    var shown = 0;
+    table.querySelectorAll('tbody tr').forEach(function (tr) {
+        var okStatus = !_corpStatus || tr.dataset.status === _corpStatus;
+        var okSearch = !search || (tr.dataset.search || '').indexOf(search) !== -1;
+        var show = okStatus && okSearch;
+        tr.style.display = show ? '' : 'none';
+        if (show) shown++;
+    });
+    var none = document.getElementById('corp-none');
+    if (none) none.style.display = shown ? 'none' : 'block';
+}
+
+/* ── Corporate: detail modal ──────────────────────────────────────────────── */
+
+function openCorpDetail(id, btn) {
+    var overlay = document.getElementById('corp-overlay');
+    if (btn && typeof anchorModalOrigin === 'function') {
+        anchorModalOrigin(overlay.querySelector('.docs-box'), btn);
+    }
+    var row = btn ? btn.closest('tr') : null;
+    document.getElementById('corp-title').textContent =
+        row ? row.children[1].textContent.trim() : 'Corporate Payment';
+    document.getElementById('corp-sub').textContent =
+        row ? row.children[0].textContent.trim() : '';
+    document.getElementById('corp-body').innerHTML =
+        '<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    fetch('/admin/corporate/' + id + '/panel')
+        .then(function (r) { return r.text(); })
+        .then(function (html) { document.getElementById('corp-body').innerHTML = html; })
+        .catch(function () {
+            document.getElementById('corp-body').innerHTML =
+                '<p class="empty">Could not load this record.</p>';
+        });
+}
+
+function closeCorpDetail(event) {
+    if (event && event.target !== document.getElementById('corp-overlay')) return;
+    document.getElementById('corp-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+    if (_corpPoll) { clearInterval(_corpPoll); _corpPoll = null; }
+}
+
+/* ── Corporate: collecting payment inside the detail modal ────────────────── */
+
+var _corpPoll = null;
+
+function corpTab(which, btn) {
+    document.querySelectorAll('.corp-tab').forEach(function (t) { t.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('corp-panel-card').style.display = which === 'card' ? '' : 'none';
+    document.getElementById('corp-panel-qr').style.display = which === 'qr' ? '' : 'none';
+    _billErr('corp-pay-err', null);
+}
+
+function _corpPost(url, body) {
+    var opts = { method: 'POST', headers: { 'X-CSRFToken': _billCsrf() } };
+    if (body) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+    }
+    return fetch(url, opts).then(function (r) { return r.json(); });
+}
+
+async function corpPayCard(id) {
+    _billErr('corp-pay-err', null);
+    var num = document.getElementById('corp-c-number').value.replace(/\s/g, '');
+    var exp = document.getElementById('corp-c-exp').value.replace(/\s|\//g, '');
+    var cvc = document.getElementById('corp-c-cvc').value.trim();
+    var name = document.getElementById('corp-c-name').value.trim();
+    if (!num || exp.length < 4 || !cvc || !name) {
+        _billErr('corp-pay-err', 'Fill in all card details.');
+        return;
+    }
+    var btn = document.getElementById('corp-btn-card');
+    var label = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing…';
+    try {
+        var init = await _corpPost('/admin/corporate/' + id + '/pay/card/initiate');
+        if (init.error) { _billErr('corp-pay-err', init.error); return; }
+
+        var pm = await _corpPost('/admin/corporate/' + id + '/pay/card/method', {
+            number: num,
+            exp_month: parseInt(exp.substring(0, 2), 10),
+            exp_year: parseInt('20' + exp.substring(2, 4), 10),
+            cvc: cvc, name: name
+        });
+        if (pm.error) { _billErr('corp-pay-err', 'Card error: ' + pm.error); return; }
+
+        var att = await _corpPost('/admin/corporate/' + id + '/pay/card/attach', {
+            payment_method_id: pm.pm_id, client_key: init.client_key
+        });
+        if (att.status === 'paid') { window.location.reload(); return; }
+        if (att.status === 'redirect') { window.location.href = att.url; return; }
+        _billErr('corp-pay-err', att.error || 'The payment could not be completed.');
+    } catch (e) {
+        _billErr('corp-pay-err', 'Something went wrong. Please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = label;
+    }
+}
+
+async function corpGenQR(id) {
+    _billErr('corp-pay-err', null);
+    var btn = document.getElementById('corp-btn-qr');
+    btn.disabled = true;
+    try {
+        var res = await _corpPost('/admin/corporate/' + id + '/pay/qrph');
+        if (res.error || !res.qr_image) {
+            _billErr('corp-pay-err', res.error || 'QR code could not be generated.');
+            btn.disabled = false;
+            return;
+        }
+        document.getElementById('corp-qr-img').src = res.qr_image;
+        document.getElementById('corp-qr-box').style.display = '';
+        btn.style.display = 'none';
+        if (res.test_url) {
+            var t = document.getElementById('corp-qr-test');
+            t.href = res.test_url;
+            t.style.display = '';
+        }
+        _corpStartPoll(id);
+    } catch (e) {
+        _billErr('corp-pay-err', 'QR code could not be generated.');
+        btn.disabled = false;
+    }
+}
+
+function _corpStartPoll(id) {
+    clearInterval(_corpPoll);
+    _corpPoll = setInterval(async function () {
+        try {
+            var res = await fetch('/admin/corporate/' + id + '/poll').then(function (r) { return r.json(); });
+            if (res.status === 'paid') {
+                clearInterval(_corpPoll);
+                _corpPoll = null;
+                var st = document.getElementById('corp-qr-state');
+                if (st) st.innerHTML = '<i class="fa-solid fa-circle-check"></i> Payment received — reloading…';
+                setTimeout(function () { window.location.reload(); }, 1200);
+            } else if (res.status === 'expired' || res.status === 'cancelled') {
+                clearInterval(_corpPoll);
+                _corpPoll = null;
+                window.location.reload();
+            }
+        } catch (e) { /* network hiccup, keep polling */ }
+    }, 3000);
+}
+
+/* ── Corporate: new invoice modal ─────────────────────────────────────────── */
+
+function openCorpNew() {
+    var form = document.getElementById('corp-new-form');
+    form.reset();
+    _billErr('corp-new-err', null);
+    recalcCorpNew();
+    document.getElementById('corp-new-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCorpNew(event) {
+    if (event && event.target !== document.getElementById('corp-new-overlay')) return;
+    document.getElementById('corp-new-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+function _corpPriceFor(id) {
+    var sel = document.querySelector('.corp-prog[data-id="' + id + '"]');
+    if (!sel) return 0;
+    return parseFloat(sel.options[sel.selectedIndex].dataset.price) || 0;
+}
+
+function recalcCorpNew() {
+    var count = 0, total = 0;
+    document.querySelectorAll('.corp-pick').forEach(function (cb) {
+        var p = _corpPriceFor(cb.dataset.id);
+        var cell = document.getElementById('cn-price-' + cb.dataset.id);
+        if (cell) cell.textContent = _billPeso(p);
+        if (cb.checked) { count++; total += p; }
+    });
+    document.getElementById('cn-count').textContent = count;
+    document.getElementById('cn-total').textContent = _billPeso(total);
+
+    var raw = (document.getElementById('cn-custom').value || '').replace(/,/g, '');
+    var override = parseFloat(raw);
+    var has = !isNaN(override) && override > 0;
+    document.getElementById('cn-charge').textContent = _billPeso(has ? override : total);
+    document.getElementById('cn-charge-note').textContent =
+        has ? 'custom total — note required' : 'no override';
+    // The server enforces the note too; hiding the box until it matters just
+    // keeps the form quiet in the common case.
+    document.getElementById('cn-note-field').style.display = has ? '' : 'none';
+    document.getElementById('cn-note').required = has;
+}
+
+async function submitCorpNew(event) {
+    event.preventDefault();
+    _billErr('corp-new-err', null);
+    var form = event.target;
+    var btn = document.getElementById('cn-submit');
+    var label = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Creating…';
+    try {
+        var res = await fetch('/admin/corporate/new', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': _billCsrf() },
+            body: new FormData(form)
+        });
+        var data = await res.json();
+        if (data.errors) { _billErr('corp-new-err', data.errors); return false; }
+        _billReturnTo('corporate');
+    } catch (e) {
+        _billErr('corp-new-err', 'Could not create the invoice. Please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = label;
+    }
+    return false;
+}
+
+/* ── Discount codes ───────────────────────────────────────────────────────── */
+
+window._discEditId = null;
+
+function openDiscountEdit(c) {
+    window._discEditId = c.id;
+    _billErr('disc-edit-err', null);
+    document.getElementById('disc-title').textContent = 'Edit ' + c.code;
+    document.getElementById('disc-sub').textContent =
+        c.used + ' of ' + c.max_uses + ' redemption(s) used';
+    document.getElementById('de-code').value = c.code;
+    document.getElementById('de-pct').value = c.percent_off;
+    document.getElementById('de-exp').value = c.expires_on;
+    document.getElementById('de-max').value = c.max_uses;
+    document.getElementById('de-max').min = c.used || 1;
+    document.getElementById('de-max-hint').textContent =
+        c.used ? 'Cannot go below the ' + c.used + ' already redeemed.' : '';
+    document.getElementById('de-prog').value = c.training_type || '';
+    document.getElementById('disc-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDiscountEdit(event) {
+    if (event && event.target !== document.getElementById('disc-overlay')) return;
+    document.getElementById('disc-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+async function submitDiscount(event, codeId) {
+    event.preventDefault();
+    var form = event.target;
+    var errBox = codeId ? 'disc-edit-err' : 'disc-create-err';
+    _billErr(errBox, null);
+    var url = codeId ? '/admin/discounts/' + codeId + '/edit' : '/admin/discounts/create';
+    try {
+        var res = await fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': _billCsrf() },
+            body: new FormData(form)
+        });
+        var data = await res.json();
+        if (data.errors) { _billErr(errBox, data.errors); return false; }
+        _billReturnTo('discounts');
+    } catch (e) {
+        _billErr(errBox, 'Could not save the code. Please try again.');
+    }
+    return false;
+}
+
+function swalDeleteDiscount(id, code, used) {
+    Swal.fire({
+        title: 'Delete ' + code + '?',
+        html: used
+            ? 'This code has been redeemed <strong>' + used + '</strong> time(s). '
+              + 'Deleting it removes the code, not those payments.'
+            : 'This cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#DC2626',
+    }).then(function (r) {
+        if (!r.isConfirmed) return;
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/discounts/' + id + '/delete';
+        var t = document.createElement('input');
+        t.type = 'hidden';
+        t.name = 'csrf_token';
+        t.value = _billCsrf();
+        form.appendChild(t);
+        document.body.appendChild(form);
+        form.submit();
+    });
+}
+
+/* Wire the new-invoice calculator once the markup exists. */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.corp-pick').forEach(function (cb) {
+        cb.addEventListener('change', recalcCorpNew);
+    });
+    document.querySelectorAll('.corp-prog').forEach(function (s) {
+        s.addEventListener('change', recalcCorpNew);
+    });
+    var custom = document.getElementById('cn-custom');
+    if (custom) custom.addEventListener('input', recalcCorpNew);
+
+    var search = document.getElementById('corp-search');
+    if (search) filterCorp('', document.querySelector('.corp-chip'));
+
+    // Card input formatting is bound by delegation: the detail modal's body is
+    // injected after load, so there is nothing to attach to up front.
+    document.addEventListener('input', function (e) {
+        if (e.target.id === 'corp-c-number') {
+            var v = e.target.value.replace(/\D/g, '').substring(0, 16);
+            e.target.value = v.match(/.{1,4}/g) ? v.match(/.{1,4}/g).join(' ') : v;
+        } else if (e.target.id === 'corp-c-exp') {
+            var x = e.target.value.replace(/\D/g, '').substring(0, 4);
+            if (x.length >= 2) x = x.substring(0, 2) + ' / ' + x.substring(2);
+            e.target.value = x;
+        } else if (e.target.id === 'corp-c-cvc') {
+            e.target.value = e.target.value.replace(/\D/g, '').substring(0, 4);
+        }
+    });
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    ['corp-overlay', 'corp-new-overlay', 'disc-overlay'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.classList.contains('open')) {
+            el.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    });
+});
 </script>
 <script src="/static/admin-theme.js"></script>
 </body>

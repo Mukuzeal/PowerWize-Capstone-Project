@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+
+  "entry": [
+    "static/*.js",
+    "static/*.css"
+  ],
+
+  "ignorePatterns": [
+    "ewize-2026/**",
+    ".claude/**",
+    "venv/**",
+    ".venv/**",
+    "graphify-out/**",
+    "fallow-viz.html"
+  ],
+
+  "health": {
+    "maxCrap": 1000
+  }
+}

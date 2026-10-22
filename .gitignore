@@ -86,12 +86,17 @@ scripts/fix_receipt.py
 scripts/seed_all_data.py
 scripts/seed_registrations.py
 scripts/seed_users.py
-scripts/_guard.py
+# scripts/_guard.py is NOT ignored: it holds no credentials, and five tracked
+# scripts import it (backfill_training_types, build_rag_index,
+# reseed_lms_modules, seed_roles, solar_chat_devapp) — ignoring it made every
+# one of them fail on a fresh clone with "No module named '_guard'".
 
 # ── IDE / agent config ───────────────────────────────────────────────────────
 .claude/
-CLAUDE.md
 .impeccable/
+# CLAUDE.md is tracked, unlike the rest of this section: it is the project's
+# own architecture documentation, carries no credentials, and needs to reach
+# the other boot and anyone else working on this.
 
 # ── Generated artefacts ──────────────────────────────────────────────────────
 # graphify knowledge graph (regenerate with `graphify update .`)
@@ -105,3 +110,11 @@ skills-lock.json
 
 # Claude Code agent working notes — local scratch, not app source.
 memory/
+
+.bat
+*.bat
+
+# fallow analysis artifacts
+fallow-viz.html
+fallow-baseline.json
+PowerWize-Ngrok.bat

@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, session
 from db import get_db, get_batches_full, get_users, get_registrations, get_solar_requests
+from permissions import current_can
 from datetime import date, timedelta
 
 employee_bp = Blueprint("employee", __name__)
@@ -80,14 +81,22 @@ def employee():
         b["end_date"] = b["start_date"] + timedelta(days=end_offsets.get(b["type"], 0))
         (past if b["end_date"] < today else upcoming).append(b)
 
-    # Get LMS data
+    # A trainer's remit is set per account: some run training modules, some
+    # handle PV consultations, some both. Each half is only queried when this
+    # trainer actually holds the capability, so a pane they cannot open has no
+    # data rendered behind it either.
     emp_id = session.get("user_id")
-    modules = lms_get_modules(instructor_id=emp_id)
-    archived_modules = lms_get_archived_modules(instructor_id=emp_id)
-    submissions = lms_get_all_submissions(instructor_id=emp_id)
+    does_modules = current_can("manage_modules")
+    does_solar   = current_can("review_solar")
+
+    modules          = lms_get_modules(instructor_id=emp_id) if does_modules else []
+    archived_modules = lms_get_archived_modules(instructor_id=emp_id) if does_modules else []
+    submissions      = lms_get_all_submissions(instructor_id=emp_id) if does_modules else []
+    solar_requests   = get_solar_requests() if does_solar else []
+
     # An employee has no progress of their own — they are the instructor. What
     # this section reports is their trainees' progress.
-    progress_list = _trainee_progress(trainees)
+    progress_list = _trainee_progress(trainees) if does_modules else []
     prog_map = {}
 
     return render_template("admin/employee.html",
@@ -96,7 +105,7 @@ def employee():
                            past_schedules=past,
                            users=users,
                            trainee_count=trainee_count,
-                           solar_requests=get_solar_requests(),
+                           solar_requests=solar_requests,
                            modules=modules,
                            archived_modules=archived_modules,
                            submissions=submissions,

@@ -11,7 +11,7 @@ below.
 
 from datetime import datetime
 
-from flask import Blueprint, abort, render_template, url_for
+from flask import Blueprint, abort, jsonify, render_template, url_for
 from markupsafe import Markup
 
 import site_content as C
@@ -191,3 +191,28 @@ def legal_notice():
 @site_bp.route("/terms-and-conditions")
 def terms_conditions():
     return render_template("site/legal.html", active="site.terms_conditions", doc=C.TERMS_CONDITIONS)
+
+
+# Legal docs the registration forms open in a modal, keyed by the same slug as
+# their public URL so the link's href (the no-JS fallback) and the modal fetch
+# can't point at different documents.
+LEGAL_DOCS = {
+    "privacy-policy": C.PRIVACY_POLICY,
+    "legal-notice": C.LEGAL_NOTICE,
+    "terms-and-conditions": C.TERMS_CONDITIONS,
+}
+
+
+@site_bp.route("/api/legal/<slug>")
+def legal_doc(slug):
+    """A legal doc as HTML, so the multi-step forms can show it without
+    navigating away and losing the wizard's state and uploaded files."""
+    doc = LEGAL_DOCS.get(slug)
+    if doc is None:
+        abort(404)
+    return jsonify(
+        title=doc["title"],
+        effective=doc.get("effective_date", ""),
+        version=doc.get("version") or "",
+        html=render_template("site/_legal_body.html", doc=doc, reveal=False),
+    )

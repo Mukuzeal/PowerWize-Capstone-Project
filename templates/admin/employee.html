@@ -326,6 +326,7 @@
   </button>
 
   <span class="mono dash__group">Manage</span>
+  {% if can('manage_modules') %}
   <button class="dash__item" type="button" data-section="modules">
     <span class="dash__no">02</span>
     <span class="dash__ico"><i class="fa-solid fa-book-open"></i></span>
@@ -336,16 +337,21 @@
     <span class="dash__ico"><i class="fa-solid fa-inbox"></i></span>
     <span class="dash__label">Exam submissions</span>
   </button>
+  {% endif %}
+  {% if can('review_solar') %}
   <button class="dash__item" type="button" data-section="solar">
     <span class="dash__no">04</span>
     <span class="dash__ico"><i class="fa-solid fa-solar-panel"></i></span>
     <span class="dash__label">Solar consultations</span>
   </button>
+  {% endif %}
+  {% if can('manage_modules') %}
   <button class="dash__item" type="button" data-section="progress">
     <span class="dash__no">05</span>
     <span class="dash__ico"><i class="fa-solid fa-chart-line"></i></span>
     <span class="dash__label">Trainee progress</span>
   </button>
+  {% endif %}
 </nav>
 
 <main class="dash__main" id="main">
@@ -379,17 +385,20 @@
         <p class="mono stat__lab">Upcoming batches</p>
         <p class="stat__note">Scheduled trainings</p>
       </div>
+      {% if can('review_solar') %}
       <div class="stat">
         <span class="stat__ico"><i class="fa-solid fa-solar-panel"></i></span>
         <p class="stat__val">{{ solar_requests | length }}</p>
         <p class="mono stat__lab">Solar requests</p>
         <p class="stat__note">Consultations logged</p>
       </div>
+      {% endif %}
     </div>
 
     <div class="dsub"><p class="mono mono--fg">Jump to</p></div>
 
     <div class="decision-grid">
+      {% if can('manage_modules') %}
       <button class="dec-btn" type="button" data-goto="modules">
         <span class="dec-icon"><i class="fa-solid fa-book"></i></span>
         <span class="dec-text">
@@ -406,6 +415,8 @@
         </span>
         <i class="fa-solid fa-arrow-right dec-go"></i>
       </button>
+      {% endif %}
+      {% if can('review_solar') %}
       <button class="dec-btn" type="button" data-goto="solar">
         <span class="dec-icon"><i class="fa-solid fa-solar-panel"></i></span>
         <span class="dec-text">
@@ -414,6 +425,8 @@
         </span>
         <i class="fa-solid fa-arrow-right dec-go"></i>
       </button>
+      {% endif %}
+      {% if can('manage_modules') %}
       <button class="dec-btn" type="button" data-goto="progress">
         <span class="dec-icon"><i class="fa-solid fa-chart-line"></i></span>
         <span class="dec-text">
@@ -422,10 +435,19 @@
         </span>
         <i class="fa-solid fa-arrow-right dec-go"></i>
       </button>
+      {% endif %}
     </div>
+
+    {% if not can('manage_modules') and not can('review_solar') %}
+    <p class="mm-card__empty">
+      No work areas have been assigned to your account yet. An administrator
+      needs to give you training modules, PV consultations, or both.
+    </p>
+    {% endif %}
   </section>
 
   {# ── 02 · Training modules ──────────────────────────────────────────────── #}
+  {% if can('manage_modules') %}
   <section class="dpane" id="pane-modules" aria-labelledby="h-modules">
     <div class="dhead">
       <div>
@@ -569,7 +591,10 @@
     {% endif %}
   </section>
 
+  {% endif %}
+
   {# ── 04 · Solar consultations ───────────────────────────────────────────── #}
+  {% if can('review_solar') %}
   <section class="dpane" id="pane-solar" aria-labelledby="h-solar">
     {% set n_ai = solar_requests | selectattr('status', 'equalto', 'ai_processed') | list | length %}
     {% set n_pending = solar_requests | selectattr('status', 'equalto', 'pending_review') | list | length %}
@@ -659,7 +684,10 @@
     {% endif %}
   </section>
 
+  {% endif %}
+
   {# ── 05 · Trainee progress ──────────────────────────────────────────────── #}
+  {% if can('manage_modules') %}
   <section class="dpane" id="pane-progress" aria-labelledby="h-progress">
     <div class="dhead">
       <div>
@@ -711,6 +739,7 @@
     </div>
     {% endif %}
   </section>
+  {% endif %}
 
 </main>
 

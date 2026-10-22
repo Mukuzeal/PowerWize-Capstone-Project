@@ -11,7 +11,7 @@ from db import (lms_get_module, lms_get_exam, lms_get_exam_questions,
                 lms_submit_exam, lms_submit_exam_answers)
 
 from . import lms_bp
-from permissions import can
+from permissions import current_can
 
 from ._shared import (_uid, _role, _is_instructor, _is_trainee, _allowed, _owns_module,
                       EXAM_UPLOAD_DIR, ALLOWED_SUBMISSION, _check_completion, _module_access)
@@ -73,7 +73,7 @@ def exam_manage(module_id):
 def submissions():
     if not _uid() or not _is_instructor():
         abort(403)
-    inst_id = None if can(_role(), 'manage_any_module') else _uid()
+    inst_id = None if current_can('manage_any_module') else _uid()
     subs    = lms_get_all_submissions(instructor_id=inst_id)
     return render_template('lms/submissions.html', submissions=subs)
 

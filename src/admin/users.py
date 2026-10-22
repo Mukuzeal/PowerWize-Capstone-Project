@@ -1,11 +1,45 @@
 from flask import redirect, flash, session, request, render_template, abort, jsonify
 from werkzeug.security import generate_password_hash
 
-from db import get_db, dict_cur, audit_log
-from permissions import require, VALID_ROLES, role_label
+from db import (get_db, dict_cur, audit_log, set_user_capability,
+                clear_user_capabilities, get_user_capabilities)
+from permissions import (require, VALID_ROLES, role_label, can,
+                         OVERRIDABLE, OVERRIDABLE_ROLES)
 from utils import check_required
 
 from . import admin_bp, require_admin
+
+# Human labels for the per-account work areas a Trainer can be given.
+CAPABILITY_LABELS = {
+    "manage_modules": "Training modules",
+    "review_solar":   "PV consultations",
+}
+
+
+def _wanted_caps(form):
+    """Which overridable capabilities the form asked for."""
+    return {cap: form.get("cap_" + cap) == "1" for cap in OVERRIDABLE}
+
+
+def _save_caps(user_id, role, form, actor_id):
+    """Persist a Trainer's work areas and return the granted labels.
+
+    Only deviations from the role default are stored, so an account that keeps
+    the full default has no rows at all. Switching someone away from Trainer
+    clears their overrides outright — a narrowing that belonged to the old role
+    must not silently follow them into a new one.
+    """
+    if role not in OVERRIDABLE_ROLES:
+        clear_user_capabilities(user_id)
+        return []
+    wanted = _wanted_caps(form)
+    granted = []
+    for cap, on in wanted.items():
+        default = can(role, cap)
+        set_user_capability(user_id, cap, None if on == default else on, actor_id)
+        if on:
+            granted.append(CAPABILITY_LABELS.get(cap, cap))
+    return granted
 
 
 @admin_bp.route("/admin/user/create", methods=["GET", "POST"])
@@ -38,6 +72,11 @@ def admin_create_user():
         payment_status = "paid"
     elif not training_type:
         errors.append("Training Type is required.")
+    # A Trainer with no work area could log in to an empty console, so at
+    # least one has to be picked.
+    if role in OVERRIDABLE_ROLES and not any(_wanted_caps(request.form).values()):
+        errors.append("Pick at least one work area for a Trainer "
+                      "(training modules, PV consultations, or both).")
 
     if not errors:
         conn = get_db(); cur = conn.cursor()
@@ -63,8 +102,11 @@ def admin_create_user():
     )
     uid = cur.fetchone()[0]
     conn.commit(); cur.close(); conn.close()
-    audit_log(session.get("user_id"), "create_user", "user", uid,
-              f"Created {role} account for {fname} {lname} ({email})")
+    granted = _save_caps(uid, role, request.form, session.get("user_id"))
+    detail = f"Created {role} account for {fname} {lname} ({email})"
+    if granted:
+        detail += " — work areas: " + ", ".join(granted)
+    audit_log(session.get("user_id"), "create_user", "user", uid, detail)
     flash(f"{fname} {lname} has been added as {role_label(role)}.", "success")
     if is_xhr:
         return jsonify(ok=True, redirect="/admin#users")
@@ -104,6 +146,9 @@ def admin_edit_user(user_id):
         payment_status = "paid"
     elif not training_type:
         errors.append("Training Type is required.")
+    if role in OVERRIDABLE_ROLES and not any(_wanted_caps(request.form).values()):
+        errors.append("Pick at least one work area for a Trainer "
+                      "(training modules, PV consultations, or both).")
 
     is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
@@ -129,8 +174,11 @@ def admin_edit_user(user_id):
          payment_status, training_type, user_id)
     )
     conn.commit(); cur.close(); conn.close()
-    audit_log(session.get("user_id"), "edit_user", "user", user_id,
-              f"Updated account details for {fname} {lname} ({email})")
+    granted = _save_caps(user_id, role, request.form, session.get("user_id"))
+    detail = f"Updated account details for {fname} {lname} ({email})"
+    if role in OVERRIDABLE_ROLES:
+        detail += " — work areas: " + (", ".join(granted) if granted else "none")
+    audit_log(session.get("user_id"), "edit_user", "user", user_id, detail)
     flash(f"{fname} {lname}'s account has been updated.", "success")
     if is_xhr:
         return jsonify(ok=True, redirect="/admin#users")

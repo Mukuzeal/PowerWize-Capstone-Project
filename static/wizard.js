@@ -136,74 +136,9 @@
     }
 
     function validateStep(idx){
-      var step = steps[idx].el;
-      var fields = step.querySelectorAll('[required]');
-      var firstInvalid = null;
-      var firstInvalidMsg = null;
-      for(var i=0;i<fields.length;i++){
-        var f = fields[i];
-        // file inputs: required allowed if neither selected nor existing
-        if(f.type === 'file'){
-          var existingInput = step.querySelector('input[name="'+f.name+'_existing"]');
-          var hasExisting = existingInput && existingInput.value;
-          var hasFile = f.files && f.files.length > 0;
-          if(!hasFile && !hasExisting){ firstInvalid = f; break; }
-          // also gate on AI validation status if this field has one
-          var valBox = document.getElementById('val-' + f.id);
-          if(valBox && hasFile){
-            var status = valBox.dataset.status;
-            if(status === 'validating'){
-              firstInvalid = f;
-              firstInvalidMsg = 'Please wait — still validating your upload.';
-              break;
-            }
-            if(status === 'invalid'){
-              firstInvalid = f;
-              var bad = valBox.querySelector('.uv-bad .uv-msg');
-              firstInvalidMsg = bad && bad.textContent ? bad.textContent : 'Please re-upload a valid document.';
-              break;
-            }
-          }
-          continue;
-        }
-        // radio: at least one of the same name checked
-        if(f.type === 'radio'){
-          var any = step.querySelector('input[name="'+f.name+'"]:checked');
-          if(!any){ firstInvalid = f; break; }
-          continue;
-        }
-        if(!f.value || (f.value && f.value.trim && !f.value.trim())){
-          firstInvalid = f; break;
-        }
-      }
-      if(firstInvalid){
-        var label = firstInvalid.closest('.field');
-        var labelText = label && label.querySelector('label') ? label.querySelector('label').textContent.replace(/\s*\*\s*/g,'').replace(/\(.*\)/g,'').trim() : null;
-        var title, body;
-        if(firstInvalidMsg){
-          title = labelText || 'Required field';
-          body  = firstInvalidMsg;
-        } else {
-          title = 'Missing information';
-          body  = labelText ? ('Please fill in: ' + labelText) : 'Please fill in all required fields before continuing.';
-        }
-
-        if(typeof Swal !== 'undefined'){
-          Swal.fire({
-            icon: firstInvalidMsg ? 'warning' : 'info',
-            title: title,
-            text: body,
-            confirmButtonColor: '#16583C',
-            confirmButtonText: 'OK'
-          }).then(function(){
-            try { firstInvalid.focus({preventScroll:false}); } catch(e){ firstInvalid.focus(); }
-          });
-        } else {
-          errBox.classList.add('show');
-          var msg = errBox.querySelector('.wse-msg');
-          if(msg) msg.textContent = body;
-          try { firstInvalid.focus({preventScroll:false}); } catch(e){ firstInvalid.focus(); }
-        }
+      var invalid = findInvalid(steps[idx].el);
+      if(invalid){
+        reportInvalid(invalid, errBox);
         return false;
       }
       // hide any leftover inline error from a prior invalid state
@@ -239,6 +174,91 @@
         }
       }
     });
+  }
+
+  // A file input is satisfied by either a new selection or an already-uploaded
+  // file, and separately by the vision validator's verdict on it. Returns null
+  // when the field passes, else {msg} — msg null meaning "use the generic
+  // missing-information wording".
+  function fileProblem(step, f){
+    var existingInput = step.querySelector('input[name="'+f.name+'_existing"]');
+    var hasExisting = existingInput && existingInput.value;
+    var hasFile = f.files && f.files.length > 0;
+    if(!hasFile && !hasExisting) return {msg: null};
+
+    // gate on AI validation status if this field has one. Only a file picked
+    // in this session has a verdict; an untouched existing upload was already
+    // accepted, so a stale status box must not block it.
+    var valBox = hasFile ? document.getElementById('val-' + f.id) : null;
+    if(!valBox) return null;
+    if(valBox.dataset.status === 'validating'){
+      return {msg: 'Please wait — still validating your upload.'};
+    }
+    if(valBox.dataset.status === 'invalid'){
+      var bad = valBox.querySelector('.uv-bad .uv-msg');
+      return {msg: bad && bad.textContent ? bad.textContent : 'Please re-upload a valid document.'};
+    }
+    return null;
+  }
+
+  // First unsatisfied required field in a step as {field, msg}, or null when
+  // the step is complete. Each field type decides "filled in" differently:
+  // a file by its selection, a radio by its whole name group, the rest by value.
+  function findInvalid(step){
+    var fields = step.querySelectorAll('[required]');
+    for(var i=0;i<fields.length;i++){
+      var f = fields[i];
+      if(f.type === 'file'){
+        var problem = fileProblem(step, f);
+        if(problem) return {field: f, msg: problem.msg};
+        continue;
+      }
+      if(f.type === 'radio'){
+        if(!step.querySelector('input[name="'+f.name+'"]:checked')) return {field: f, msg: null};
+        continue;
+      }
+      if(!f.value || (f.value.trim && !f.value.trim())) return {field: f, msg: null};
+    }
+    return null;
+  }
+
+  function fieldLabel(field){
+    var wrap = field.closest('.field');
+    var el = wrap ? wrap.querySelector('label') : null;
+    return el ? el.textContent.replace(/\s*\*\s*/g,'').replace(/\(.*\)/g,'').trim() : null;
+  }
+
+  // Swal when it is on the page, the form's own inline banner otherwise; either
+  // way focus lands on the offending field once the message is acknowledged.
+  function reportInvalid(invalid, errBox){
+    var labelText = fieldLabel(invalid.field);
+    var title, body;
+    if(invalid.msg){
+      title = labelText || 'Required field';
+      body  = invalid.msg;
+    } else {
+      title = 'Missing information';
+      body  = labelText ? ('Please fill in: ' + labelText) : 'Please fill in all required fields before continuing.';
+    }
+
+    function focusField(){
+      try { invalid.field.focus({preventScroll:false}); } catch(e){ invalid.field.focus(); }
+    }
+
+    if(typeof Swal !== 'undefined'){
+      Swal.fire({
+        icon: invalid.msg ? 'warning' : 'info',
+        title: title,
+        text: body,
+        confirmButtonColor: '#16583C',
+        confirmButtonText: 'OK'
+      }).then(focusField);
+    } else {
+      errBox.classList.add('show');
+      var msg = errBox.querySelector('.wse-msg');
+      if(msg) msg.textContent = body;
+      focusField();
+    }
   }
 
   function escapeHtml(s){

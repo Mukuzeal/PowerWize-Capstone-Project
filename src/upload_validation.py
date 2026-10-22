@@ -254,40 +254,52 @@ def _format_validate_id(result: dict) -> dict:
 def _pdf_first_page_png(file_bytes: bytes) -> bytes | None:
     """Render first page of a PDF to PNG bytes.
 
-    Tries PyMuPDF (pure Python, no system deps) first, then falls back to
-    pdf2image (requires poppler binary, not always installed on Windows).
-    Returns None if both fail.
+    Three paths, all pip-installable, tried in turn. PyMuPDF is first because
+    it is already a dependency elsewhere, but its native _mupdf.pyd is refused
+    outright by Windows Smart App Control on some machines, and pdf2image needs
+    a poppler binary that often isn't installed on Windows — pypdfium2 covers
+    both gaps with a self-contained wheel. Returns None only if all three fail.
     """
-    # Path 1: PyMuPDF (preferred — no system deps)
+    # Path 1: PyMuPDF
     try:
         import fitz  # PyMuPDF
         doc = fitz.open(stream=file_bytes, filetype="pdf")
-        if doc.page_count == 0:
+        if doc.page_count:
+            page = doc.load_page(0)
+            # render at ~150 DPI
+            pix = page.get_pixmap(dpi=150)
+            png = pix.tobytes("png")
             doc.close()
-            return None
-        page = doc.load_page(0)
-        # render at ~150 DPI
-        pix = page.get_pixmap(dpi=150)
-        png = pix.tobytes("png")
+            return png
         doc.close()
-        return png
-    except ImportError:
-        pass
     except Exception as e:
+        # Logged, never silently passed: an ImportError here means a blocked or
+        # mismatched native binding, and swallowing it made that undiagnosable.
         print(f"[upload_validation] PyMuPDF render failed: {type(e).__name__}: {e}")
 
-    # Path 2: pdf2image (requires poppler)
+    # Path 2: pypdfium2 (self-contained wheel, no system deps)
+    try:
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(file_bytes)
+        if len(doc):
+            buf = io.BytesIO()
+            doc[0].render(scale=150 / 72).to_pil().save(buf, format="PNG")
+            return buf.getvalue()
+    except Exception as e:
+        print(f"[upload_validation] pypdfium2 render failed: {type(e).__name__}: {e}")
+
+    # Path 3: pdf2image (requires poppler)
     try:
         from pdf2image import convert_from_bytes
         pages = convert_from_bytes(file_bytes, first_page=1, last_page=1, dpi=150)
-        if not pages:
-            return None
-        buf = io.BytesIO()
-        pages[0].save(buf, format="PNG")
-        return buf.getvalue()
+        if pages:
+            buf = io.BytesIO()
+            pages[0].save(buf, format="PNG")
+            return buf.getvalue()
     except Exception as e:
         print(f"[upload_validation] pdf2image render failed: {type(e).__name__}: {e}")
-        return None
+
+    return None
 
 
 def _image_to_data_url(img_bytes: bytes, ext: str) -> str:
