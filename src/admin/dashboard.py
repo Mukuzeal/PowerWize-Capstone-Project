@@ -3,8 +3,9 @@ from datetime import date
 from flask import render_template
 
 from db import (get_users, get_batches_full, get_registrations, get_solar_requests,
-                lms_get_modules_with_counts, lms_get_trainee_progress_overview, get_pending_selfies)
-from permissions import VALID_ROLES, current_can
+                lms_get_modules_with_counts, lms_get_trainee_progress_overview,
+                get_pending_selfies, get_all_user_capabilities)
+from permissions import VALID_ROLES, current_can, can, OVERRIDABLE, OVERRIDABLE_ROLES
 
 from . import admin_bp, require_admin
 
@@ -15,6 +16,19 @@ def admin():
     if resp:
         return resp
     users = get_users()
+
+    # A Trainer's work areas are set per account, so each row carries its own
+    # effective capabilities: the role default with that user's override
+    # applied. One query for the whole table rather than one per row.
+    overrides = get_all_user_capabilities()
+    for u in users:
+        own = overrides.get(u["id"], {})
+        u["caps"] = {
+            cap: (own.get(cap, can(u["role"], cap))
+                  if u["role"] in OVERRIDABLE_ROLES else can(u["role"], cap))
+            for cap in OVERRIDABLE
+        }
+
     uc = {role: sum(1 for u in users if u["role"] == role) for role in VALID_ROLES}
     uc.update({
         "archived":       sum(1 for u in users if u["archived_at"] is not None),

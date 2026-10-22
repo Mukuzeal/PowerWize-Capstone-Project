@@ -1938,6 +1938,14 @@
                                     {% elif tt == 'gemp_oge' %}<span class="badge" style="background:#A7F3D0;color:#064E3B">GEMP (Gov't)</span>
                                     {% else %}<span style="color:var(--text-secondary)">{{ tt }}</span>
                                     {% endif %}
+                                {% elif u.role == 'employee' %}
+                                    {# A Trainer's remit is per account, so the column that holds a
+                                       trainee's program shows which areas this trainer covers. #}
+                                    {% if u.caps.manage_modules %}<span class="badge b-training">Modules</span>{% endif %}
+                                    {% if u.caps.review_solar %}<span class="badge b-cea">PV</span>{% endif %}
+                                    {% if not u.caps.manage_modules and not u.caps.review_solar %}
+                                    <span class="badge b-rejected">No areas</span>
+                                    {% endif %}
                                 {% else %}<span style="color:var(--text-tertiary)">—</span>{% endif %}
                             </td>
                             <td style="color:var(--gray);font-size:12px">{{ u.created_at.strftime('%b %d, %Y') }}</td>
@@ -1946,7 +1954,9 @@
                                     "id": u.id, "fname": u.fname, "lname": u.lname, "email": u.email,
                                     "role": u.role, "contact_number": u.contact_number or "",
                                     "company_name": u.company_name or "", "training_type": u.training_type or "",
-                                    "payment_status": u.payment_status or "unpaid"
+                                    "payment_status": u.payment_status or "unpaid",
+                                    "cap_manage_modules": u.caps.manage_modules,
+                                    "cap_review_solar": u.caps.review_solar
                                 } | tojson }})'>
                                     <i class="fa-solid fa-pen-to-square"></i> Edit
                                 </button>
@@ -4252,6 +4262,22 @@
                             <input type="text" name="company_name" id="um-company" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px">
                         </div>
                     </div>
+                    <div id="um-trainer-fields" style="display:none;padding:14px;background:var(--bg-tertiary);border-radius:10px">
+                        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Work areas *</label>
+                        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-primary);margin-bottom:8px;cursor:pointer">
+                            <input type="checkbox" name="cap_manage_modules" id="um-cap-modules" value="1" checked>
+                            <span><strong>Training modules</strong><br>
+                                <span style="font-size:11px;color:var(--text-tertiary)">Create and manage modules, quizzes, exam submissions and trainee progress</span></span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-primary);cursor:pointer">
+                            <input type="checkbox" name="cap_review_solar" id="um-cap-solar" value="1" checked>
+                            <span><strong>PV consultations</strong><br>
+                                <span style="font-size:11px;color:var(--text-tertiary)">Review AI-assisted solar estimates and finalise client quotations</span></span>
+                        </label>
+                        <p style="margin:10px 0 0;font-size:11px;color:var(--text-tertiary)">
+                            Only the areas ticked here appear in this trainer's console. Pick at least one.
+                        </p>
+                    </div>
                     <div id="um-trainee-fields" style="display:none;padding:14px;background:#F9FAFB;border-radius:10px">
                         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Training Type *</label>
                         <select name="training_type" id="um-training-type" style="width:100%;padding:9px 10px;border:1px solid #D1D5DB;border-radius:8px;font-size:13px;margin-bottom:10px">
@@ -4285,10 +4311,17 @@
 // ── Add / Edit User modal ────────────────────────────────────────────────────
 
 function umSyncTraineeFields() {
-    var isTrainee = document.getElementById('um-role').value === 'trainee';
+    var role = document.getElementById('um-role').value;
+    var isTrainee = role === 'trainee';
     var fields = document.getElementById('um-trainee-fields');
     fields.style.display = isTrainee ? 'block' : 'none';
     document.getElementById('um-training-type').required = isTrainee;
+
+    // Work areas are a Trainer-only concern: every other role's capabilities
+    // come from the role itself (see permissions.OVERRIDABLE_ROLES), so the
+    // block is hidden rather than offering choices the server would ignore.
+    document.getElementById('um-trainer-fields').style.display =
+        role === 'employee' ? 'block' : 'none';
 }
 
 function openUserModal(mode, user) {
@@ -4310,6 +4343,8 @@ function openUserModal(mode, user) {
         document.getElementById('um-company').value = user.company_name || '';
         document.getElementById('um-training-type').value = user.training_type || '';
         document.getElementById('um-payment-status').value = user.payment_status || 'unpaid';
+        document.getElementById('um-cap-modules').checked = !!user.cap_manage_modules;
+        document.getElementById('um-cap-solar').checked = !!user.cap_review_solar;
         document.getElementById('um-submit-label').textContent = 'Save Changes';
     } else {
         document.getElementById('user-modal-title').textContent = 'Add User';
@@ -4317,6 +4352,9 @@ function openUserModal(mode, user) {
         form.action = '/admin/user/create';
         document.getElementById('um-password-field').style.display = 'block';
         document.getElementById('um-password').required = true;
+        // A new Trainer starts on the role default: both areas.
+        document.getElementById('um-cap-modules').checked = true;
+        document.getElementById('um-cap-solar').checked = true;
         document.getElementById('um-submit-label').textContent = 'Create User';
     }
     umSyncTraineeFields();

@@ -151,6 +151,31 @@ def init_db():
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts SMALLINT NOT NULL DEFAULT 0")
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP NULL DEFAULT NULL")
 
+    # ── Per-user capability overrides ─────────────────────────────────────
+    #
+    # Deviations from the role default, one row per (user, capability). No row
+    # means "whatever the role says", so an untouched account keeps exactly the
+    # access its role grants and this table stays empty until someone is
+    # deliberately narrowed or widened.
+    #
+    # Scoped to the Trainer role in permissions.py: that is where the need is
+    # (one trainer runs modules, another handles PV consultations, some do
+    # both). See permissions.OVERRIDABLE / OVERRIDABLE_ROLES.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_capabilities (
+            id         SERIAL PRIMARY KEY,
+            user_id    INT         NOT NULL,
+            capability VARCHAR(40) NOT NULL,
+            granted    SMALLINT    NOT NULL,
+            set_by     INT         NULL,
+            set_at     TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_user_capability UNIQUE (user_id, capability),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (set_by)  REFERENCES users(id) ON DELETE SET NULL
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_user_caps_user ON user_capabilities (user_id)")
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS payments (
             id           SERIAL PRIMARY KEY,
@@ -484,6 +509,15 @@ def init_db():
             created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # Commit everything above before the best-effort extension probe below.
+    # Without this, the probe's rollback-on-failure discards the whole
+    # uncommitted transaction — i.e. every CREATE TABLE in this function — so
+    # on a server without pgvector any table declared above this line was
+    # silently rolled back on every startup. The tables happened to survive
+    # only because they predate the probe; the next one added above it would
+    # not have.
+    conn.commit()
 
     # Best-effort — pgvector is painful to install on Windows Postgres, so
     # retrieval defaults to REAL[] + brute-force cosine similarity in Python
