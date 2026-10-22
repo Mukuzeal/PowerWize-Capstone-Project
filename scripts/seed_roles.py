@@ -17,14 +17,9 @@ state under test rather than a secret.
 import os
 import sys
 
-# Resolve src/ and scripts/ from this file rather than relying on the working
-# directory: running a script puts the *script's* folder on sys.path, not the
-# cwd, so `from db import ...` otherwise fails even from src/ as documented.
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_HERE)
-for _p in (os.path.join(_ROOT, "src"), _HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# Running a script puts the script's own folder on sys.path, not the working
+# directory, so src/ has to be added explicitly for the flat imports below.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from werkzeug.security import generate_password_hash
 

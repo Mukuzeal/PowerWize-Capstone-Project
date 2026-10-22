@@ -1,4 +1,9 @@
 import os, sys
+
+# Running a script puts the script's own folder on sys.path, not the working
+# directory, so src/ has to be added explicitly for the flat imports below.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 from db import get_db, dict_cur
 from werkzeug.security import check_password_hash
 
