@@ -47,9 +47,39 @@ ACCOUNTS = [
     ("trainer.both@ewize.com",    "employee",   "Trainer", "Both",     ("manage_modules", "review_solar")),
     ("trainer.modules@ewize.com", "employee",   "Trainer", "Modules",  ("manage_modules",)),
     ("trainer.solar@ewize.com",   "employee",   "Trainer", "Solar",    ("review_solar",)),
+    # Unpaid, so this one actually sees /payment — the discount code field and
+    # the corporate-invoice picker are both unreachable from a paid account.
+    ("trainee.unpaid@ewize.com",  "trainee",    "Unpaid",  "Trainee",  None),
 ]
 
+# An unpaid trainee needs an approved registration behind them, otherwise the
+# fee falls back to the TRAINING_FEE env default instead of a real program
+# price. CEM Training / Online is PHP 18,000.
+UNPAID_REGISTRATION = {
+    "id":            "SEEDR01",
+    "form_type":     "training",
+    "form_label":    "CEM Training",
+    "training_type": "Online, 7 days, 56 hours",
+}
+
 AREA_LABELS = {"manage_modules": "Training modules", "review_solar": "PV consultations"}
+
+
+def _ensure_registration(cur, conn, email, fname, lname):
+    """Give the seeded trainee an accepted registration so /payment quotes a
+    real program price rather than the TRAINING_FEE fallback."""
+    r = UNPAID_REGISTRATION
+    cur.execute("SELECT id FROM registrations WHERE email = %s", (email,))
+    if cur.fetchone():
+        return
+    cur.execute("""
+        INSERT INTO registrations (id, form_type, form_label, submitted_at, full_name,
+                                   email, training_type, status, is_qualified)
+        VALUES (%s,%s,%s,NOW(),%s,%s,%s,'accepted',1)
+        ON CONFLICT (id) DO NOTHING
+    """, (r["id"], r["form_type"], r["form_label"], f"{fname} {lname}", email,
+          r["training_type"]))
+    conn.commit()
 
 
 def apply_areas(cur_conn, user_id, role, areas):
@@ -88,15 +118,26 @@ def main():
                 cur.execute("UPDATE users SET role=%s, archived_at=NULL WHERE id=%s", (role, uid))
                 state = "existing (password unchanged)"
         else:
-            # Staff never go through the payment wall, so they start paid.
-            cur.execute(
-                "INSERT INTO users (role, fname, lname, email, password_hash, "
-                "company_name, payment_status) "
-                "VALUES (%s,%s,%s,%s,%s,'EnergyWize Solutions','paid') RETURNING id",
-                (role, fname, lname, email, generate_password_hash(PASSWORD)))
+            # Staff never go through the payment wall, so they start paid; the
+            # seeded trainee is deliberately unpaid.
+            if role == "trainee":
+                cur.execute(
+                    "INSERT INTO users (role, fname, lname, email, password_hash, "
+                    "company_name, payment_status, training_type) "
+                    "VALUES (%s,%s,%s,%s,%s,'ZZ Test Corp','unpaid','training') RETURNING id",
+                    (role, fname, lname, email, generate_password_hash(PASSWORD)))
+            else:
+                cur.execute(
+                    "INSERT INTO users (role, fname, lname, email, password_hash, "
+                    "company_name, payment_status) "
+                    "VALUES (%s,%s,%s,%s,%s,'EnergyWize Solutions','paid') RETURNING id",
+                    (role, fname, lname, email, generate_password_hash(PASSWORD)))
             uid = cur.fetchone()[0]
             state = "created"
         conn.commit()
+
+        if role == "trainee":
+            _ensure_registration(cur, conn, email, fname, lname)
 
         apply_areas(conn, uid, role, areas)
         rows.append((email, role, areas, state))
