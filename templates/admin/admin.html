@@ -3736,15 +3736,20 @@
             document.getElementById('solar-overlay').classList.remove('open');
         }
 
-        // Restore active section from URL hash on load
+        // Restore active section from URL hash on load.
+        //
+        // The valid panes are read off the nav rather than listed here: a
+        // hardcoded allowlist silently dropped every pane added after it was
+        // written (reports, feedback, auditlog, and later the billing panes),
+        // so reloading on those hashes stranded the user on the Dashboard.
+        // A pane only counts if both its nav button and its section exist,
+        // which also means a hash the current role may not see is ignored.
         (function() {
             const hash = location.hash.replace('#', '');
-            const validSections = ['dashboard', 'users', 'schedules', 'registrations', 'solar', 'modules'];
-            if (validSections.includes(hash)) {
-                const btn = [...document.querySelectorAll('.nav-item')]
-                    .find(b => b.getAttribute('onclick').includes("'" + hash + "'"));
-                if (btn) showSection(hash, btn);
-            }
+            if (!hash || !document.getElementById('section-' + hash)) return;
+            const btn = [...document.querySelectorAll('.nav-item')]
+                .find(b => (b.getAttribute('onclick') || '').includes("'" + hash + "'"));
+            if (btn) showSection(hash, btn);
         })();
 
         // Module Detail Modal
@@ -4545,6 +4550,15 @@ function _billPeso(n) {
     return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/* Reload onto a specific pane after a save.
+   A fresh document is needed so the pane re-renders with the new row. Setting
+   the hash updates the URL synchronously, so the following reload fetches the
+   pane's own URL; assigning location.href first raced that update. */
+function _billReturnTo(pane) {
+    if (window.location.hash !== '#' + pane) window.location.hash = pane;
+    window.location.reload();
+}
+
 function _billErr(id, msgOrList) {
     var box = document.getElementById(id);
     if (!box) return;
@@ -4787,8 +4801,7 @@ async function submitCorpNew(event) {
         });
         var data = await res.json();
         if (data.errors) { _billErr('corp-new-err', data.errors); return false; }
-        window.location.href = '/admin#corporate';
-        window.location.reload();
+        _billReturnTo('corporate');
     } catch (e) {
         _billErr('corp-new-err', 'Could not create the invoice. Please try again.');
     } finally {
@@ -4840,8 +4853,7 @@ async function submitDiscount(event, codeId) {
         });
         var data = await res.json();
         if (data.errors) { _billErr(errBox, data.errors); return false; }
-        window.location.href = '/admin#discounts';
-        window.location.reload();
+        _billReturnTo('discounts');
     } catch (e) {
         _billErr(errBox, 'Could not save the code. Please try again.');
     }
