@@ -1329,7 +1329,25 @@ input[type=file] { display: none; }
 }
 
 /* --------------------------------------------------------------------------
-   17. MOTION
+   17. LEGAL MODAL
+   The privacy policy / terms shown by legal-modal.js inside SweetAlert2. The
+   body markup is the same partial the full page renders, so it arrives with
+   page-scale .d3 headings and centred swal text -- both wrong at modal size.
+   -------------------------------------------------------------------------- */
+.legal-modal { max-height: 60vh; overflow-y: auto; text-align: left; padding-right: 0.5rem; }
+.legal-modal h2 { font-size: 1.05rem; letter-spacing: -0.01em; line-height: 1.3; }
+.legal-modal p, .legal-modal li { font-size: 0.88rem; max-width: none; }
+.legal-modal > div:last-child { margin-bottom: 0 !important; }
+
+/* The popup is a light surface in both themes, so the body text cannot inherit
+   .prose's --fg-dim -- that is tuned for the dark ground and renders as pale
+   green on white. Pin it to the paper pairing instead. */
+.legal-modal h2 { color: var(--paper-ink); }
+.legal-modal p, .legal-modal li { color: color-mix(in oklab, var(--paper-ink) 82%, transparent); }
+.legal-modal strong { color: var(--paper-ink); }
+
+/* --------------------------------------------------------------------------
+   18. MOTION
    Transitions here report state — which step you are on, that a message
    landed, that a control took the press. Nothing is decorative, because a
    form is a task and choreography in the middle of a task is friction.
@@ -1397,7 +1415,7 @@ input[type=file] { display: none; }
 }
 
 /* --------------------------------------------------------------------------
-   18. REDUCED MOTION
+   19. REDUCED MOTION
    -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .status-dot, .typing-dot { animation: none; }

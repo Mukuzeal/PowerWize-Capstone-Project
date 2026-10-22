@@ -144,8 +144,29 @@
         </div>
       </div>
       <div class="form-body">
+        <div class="form-disclaimer" style="margin-bottom:1.25rem">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span><strong>Data Privacy Notice:</strong> the details on this form &mdash; your name, contact
+            details, employer, your PRC or government-issued ID, and the selfie you capture &mdash; are collected
+            to verify your identity and eligibility, process your registration and payment, and issue your
+            certificate. Your ID and selfie are checked by a cloud-based AI validation service, and your
+            registration is reviewed by authorised EnergyWize staff. Handled in accordance with the Data Privacy
+            Act of 2012 (RA 10173) &mdash; see our
+            <a class="terms-link" href="{{ url_for('site.privacy_policy') }}"
+               data-legal="{{ url_for('site.legal_doc', slug='privacy-policy') }}"
+               target="_blank" rel="noopener">Privacy Policy</a>
+            for your rights as a data subject and how to reach us.</span>
+        </div>
         <div class="field">
-          <label>Do you agree with EnergyWize's <a class="terms-link" href="#" onclick="Swal.fire({icon:'info', title:'Terms &amp; Conditions', text:'By registering, you agree to EnergyWize\'s privacy policy and training policies.', confirmButtonColor:'#16583C'});return false;">Terms &amp; Conditions</a>? <span class="req">*</span></label>
+          <label>Do you agree with EnergyWize's
+            <a class="terms-link" href="{{ url_for('site.terms_conditions') }}"
+               data-legal="{{ url_for('site.legal_doc', slug='terms-and-conditions') }}"
+               target="_blank" rel="noopener">Terms &amp; Conditions</a>
+            and
+            <a class="terms-link" href="{{ url_for('site.privacy_policy') }}"
+               data-legal="{{ url_for('site.legal_doc', slug='privacy-policy') }}"
+               target="_blank" rel="noopener">Privacy Policy</a>?
+            <span class="req">*</span></label>
           <div class="radio-group">
             <label class="radio-opt success">
               <input type="radio" name="agree" value="yes" {% if form_data and form_data.get('agree')=='yes' %}checked{% endif %}> Yes, I agree!
@@ -212,6 +233,7 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{{ url_for('static', filename='legal-modal.js') }}"></script>
 {{ file_js() }}
 <script src="{{ url_for('static', filename='wizard.js') }}"></script>
 <script src="{{ url_for('static', filename='training-form.js') }}"></script>
