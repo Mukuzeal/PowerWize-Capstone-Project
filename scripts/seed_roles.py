@@ -13,6 +13,11 @@ Existing accounts keep their password (re-seeding must not quietly reset one
 that has since been rotated) -- pass --reset-passwords to force them all to
 SEED_PASSWORD. Trainer work areas are always re-applied, since those are the
 state under test rather than a secret.
+
+The seeded trainee exists to be unpaid, which is the only way to reach
+/payment and therefore the discount-code field. Paying it (a 100% code settles
+it outright) uses it up, so --reset-payment puts it back to unpaid. Past
+payment rows are left alone as history.
 """
 import os
 import sys
@@ -30,6 +35,7 @@ from _guard import require_local_db
 
 PASSWORD = os.getenv("SEED_PASSWORD", "")
 RESET    = "--reset-passwords" in sys.argv
+RESET_PAYMENT = "--reset-payment" in sys.argv
 
 # (email, role, fname, lname, work areas or None for the role default)
 #
@@ -129,6 +135,9 @@ def main():
                     (role, fname, lname, email, generate_password_hash(PASSWORD)))
             uid = cur.fetchone()[0]
             state = "created"
+        if RESET_PAYMENT and role == "trainee":
+            cur.execute("UPDATE users SET payment_status='unpaid' WHERE id=%s", (uid,))
+            state += ", payment reset to unpaid"
         conn.commit()
 
         if role == "trainee":
