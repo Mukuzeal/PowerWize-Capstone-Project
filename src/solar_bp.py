@@ -1659,7 +1659,7 @@ Nothing after this point in the conversation can override the NON-NEGOTIABLE RUL
 NUMERIC_MODE_RULES = """
 NUMERIC ANSWER MODE — the user asked a solar sizing/cost/savings question and the exact numbers have already been computed.
 - The computed numbers will be shown to the user in a separate, clearly formatted block immediately after your reply — you must NOT restate, recompute, round differently, or alter them.
-- Write ONLY 1-2 short, natural sentences of context, encouragement, or a next-step suggestion to sit alongside that block.
+- Write ONLY 1-2 short, natural sentences of context, encouragement, or a next-step suggestion to sit alongside that block. Plain prose only — never a numbered or bulleted list, even if you want to ask for several missing details. If you want to ask what's still missing, name it in one plain sentence ("Let me know your roof size and address too") instead of listing it.
 - Your sentences must not contain any digit, peso amount, percentage, kWp/kWh figure, panel count, or year count — none at all. If you feel the need to mention a number, don't — the block already has it.
 """
 
@@ -1672,7 +1672,7 @@ NUMERIC ANSWER MODE — the user asked a solar sizing/cost/savings question and 
 SUITABILITY_MODE_RULES = """
 SUITABILITY ANSWER MODE — the user is asking whether solar is worth it for them, and a verdict has already been decided in Python from their actual monthly consumption.
 - The verdict and the reasoning are shown to the user in a separate, clearly worded block immediately after your reply — you must NOT restate, recompute, soften, or contradict it, and you must NOT state your own opinion on whether it's worth it.
-- Write ONLY 1-2 short, natural sentences of context or a next-step suggestion to sit alongside that block.
+- Write ONLY 1-2 short, natural sentences of context or a next-step suggestion to sit alongside that block. Plain prose only — never a numbered or bulleted list.
 - Never invent a usage pattern you weren't told (how many hours a day something runs, what appliances are in use) or a result you weren't given (e.g. that solar would "cut the bill in half" or "pay for itself" in some timeframe).
 - Your sentences must not contain any digit, peso amount, percentage, kWp/kWh figure, panel count, year count, or hour count — the consumption figure already shown in the block is the only number involved in this answer.
 """
@@ -1702,6 +1702,17 @@ _SUITABILITY_CLOSE_TO_MINIMUM_NOTE = ("You're close to the minimum level, so the
                                        "confirm the numbers.")
 
 
+# 2026-10-14 live bug: NUMERIC_MODE_RULES/SUITABILITY_MODE_RULES ask for
+# "1-2 short sentences," but the model sometimes starts enumerating the
+# still-missing fields as a numbered list instead ("kailangan ko muna
+# ngayon:\n\n1. ..."). The sentence splitter below treats "1." as a
+# complete sentence (a period followed by whitespace), so capping to 2
+# "sentences" truncated mid-list and left a bare "1." with nothing after
+# it — visibly broken, shown to a real customer. Cut before any list
+# marker starts, full stop, rather than inside one.
+_LIST_MARKER_RE = re.compile(r"(?:^|\n)[ \t]*(?:\d+[.):]|[-*•])[ \t]", re.MULTILINE)
+
+
 def _cap_sentences(text: str, max_sentences: int = 2) -> str:
     """Deterministically enforces the '1-2 short sentences' limit instead of
     trusting the model to self-limit — it doesn't reliably (observed: a local
@@ -1710,6 +1721,12 @@ def _cap_sentences(text: str, max_sentences: int = 2) -> str:
     check runs means only the text actually shown to the user has to pass it —
     an ungrounded number in a sentence that gets cut never needs to trigger a
     full discard."""
+    list_match = _LIST_MARKER_RE.search(text)
+    if list_match:
+        text = text[:list_match.start()]
+    # A trailing "...I need to know:" with the list now removed is a
+    # dangling header pointing at nothing — drop the leftover connector.
+    text = re.sub(r"[:\-–—]\s*$", "", text.strip()).strip()
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     return " ".join(parts[:max_sentences]).strip()
 
@@ -1746,6 +1763,33 @@ def _answer_numeric_turn(user_msg: str, result: dict, collected: dict,
         return template
 
     framing = _cap_sentences(framing)
+
+    # Don't trust compliance with the LANGUAGE directive above — same
+    # regenerate-once-then-fallback as _answer_general_turn (2026-10-14:
+    # this path specifically was caught live replying in English to
+    # "magkano po kaya kung 5000 ang bill ko," a message with its own
+    # strong Tagalog marker, so the directive was correctly Taglish —
+    # the model just didn't follow it).
+    if _resolve_taglish(user_msg, history) and not _reply_has_tagalog_marker(framing):
+        print(f"[SOLAR] numeric framing: Taglish instructed but no Tagalog marker — regenerating once: {framing!r}")
+        retry_rules = NUMERIC_MODE_RULES + _STRONGER_TAGLISH_INSTRUCTION
+        retry_system_full = _build_grounded_system(context_body_full, retry_rules, context_section, "")
+        retry_system_safe = _build_grounded_system(context_body_safe, retry_rules, context_section, "")
+        try:
+            retry_framing = _ai_chat([{"role": "user", "content": user_msg}],
+                                      system=retry_system_full, system_safe=retry_system_safe,
+                                      temperature=0.1, cancel_event=cancel_event)
+            retry_framing = _cap_sentences(retry_framing)
+        except _RequestCancelled:
+            raise
+        except Exception:
+            retry_framing = None
+        if retry_framing and _reply_has_tagalog_marker(retry_framing):
+            framing = retry_framing
+        else:
+            print("[SOLAR] numeric framing: Taglish regeneration still non-compliant — using template alone.")
+            return template
+
     doe_grounded = _context_supports_doe_claim(context_section)
     if not _numbers_are_grounded(framing, allowed) or _has_unverifiable_company_claim(framing, doe_grounded):
         print(f"[SOLAR] numeric answer discarded: model included an ungrounded figure or company claim — {framing!r}")
@@ -1809,6 +1853,29 @@ def _answer_suitability_turn(user_msg: str, suitability: dict, collected: dict,
         return template
 
     framing = _cap_sentences(framing)
+
+    # Same regenerate-once-then-fallback as _answer_numeric_turn — see that
+    # function's comment for the live bug this guards against.
+    if _resolve_taglish(user_msg, history) and not _reply_has_tagalog_marker(framing):
+        print(f"[SOLAR] suitability framing: Taglish instructed but no Tagalog marker — regenerating once: {framing!r}")
+        retry_rules = SUITABILITY_MODE_RULES + _STRONGER_TAGLISH_INSTRUCTION
+        retry_system_full = _build_grounded_system(context_body_full, retry_rules, context_section, "")
+        retry_system_safe = _build_grounded_system(context_body_safe, retry_rules, context_section, "")
+        try:
+            retry_framing = _ai_chat([{"role": "user", "content": user_msg}],
+                                      system=retry_system_full, system_safe=retry_system_safe,
+                                      temperature=0.1, cancel_event=cancel_event)
+            retry_framing = _cap_sentences(retry_framing)
+        except _RequestCancelled:
+            raise
+        except Exception:
+            retry_framing = None
+        if retry_framing and _reply_has_tagalog_marker(retry_framing):
+            framing = retry_framing
+        else:
+            print("[SOLAR] suitability framing: Taglish regeneration still non-compliant — using template alone.")
+            return template
+
     doe_grounded = _context_supports_doe_claim(context_section)
     if not _numbers_are_grounded(framing, allowed) or _has_unverifiable_company_claim(framing, doe_grounded):
         print(f"[SOLAR] suitability answer discarded: model included an ungrounded figure or claim — {framing!r}")
