@@ -58,6 +58,7 @@
                 --green-pr: #20C997;
                 --green-md: #2BD9A8;
                 --green-lt: rgba(32, 201, 151, 0.16);
+                --gold-lt: rgba(212, 167, 42, 0.18);
                 --gray: #B0B8C4;
                 --border: #2D3E52;
 
@@ -100,6 +101,7 @@
             --green-pr: #20C997;
             --green-md: #2BD9A8;
             --green-lt: rgba(32, 201, 151, 0.16);
+            --gold-lt: rgba(212, 167, 42, 0.18);
             --gray: #B0B8C4;
             --border: #2D3E52;
             --bg-primary: #0F1419;
@@ -1470,10 +1472,17 @@
             margin-bottom: 1rem
         }
 
+        /* Amber carries the warning on the border, background and the bold
+           lead; the body stays normal text so a two- or three-line note does
+           not read as a wall of gold. */
         .corp-note--warn {
             background: var(--gold-lt);
-            color: #92400E;
+            color: var(--text-primary);
             border: 1px solid #D97706
+        }
+
+        .corp-note--warn strong {
+            color: #92400E
         }
 
         .corp-note--ok {
@@ -1489,13 +1498,13 @@
         }
 
         @media (prefers-color-scheme: dark) {
-            .corp-note--warn { color: #FCD34D }
+            .corp-note--warn strong { color: #FCD34D }
             .corp-note--err  { background: rgba(185,28,28,.2); color: #FCA5A5; border-color: #B91C1C }
         }
 
-        html[data-theme="dark"] .corp-note--warn { color: #FCD34D }
+        html[data-theme="dark"] .corp-note--warn strong { color: #FCD34D }
         html[data-theme="dark"] .corp-note--err  { background: rgba(185,28,28,.2); color: #FCA5A5; border-color: #B91C1C }
-        html[data-theme="light"] .corp-note--warn { color: #92400E }
+        html[data-theme="light"] .corp-note--warn strong { color: #92400E }
         html[data-theme="light"] .corp-note--err  { background: #FEF2F2; color: #991B1B; border-color: #FECACA }
 
         .corp-lab {
