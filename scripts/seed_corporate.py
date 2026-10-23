@@ -14,8 +14,9 @@ the invitation-only rule -- the Corporate Payments screen only ever *pays for*
 accounts that already exist, and this just manufactures that starting state.
 
 The password comes from the environment, never from this file. Existing
-accounts are left alone (re-running will not reset a password or flip someone
-who has since paid back to unpaid).
+accounts are left alone -- re-running will not flip someone who has since paid
+back to unpaid. Pass --reset-passwords to set every one of this company's
+accounts to SEED_PASSWORD, which is the one thing a re-run will change.
 """
 import os
 import sys
@@ -32,6 +33,7 @@ from _guard import require_local_db
 
 PASSWORD = os.getenv("SEED_PASSWORD", "")
 COMPANY  = os.getenv("SEED_COMPANY", "VXE")
+RESET    = "--reset-passwords" in sys.argv
 
 # Online delivery is what the PHP 18,000 price keys off; see src/pricing.py.
 DELIVERY = "Online, 7 days, 56 hours"
@@ -79,7 +81,13 @@ def main():
             cur.execute("SELECT id, payment_status FROM users WHERE email = %s", (email,))
             found = cur.fetchone()
             if found:
-                rows.append((email, label, fee["total"], "existing (%s)" % found[1]))
+                state = "existing (%s)" % found[1]
+                if RESET:
+                    cur.execute("UPDATE users SET password_hash=%s, archived_at=NULL, "
+                                "failed_login_attempts=0, locked_until=NULL WHERE id=%s",
+                                (generate_password_hash(PASSWORD), found[0]))
+                    state = "password reset (%s)" % found[1]
+                rows.append((email, label, fee["total"], state))
                 continue
 
             # The registration has to be there first: the corporate screen
