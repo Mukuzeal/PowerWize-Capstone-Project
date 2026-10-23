@@ -17,15 +17,10 @@ from ._shared import _uid, _role, _is_instructor, _is_trainee, _allowed, _owns_m
 
 # ── INSTRUCTOR ROUTES ─────────────────────────────────────────────────────────
 
-_PROGRAM_LABELS = {
-    'training':    'CEM Training',
-    'cea_training':'CEA Training',
-    'renewal':     'Renewal',
-    'cea_renewal': 'CEA Renewal',
-    'cem_renewal': 'CEM Renewal',
-    'gemp_lgu':    'GEMP LGU',
-    'gemp_oge':    'GEMP Gov Entity',
-}
+# Program names live in pricing.PROGRAM_LABELS; there were three copies of
+# this map and they had already drifted ("GEMP LGU" here, "GEMP (LGU)" on the
+# discount screen).
+from pricing import PROGRAM_LABELS as _PROGRAM_LABELS
 
 @lms_bp.route('/lms/')
 @lms_bp.route('/lms/modules')

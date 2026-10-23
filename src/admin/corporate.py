@@ -21,7 +21,7 @@ from db import (audit_log, get_unpaid_trainees, create_corporate_payment,
                 mark_corporate_paid, cancel_corporate_payment,
                 expire_stale_corporate_payments, save_corporate_receipt)
 from permissions import require
-from pricing import calculate_fee, to_centavos
+from pricing import calculate_fee, program_option_label, to_centavos
 import paymongo
 from utils import base_url
 
@@ -64,7 +64,11 @@ def _programs_for(trainee):
     for code in order:
         fee = calculate_fee(code, trainee.get("reg_training_type"))
         if fee:
-            out.append({"code": code, "label": fee["label"], "total": fee["total"]})
+            # Named per program: calculate_fee's own label says "Training" for
+            # both CEA and CEM, which is ambiguous in a list of options.
+            out.append({"code": code,
+                        "label": program_option_label(code, trainee.get("reg_training_type")),
+                        "total": fee["total"]})
     return out
 
 
@@ -165,7 +169,8 @@ def corporate_new():
             continue
         items.append({"user_id": t["id"], "training_type": chosen,
                       "form_type": t.get("form_type"), "price_php": fee["total"],
-                      "price_label": fee["label"]})
+                      "price_label": program_option_label(
+                          chosen, t.get("reg_training_type"))})
         list_total += fee["total"]
 
     custom_total = None

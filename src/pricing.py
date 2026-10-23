@@ -8,6 +8,40 @@ registration's form_type and training_type it returns the fee breakdown.
 
 VAT_RATE = 0.12
 
+# Canonical program names. calculate_fee()'s own label deliberately does not
+# name the program -- it says "Training · Online" for both CEA and CEM,
+# which is fine on /payment where a trainee only ever sees their own fee. A
+# staff picker lists them side by side, where two identical rows are unusable,
+# so anything choosing *between* programs labels them from here.
+PROGRAM_LABELS = {
+    "training":     "CEM Training",
+    "cea_training": "CEA Training",
+    "renewal":      "Renewal",
+    "cem_renewal":  "CEM Renewal",
+    "cea_renewal":  "CEA Renewal",
+    "gemp_lgu":     "GEMP (LGU)",
+    "gemp_oge":     "GEMP (Gov't Entity)",
+}
+
+
+def program_label(code):
+    """Human name for a program code, e.g. 'CEA Training'."""
+    return PROGRAM_LABELS.get(code, code)
+
+
+def program_option_label(code, training_type):
+    """'<Program> · <delivery>' for a picker that offers several programs.
+
+    Keeps the delivery mode calculate_fee() worked out (it drives the price)
+    but replaces its generic leading word with the actual program name.
+    """
+    fee = calculate_fee(code, training_type)
+    if not fee:
+        return program_label(code)
+    parts = fee["label"].split(" · ", 1)
+    return (program_label(code) + " · " + parts[1]) if len(parts) > 1         else program_label(code)
+
+
 
 def calculate_fee(form_type, training_type):
     ft = (form_type or "").lower()
