@@ -58,11 +58,15 @@ exception is noted under section 3.
 | `06_my_progress.png` | Progress view |
 | `07_quiz_attempt.png` | Quiz attempt screen |
 
-> `05_ai_assistant_reply.png` renders *"Sorry, I could not respond."* on purpose —
-> `_ai_module_chat()` in `src/lms_bp/_shared.py:201` posts to `LM_STUDIO_URL`
-> unconditionally and never branches on `TEXT_PROVIDER`, so it cannot use Groq.
-> LM Studio was not running, so the endpoint 500s and the UI degrades. Re-shoot
-> this one frame with LM Studio up to get a live answer.
+> **`05_ai_assistant_reply.png` is stale and shows a bug that has since been
+> fixed.** It renders *"Sorry, I could not respond."* because, at capture time,
+> `_ai_module_chat()` posted to `LM_STUDIO_URL` unconditionally and never
+> branched on `TEXT_PROVIDER` — so with `TEXT_PROVIDER=groq` it could not work
+> at all, and LM Studio was not running. Both that function and
+> `_ai_generate_quiz()` now dispatch through `_text_chat()`, which honours the
+> provider setting. The frame still needs re-shooting to show a live answer;
+> what it currently demonstrates is the graceful-degradation path, not the
+> assistant working.
 
 ## 4 · Solar PV Consultation
 `4-solar-pv-consultation/`
