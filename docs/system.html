@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System | PowerWize</title>
+<meta name="description" content="How PowerWize is built: six functional areas, layered architecture, 36-table schema, and the technology behind the AI, payment and blockchain integrations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="curtain" aria-hidden="true"></div>
+<div class="prog" aria-hidden="true"></div>
+<div class="rails" aria-hidden="true"><div class="rails__inner">
+  <span style="--i:0"></span><span style="--i:1"></span><span style="--i:2"></span><span style="--i:3"></span>
+  <span style="--i:4"></span><span style="--i:5"></span><span style="--i:6"></span><span style="--i:7"></span>
+  <span style="--i:8"></span><span style="--i:9"></span><span style="--i:10"></span><span style="--i:11"></span>
+</div></div>
+<div class="grain" aria-hidden="true"></div>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="index.html">POWER<b>WIZE</b></a>
+    <button class="nav__toggle" aria-expanded="false" aria-controls="navlinks">Menu</button>
+    <nav class="nav__links" id="navlinks" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="research.html">Research</a>
+      <a href="system.html" aria-current="page">System</a>
+      <a href="gallery.html">Gallery</a>
+      <a href="documents.html">Documents</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="band">
+    <div class="wrap">
+      <p class="mono rev">The build</p>
+      <h1 class="d1 rev" style="margin-top:1.2rem;max-width:20ch">
+        Server-rendered, no framework, no build step
+      </h1>
+      <p class="lead rev" style="margin-top:1.4rem">
+        Flask with thirteen blueprints, Jinja2 templates, vanilla JavaScript that initialises from
+        data attributes, and raw psycopg2 against PostgreSQL with no ORM and no migration tool.
+      </p>
+    </div>
+  </section>
+
+  <!-- Administration -->
+  <section class="band band--edge">
+    <div class="wrap">
+      <div class="split">
+        <div class="rev-l">
+          <h2 class="d2">Administration is the gate</h2>
+          <p class="prose" style="margin-top:1.1rem">
+            Nothing else in the system proceeds until the registration queue is worked. Staff open
+            each applicant's uploaded documents, compare them against the stated details, and
+            approve or reject.
+          </p>
+          <p class="prose">
+            Approving is what mints the invitation token. There is no other route to an account.
+            Once a decision is recorded, the document images are deleted and only a SHA-256 digest,
+            the byte size, the extension and the outcome remain, which is enough to prove what was
+            reviewed without holding copies of government IDs indefinitely.
+          </p>
+          <p class="prose">
+            Three staff tiers share this console. Super User is an Admin minus user management;
+            Secretary is a Super User minus PV consultations.
+          </p>
+        </div>
+        <figure class="shot rev-img" style="margin:0">
+          <img loading="lazy" src="screenshots/1-administrative-dashboard/04_registration_review.png"
+               alt="The registration review queue with approve and reject controls and document inspection.">
+          <figcaption>Registration review queue</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- Solar consultation -->
+  <section class="band band--edge band--plate">
+    <div class="wrap">
+      <div class="split split--flip">
+        <figure class="shot rev-img" style="margin:0">
+          <img loading="lazy" src="screenshots/4-solar-pv-consultation/04_solara_knowledge_reply.png"
+               alt="Solara returning a retrieval-grounded answer with a Sources citation line.">
+          <figcaption>Retrieval-grounded reply, with sources</figcaption>
+        </figure>
+        <div class="rev-r">
+          <h2 class="d2">Solara answers from documents, not memory</h2>
+          <p class="prose" style="margin-top:1.1rem">
+            Chat replies are built from a curated knowledge base of ten source documents, chunked
+            and embedded, retrieved by brute-force cosine similarity over PostgreSQL REAL arrays.
+            A tuned similarity floor discards weak matches rather than answering from a bad one.
+          </p>
+          <p class="prose">
+            Off-topic questions are refused deterministically before any chat call: a keyword
+            allowlist first, then a cheap yes-or-no gate only if that misses. This exists because
+            relying on the chat model itself to decline was unreliable on Taglish input.
+          </p>
+          <p class="prose">
+            Re-indexing after editing the knowledge base is a manual terminal command, never an
+            action the running app can take.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Full-bleed break: certificate -->
+  <figure class="bleed rev-img" style="margin:0">
+    <img loading="lazy" src="screenshots/6-tokenized-certificate-verification/02_certificate_issued_result.png"
+         alt="The certificate issuance console after issuing, showing one certificate issued and one recorded on the blockchain."
+         width="3200" height="2000">
+  </figure>
+
+  <!-- Six areas -->
+  <section class="band band--edge">
+    <div class="wrap">
+      <div class="head" style="max-width:38ch">
+        <h2 class="d1 rev">Six functional areas</h2>
+        <p class="lead rev">
+          Each corresponds to a section of the screenshot gallery.
+        </p>
+      </div>
+
+      <div class="plates plates--3 stag">
+        <div class="plate">
+          <h3 class="d3">Administration</h3>
+          <ul>
+            <li>Registration review, document inspection, approve and reject</li>
+            <li>Document images purged after review, digest retained</li>
+            <li>Account management with per-account trainer capability grants</li>
+            <li>Analytics, audit log, and Excel exports across five entities</li>
+          </ul>
+        </div>
+        <div class="plate">
+          <h3 class="d3">Instruction</h3>
+          <ul>
+            <li>Module authoring with attachments and publication control</li>
+            <li>Quiz builder across four question types</li>
+            <li>AI quiz generation drafted from module material</li>
+            <li>Grading queue flagging what auto-grading could not settle</li>
+          </ul>
+        </div>
+        <div class="plate">
+          <h3 class="d3">Learning</h3>
+          <ul>
+            <li>Syllabus resolved from the approved programme, not identity</li>
+            <li>Timed quizzes, automatic grading for three of four types</li>
+            <li>In-module AI assistant answering questions on the material</li>
+            <li>Progress computed identically for trainee and trainer views</li>
+          </ul>
+        </div>
+        <div class="plate">
+          <h3 class="d3">Consultation</h3>
+          <ul>
+            <li>Structured site survey with electricity-bill OCR</li>
+            <li>Deterministic engine: sizing, cost, savings, payback, yield</li>
+            <li>English and Taglish, with source citations</li>
+            <li>Engineer review stored alongside computed figures, never over them</li>
+          </ul>
+        </div>
+        <div class="plate">
+          <h3 class="d3">Payments</h3>
+          <ul>
+            <li>Card and QRPH checkout for individual enrolment</li>
+            <li>Corporate invoicing from an approved roster, audited overrides</li>
+            <li>Database-level idempotency keys prevent double-charging</li>
+            <li>Unmatched webhooks quarantined raw, never dropped</li>
+          </ul>
+        </div>
+        <div class="plate">
+          <h3 class="d3">Certification</h3>
+          <ul>
+            <li>Issuance gated on completing every module in the programme</li>
+            <li>Certificate hash anchored to Polygon at issue</li>
+            <li>Public QR verification with transaction, block and confirmations</li>
+            <li>Re-anchor action for certificates issued while offline</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="band band--edge band--plate">
+    <div class="wrap">
+      <div class="head" style="max-width:42ch">
+        <h2 class="d1 rev">Decisions worth defending</h2>
+        <p class="lead rev">
+          Four choices that explain most of the otherwise-odd code.
+        </p>
+      </div>
+
+      <div class="rows">
+        <article class="row rev">
+          <div class="row__n">A</div>
+          <div>
+            <h3>The schema lives in code</h3>
+            <p class="prose">
+              One function is the entire schema: CREATE TABLE IF NOT EXISTS, plus idempotent ALTER
+              TABLE ADD COLUMN IF NOT EXISTS, plus inline backfills. It re-runs on every boot, so a
+              fresh clone and a long-lived database converge on the same 36-table shape without a
+              migration tool. To add a column you append an idempotent ALTER, because nothing reads
+              migration files.
+            </p>
+          </div>
+        </article>
+        <article class="row rev">
+          <div class="row__n">B</div>
+          <div>
+            <h3>One capability map, consulted twice</h3>
+            <p class="prose">
+              No route compares a role string inline. A single map takes capability to roles, and
+              it is exposed as a template global, so a hidden button and the route behind it read
+              the same table and cannot disagree. Per-account overrides let one trainer run
+              training modules and another PV consultations without inventing a new role.
+            </p>
+          </div>
+        </article>
+        <article class="row rev">
+          <div class="row__n">C</div>
+          <div>
+            <h3>Blockchain writes are best-effort</h3>
+            <p class="prose">
+              Payments and certificates are valid whether or not the Polygon write lands. Failures
+              are logged and surfaced in the interface as "Off-chain" with a re-anchor action. They
+              are never swallowed silently, and they never abort the transaction that triggered
+              them.
+            </p>
+          </div>
+        </article>
+        <article class="row rev">
+          <div class="row__n">D</div>
+          <div>
+            <h3>A join code names a class, it never authorises</h3>
+            <p class="prose">
+              Entitlement is re-derived on every access, so a membership row is not standing
+              authority. A later rejection, roster revocation or cancelled invoice closes access
+              without anyone deleting the row. Two exceptions are documented and accepted
+              knowingly: individual enrolment is never gated, and access stays open until a class
+              actually exists.
+            </p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technology -->
+  <section class="band band--edge">
+    <div class="wrap">
+      <div class="head" style="max-width:34ch">
+        <h2 class="d1 rev">Technology</h2>
+      </div>
+      <div class="two">
+        <table class="spec rev-l">
+          <tr><th>Backend</th><td>Python 3, Flask, gunicorn, 13 blueprints</td></tr>
+          <tr><th>Database</th><td>PostgreSQL 18, raw psycopg2, no ORM, 36 tables</td></tr>
+          <tr><th>Schema</th><td>Applied idempotently in code at import, no migration files</td></tr>
+          <tr><th>Templating</th><td>Jinja2 with shared macros</td></tr>
+          <tr><th>Frontend</th><td>Vanilla JavaScript, no framework, no bundler</td></tr>
+        </table>
+        <table class="spec rev-r">
+          <tr><th>Payments</th><td>PayMongo: card, QRPH, hosted checkout</td></tr>
+          <tr><th>Blockchain</th><td>Polygon Amoy testnet via web3.py, soulbound ERC-721</td></tr>
+          <tr><th>AI</th><td>Groq Cloud or local LM Studio, selected per workload</td></tr>
+          <tr><th>Retrieval</th><td>fastembed on CPU, cosine similarity over REAL arrays</td></tr>
+          <tr><th>Vision</th><td>ID classification, selfie face-match, bill OCR</td></tr>
+        </table>
+      </div>
+
+      <p class="prose rev" style="margin-top:2.2rem;max-width:78ch">
+        Three independent provider settings govern AI use: one for text generation, one for vision,
+        one for embeddings. The split is deliberate. A model good at reading a government ID is not
+        the one you want writing quiz questions, and changing the chat model must never force a
+        re-index of the retrieval corpus.
+      </p>
+    </div>
+  </section>
+
+  <!-- Verification -->
+  <section class="band band--edge band--plate">
+    <div class="wrap">
+      <div class="split">
+        <div class="rev-l">
+          <h2 class="d2">How it is checked</h2>
+          <p class="prose" style="margin-top:1.1rem">
+            There is no automated test suite. The standing check is a compile pass and an import
+            pass, then exercising the route in a browser. Beyond that, a handful of purpose-built
+            scripts guard the specific regressions a compile pass cannot catch.
+          </p>
+          <p class="prose">
+            A separate development harness serves the real application on a second port with a live
+            trace of each consultation turn: the gate decision, every retrieved chunk with its
+            score, what the extractor banked, the preview calculation, per-stage timings, and the
+            exact prompt sent. It instruments the blueprint by monkeypatch from that process alone,
+            so no development-only branch exists in a shipped route.
+          </p>
+        </div>
+        <div class="rev-r">
+          <table class="spec">
+            <tr><th>solar_calc_check</th><td>Sizing and ROI mathematics</td></tr>
+            <tr><th>rag_eval</th><td>Retrieval threshold and grounding quality</td></tr>
+            <tr><th>solar_grounding_check</th><td>The guard that stops the model authoring numbers</td></tr>
+            <tr><th>solar_latency_check</th><td>Per-stage timing across providers</td></tr>
+            <tr><th>test_class_concurrency</th><td>Concurrent joins against a class code</td></tr>
+            <tr><th>test_payment_recovery</th><td>Webhook recovery and reconciliation</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band--tight band--edge">
+    <div class="wrap">
+      <div class="btns rev">
+        <a class="btn btn--p" href="gallery.html">See all 48 frames</a>
+        <a class="btn btn--s" href="documents.html">Read the documentation</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__g">
+    <div>
+      <a class="brand" href="index.html">POWER<b>WIZE</b></a>
+      <p>
+        Submitted in partial fulfilment of the requirements for the degree of Bachelor of Science
+        in Information Technology, major in Web and Mobile Application Development, College of
+        Computer Studies, Laguna State Polytechnic University, Santa Cruz, Laguna.
+      </p>
+    </div>
+    <nav class="foot__nav" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="research.html">Research</a>
+      <a href="gallery.html">Gallery</a>
+      <a href="documents.html">Documents</a>
+    </nav>
+  </div>
+  <div class="wrap" style="margin-top:2.5rem">
+    <span class="seal">&copy; 2026 Bandao &nbsp;/&nbsp; Cosio &nbsp;/&nbsp; Esguerra</span>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>

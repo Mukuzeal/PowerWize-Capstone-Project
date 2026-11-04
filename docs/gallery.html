@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery | PowerWize</title>
+<meta name="description" content="Forty-eight frames captured from the running PowerWize system across six feature areas. No mockups, no edited pixels.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="curtain" aria-hidden="true"></div>
+<div class="prog" aria-hidden="true"></div>
+<div class="rails" aria-hidden="true"><div class="rails__inner">
+  <span style="--i:0"></span><span style="--i:1"></span><span style="--i:2"></span><span style="--i:3"></span>
+  <span style="--i:4"></span><span style="--i:5"></span><span style="--i:6"></span><span style="--i:7"></span>
+  <span style="--i:8"></span><span style="--i:9"></span><span style="--i:10"></span><span style="--i:11"></span>
+</div></div>
+<div class="grain" aria-hidden="true"></div>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="index.html">POWER<b>WIZE</b></a>
+    <button class="nav__toggle" aria-expanded="false" aria-controls="navlinks">Menu</button>
+    <nav class="nav__links" id="navlinks" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="research.html">Research</a>
+      <a href="system.html">System</a>
+      <a href="gallery.html" aria-current="page">Gallery</a>
+      <a href="documents.html">Documents</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="band band--tight">
+    <div class="wrap">
+      <p class="mono rev">Captured 2026-10-23, re-shot 2026-11-04</p>
+      <h1 class="d1 rev" style="margin-top:1.2rem;max-width:20ch">
+        Forty-eight frames of the running system
+      </h1>
+      <p class="lead rev" style="margin-top:1.4rem">
+        Shot at 1600 by 1000 with a device scale factor of 2, full page. Every frame is the real
+        application. Select any frame to enlarge it.
+      </p>
+    </div>
+  </section>
+
+  <section class="band band--tight band--edge">
+    <div class="wrap">
+      <div id="gallery"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Enlarged screenshot">
+  <button class="lb__x" id="lbX" aria-label="Close">&#10005;</button>
+  <figure><img id="lbImg" alt=""><figcaption id="lbCap"></figcaption></figure>
+</div>
+
+<footer class="foot">
+  <div class="wrap foot__g">
+    <div>
+      <a class="brand" href="index.html">POWER<b>WIZE</b></a>
+      <p>
+        Submitted in partial fulfilment of the requirements for the degree of Bachelor of Science
+        in Information Technology, major in Web and Mobile Application Development, College of
+        Computer Studies, Laguna State Polytechnic University, Santa Cruz, Laguna.
+      </p>
+    </div>
+    <nav class="foot__nav" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="research.html">Research</a>
+      <a href="system.html">System</a>
+      <a href="documents.html">Documents</a>
+    </nav>
+  </div>
+  <div class="wrap" style="margin-top:2.5rem">
+    <span class="seal">&copy; 2026 Bandao &nbsp;/&nbsp; Cosio &nbsp;/&nbsp; Esguerra</span>
+  </div>
+</footer>
+
+<script>
+/* Mirrors docs/screenshots/README.md. Paths resolve from this page, which is
+   also the Pages site root. */
+window.PW_GALLERY = [
+  { dir:"1-administrative-dashboard", title:"Administrative dashboard", shots:[
+    ["00_login.png","Public sign-in, shared by every role"],
+    ["01_dashboard_overview.png","Counts for users, registrations, schedules, trainees"],
+    ["02_user_management.png","Account list with role labels and archive controls"],
+    ["03_schedules.png","Training schedule management"],
+    ["04_registration_review.png","Registration queue with approve and reject"],
+    ["05_corporate_payments.png","Corporate billing accounts"],
+    ["06_discount_codes.png","Discount code administration"],
+    ["07_modules_oversight.png","Cross-programme module oversight"],
+    ["08_export_reports.png","Excel export surface"],
+    ["09_trainee_feedback.png","Collected module ratings"],
+    ["10_audit_log.png","Audit trail"],
+    ["11_analytics.png","Analytics dashboard"],
+    ["12_create_user_form.png","Account creation form"]
+  ]},
+  { dir:"2-instructor-training-management", title:"Instructor training management", shots:[
+    ["01_trainer_console_dashboard.png","Trainer console landing"],
+    ["02_training_modules.png","Modules the trainer owns"],
+    ["03_exam_submissions_inbox.png","Practical-exam inbox"],
+    ["04_solar_consultations_queue.png","PV consultations, a per-account capability"],
+    ["05_trainee_progress.png","Progress across their trainees"],
+    ["06_module_library.png","Full module library"],
+    ["07_module_manage.png","Single-module management"],
+    ["08_quiz_builder.png","Quiz Manager mid-generation, drafted from the module PDF"],
+    ["09_practical_exam_builder.png","Practical exam with evaluation criteria"],
+    ["10_create_module_form.png","New module form"],
+    ["11_grading_queue.png","Grading queue"]
+  ]},
+  { dir:"3-trainee-training-ai-feedback", title:"Trainee training and AI feedback", shots:[
+    ["01_trainee_portal.png","Trainee portal"],
+    ["02_my_syllabus.png","Syllabus resolved from the approved programme"],
+    ["03_module_workspace.png","Materials, quiz, exam, completion, rating"],
+    ["04_ai_assistant_question.png","Question typed into the module assistant"],
+    ["05_ai_assistant_reply.png","A live grounded answer from the module assistant"],
+    ["06_my_progress.png","Progress view"],
+    ["07_quiz_attempt.png","Quiz attempt screen"]
+  ]},
+  { dir:"4-solar-pv-consultation", title:"Solar PV consultation", shots:[
+    ["01_consultation_intake.png","Structured site-survey intake"],
+    ["02_solara_chat_opening.png","Solara opening turn and privacy notice"],
+    ["03_solara_user_question.png","Question composed"],
+    ["04_solara_knowledge_reply.png","Retrieval-grounded answer with a source citation"],
+    ["05_solara_taglish_quotation.png","Taglish turn, figures from the sizing engine"],
+    ["06_admin_consultation_queue.png","Engineer review queue"],
+    ["07_admin_consultation_review.png","Consultation detail and decision"]
+  ]},
+  { dir:"5-payment-verification", title:"Payment interface and verification", shots:[
+    ["01_receipt_verification_portal.png","Public receipt verification"],
+    ["02_corporate_billing_records.png","Corporate payment records"],
+    ["03_discount_code_records.png","Discount code records"],
+    ["04_payment_checkout.png","Enrolment checkout"],
+    ["05_payment_card_method.png","Card method selected"],
+    ["06_payment_qrph_method.png","QRPH and e-wallet method"]
+  ]},
+  { dir:"6-tokenized-certificate-verification", title:"Tokenized certificate and verification", shots:[
+    ["01_certificate_issuance_console.png","Eligible trainees before issuance"],
+    ["02_certificate_issued_result.png","Issued, with the on-chain badge"],
+    ["03_trainee_certificate_wallet.png","The trainee's own certificate view"],
+    ["04_public_qr_verification.png","Public QR verification page"]
+  ]}
+];
+</script>
+<script src="assets/site.js"></script>
+</body>
+</html>
