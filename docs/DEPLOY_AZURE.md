@@ -233,6 +233,7 @@ az webapp config appsettings set --resource-group $RG --name $APP --settings \
   EMBED_PROVIDER="local_cpu" \
   GROQ_API_KEY="<your key>" \
   GROQ_MODEL="openai/gpt-oss-120b" \
+  GROQ_VISION_MODEL="qwen/qwen3.8-27b" \
   EMBED_MODEL="BAAI/bge-small-en-v1.5" \
   RAG_MIN_SCORE="0.55" \
   RAG_CACHE_TTL="300" \
@@ -263,7 +264,22 @@ The hosting-specific ones, and why each is needed:
 **Do not set `TEXT_PROVIDER=lmstudio`.** There is no LM Studio server in Azure;
 the call would hang until it timed out. Groq is the only workable text and
 vision provider for a hosted deployment. `EMBED_PROVIDER=local_cpu` is correct
-and runs in-process.
+and runs in-process — Groq offers no embedding endpoint, so there is no `groq`
+value for that variable.
+
+**Verify both Groq model names against your own key before deploying.** Groq
+retires models with little notice, and a request naming a retired one returns a
+400 that surfaces as a feature silently doing nothing rather than as an error:
+
+```bash
+curl -s https://api.groq.com/openai/v1/models \
+  -H "Authorization: Bearer $GROQ_API_KEY" | grep '"id"'
+```
+
+`GROQ_VISION_MODEL` additionally has to be a model that accepts image input,
+which most do not — it is read by both `upload_validation.py` (ID and selfie
+screening) and `ocr_module.py` (electricity-bill reading). A text-only model
+there fails with `content must be a string`.
 
 ---
 
