@@ -72,7 +72,7 @@
       </button>
 
       <div class="result-foot">
-        <a href="{{ url_for('registration.programs') }}"><i class="fa-solid fa-arrow-left"></i> Register another</a>
+        <a href="{{ company_registration_action or url_for('registration.programs') }}"><i class="fa-solid fa-arrow-left"></i> {{ 'Register another trainee' if company_registration else 'Register another' }}</a>
         <a href="{{ url_for('site.contact') }}"><i class="fa-solid fa-envelope"></i> Contact EnergyWize</a>
       </div>
 

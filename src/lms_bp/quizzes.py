@@ -6,7 +6,7 @@ from db import (lms_get_module, lms_get_quiz, lms_get_questions,
                 lms_toggle_quiz_lock, lms_get_progress,
                 lms_get_files, lms_start_attempt, lms_record_tab_switch,
                 lms_submit_quiz, lms_get_attempt, lms_get_user_attempt,
-                lms_get_wrong_questions, lms_update_progress)
+                lms_get_wrong_questions, lms_update_progress, class_gate)
 
 from . import lms_bp
 from ._shared import (_uid, _role, _is_instructor, _is_trainee, _module_content_text,
@@ -122,6 +122,9 @@ def _quiz_locked_reason(uid, module_id, quiz):
     """None if the trainee may take this quiz, otherwise a flash message
     explaining why not (module locked/not yet reached, quiz locked by the
     trainer, or the module's PDF material isn't 100% viewed yet)."""
+    gate_ok, gate_reason = class_gate(uid)
+    if not gate_ok:
+        return gate_reason          # not "locked" — they have not joined yet
     unlocked, _mods, _pm, _idx = _module_access(uid, module_id)
     if not unlocked:
         return 'This module is locked. Complete the previous module, or ask your trainer to unlock it.'

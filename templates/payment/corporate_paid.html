@@ -1,0 +1,55 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+{% block title %}Invoice settled – EnergyWize{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='corporate-payment.css') }}">
+{% endblock %}
+{% block main %}
+<section class="formpage company-receipt"><div class="shell"><div class="result-wrap">
+  {{ fhead([], invoice.company_name, 'Payment<br><em>Confirmed</em>',
+           'Keep this company receipt as your payment record. Reference ' ~ invoice.reference) }}
+  {% if test_payment %}
+  <div class="notice-box"><strong>PayMongo sandbox payment</strong><p>This receipt records a simulated test payment.</p></div>
+  {% endif %}
+  <div class="result-card">
+    <div class="result-header">
+      <div class="result-icon"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="result-header-text"><h2>Payment received</h2><p>{{ trainee_count }} trainee{{ '' if trainee_count == 1 else 's' }} covered by this invoice.</p></div>
+    </div>
+    <div class="result-body">
+      <div class="result-row"><span class="label">Invoice</span><span class="value">{{ invoice.reference }}</span></div>
+      <div class="result-row"><span class="label">Receipt ID</span><span class="value">{{ invoice.receipt_id or 'Preparing receipt' }}</span></div>
+      <div class="result-row"><span class="label">Amount paid</span><span class="value is-signal">&#8369;{{ '{:,.2f}'.format(invoice.amount_centavos / 100) }}</span></div>
+      <div class="result-row"><span class="label">Method</span><span class="value">{{ (invoice.method or 'PayMongo checkout')|upper }}</span></div>
+      <div class="result-row"><span class="label">Paid</span><span class="value">{{ invoice.paid_at.strftime('%d %b %Y, %H:%M') if invoice.paid_at else 'Confirmed' }}</span></div>
+      <div class="result-row"><span class="label">PayMongo payment</span><span class="value">{{ invoice.paymongo_id or 'See invoice record' }}</span></div>
+      <div class="result-row"><span class="label">Blockchain</span><span class="value">{{ 'Anchored on Polygon' if invoice.tx_hash else 'Off-chain — payment confirmed' }}</span></div>
+      {% if invoice.receipt_hash %}<div class="result-row"><span class="label">Receipt fingerprint</span><span class="value">{{ invoice.receipt_hash }}</span></div>{% endif %}
+    </div>
+    {% if invoice.qr_code_path %}
+    <div class="qr-section">
+      <h3>Receipt verification QR</h3>
+      <p>Scan this receipt in the verifier to compare its current record with the Polygon anchor.</p>
+      <img class="qr-img" src="/{{ invoice.qr_code_path }}" alt="Company receipt verification QR">
+    </div>
+    {% endif %}
+    {% if explorer_url %}
+    <a class="chain-link" href="{{ explorer_url }}" target="_blank" rel="noreferrer noopener">View transaction on PolygonScan</a>
+    {% else %}
+    <div class="qr-section"><p>The blockchain anchor is pending or unavailable. Your payment remains confirmed; EnergyWize can retry anchoring from the invoice record.</p></div>
+    {% endif %}
+  </div>
+  {% if invoice.receipt_id %}
+  <form method="post" action="{{ url_for('payment.verify_receipt') }}" style="margin-top:1.25rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="qr_data" value="{{ invoice.receipt_id }}">
+    <button type="submit" class="btn-submit is-block">Verify company receipt on blockchain</button>
+  </form>
+  {% endif %}
+  <button type="button" class="btn-submit is-block" style="margin-top:1rem" onclick="window.print()">Print receipt</button>
+  <p class="pay-note">Covered trainees can sign in to their own accounts and join their assigned class. Registration and class eligibility still apply.</p>
+  <div class="result-foot"><a href="/auth">Trainee sign in</a></div>
+</div></div></section>
+{% endblock %}

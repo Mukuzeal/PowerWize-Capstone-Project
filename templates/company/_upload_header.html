@@ -1,0 +1,9 @@
+{{ fhead([], company_registration.company_name, 'Submit your <em>requirements</em>',
+    company_program_label ~ ' · Company trainee registration. Complete your details and upload your own documents here.',
+    [('Company', company_registration.company_name),
+     ('Roster email', session.get('company_registration_grant', {}).get('email_key', ''))]) }}
+<form method="POST" action="{{ company_registration_action }}" style="margin-bottom:1.5rem">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="action" value="change_email">
+  <button class="btn" type="submit">Use a different email</button>
+</form>

@@ -1,0 +1,28 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+{% block title %}Payment pending – EnergyWize{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+{% endblock %}
+{% block main %}
+<section class="formpage"><div class="shell"><div class="result-wrap">
+  {{ fhead([], invoice.company_name, 'Payment <em>pending</em>',
+           'Reference ' ~ invoice.reference) }}
+  <div class="form-card">
+    <div class="section-header">
+      <div class="section-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+      <div><h2>Not confirmed yet</h2><p>{{ message }}</p></div>
+    </div>
+    <p>If you completed payment, it can take a few minutes to confirm. This
+       page does not treat a redirect as proof of payment — we check with
+       PayMongo directly. Refresh shortly, or contact EnergyWize if the
+       charge appears on your statement.</p>
+    <div class="form-footer">
+      <a class="btn-submit" href="{{ status_url }}">Check again</a>
+      {% if payment_url %}<a class="chain-link" href="{{ payment_url }}">Back to invoice</a>
+      {% else %}<p>For a current invoice link, contact your company coordinator.</p>{% endif %}
+    </div>
+  </div>
+</div></div></section>
+{% endblock %}

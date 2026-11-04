@@ -1,0 +1,131 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+{% set total = '{:,.2f}'.format(amount_php) %}
+
+{% block title %}Pay invoice {{ invoice.reference }} &ndash; EnergyWize{% endblock %}
+{% block description %}Complete your company training payment securely with PayMongo.{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='corporate-payment.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block main %}
+<section class="formpage company-payment" data-status-api="{{ status_api }}" data-test-action-api="{{ test_action_api }}" data-connect-test-api="{{ connect_test_api }}">
+  <div class="shell">
+    <div class="result-wrap">
+      {{ fhead([], invoice.company_name, 'Complete Your<br><em>Company Payment</em>',
+               'Pay your company training invoice in one transaction. Complete payment securely on PayMongo.',
+               [('Amount due', '₱' ~ total), ('Trainees', trainee_count|string)]) }}
+
+      {% if checkout_notice %}
+      <div class="notice-box company-payment__notice" role="status">
+        <strong>{{ 'Demo checkout' if mock_checkout else 'Checkout unavailable' }}</strong>
+        <p>{{ checkout_notice }}</p>
+        {% if can_connect_test %}
+        <button type="button" class="btn-submit" data-connect-test-checkout>Connect PayMongo test checkout</button>
+        <div data-connect-test-result role="status" aria-live="polite"></div>
+        {% endif %}
+      </div>
+      {% elif sandbox_checkout %}
+      <div class="notice-box company-payment__notice" role="status">
+        <strong>PayMongo test mode</strong>
+        <p>This checkout is for sandbox testing. Use PayMongo test payment details.</p>
+      </div>
+      {% endif %}
+
+      {% if payment_groups|length > 1 %}
+      <div class="mode-tabs" role="tablist" aria-label="Payment methods" data-company-payment-tabs hidden>
+        {% for group in payment_groups %}
+        <button type="button" class="mode-tab{% if loop.first %} active{% endif %}"
+                id="company-tab-{{ group.id }}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}"
+                aria-controls="company-panel-{{ group.id }}" tabindex="{{ '0' if loop.first else '-1' }}">
+          <i class="fa-solid fa-{{ group.icon }}" aria-hidden="true"></i> {{ group.label }}
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% for group in payment_groups or [{'id': 'checkout', 'title': 'Secure payment', 'icon': 'lock', 'detail': 'Continue to PayMongo to see the payment methods available for this invoice.'}] %}
+      <section class="company-payment__panel" id="company-panel-{{ group.id }}"
+               {% if payment_groups|length > 1 %}aria-labelledby="company-tab-{{ group.id }}"{% endif %}>
+        <div class="form-card">
+          <div class="section-header">
+            <div class="section-icon"><i class="fa-solid fa-{{ group.icon }}" aria-hidden="true"></i></div>
+            <div><h2>{{ program or 'Company training' }}</h2><p>One-time company payment</p></div>
+          </div>
+          <div class="specs-grid">
+            <div class="spec-item">
+              <div class="spec-label">Amount due</div>
+              <div class="spec-value is-signal">&#8369;{{ total }}</div>
+              <div class="spec-unit">{{ trainee_count }} trainee{{ '' if trainee_count == 1 else 's' }} on this invoice</div>
+            </div>
+          </div>
+          <div class="form-body">
+            <dl class="company-payment__details">
+              <div><dt>Company</dt><dd>{{ invoice.company_name }}</dd></div>
+              <div><dt>Invoice reference</dt><dd>{{ invoice.reference }}</dd></div>
+              <div><dt>Payment deadline</dt><dd>{{ invoice.expires_at.strftime('%d %b %Y, %H:%M') if invoice.expires_at else 'See your invoice' }}</dd></div>
+            </dl>
+            <div class="company-payment__method">
+              <h3>{{ group.title }}</h3>
+              <p>{{ group.detail }}</p>
+              {% if payment_groups|length > 1 %}
+              <p class="company-payment__hint">Select your final payment method on the next page. Both tabs open the same secure invoice checkout.</p>
+              {% endif %}
+            </div>
+            {% if sandbox_checkout and checkout_url %}
+            <aside class="company-payment__sandbox" aria-label="PayMongo test instructions">
+              <h3>Simulate {{ 'card' if group.id == 'card' else 'QR / e-wallet' if group.has_qr else 'e-wallet' }} payment</h3>
+              {% if group.id == 'card' %}
+              <p>Open PayMongo checkout and choose Card. Use the successful test card
+                 <code>4343 4343 4343 4345</code>, any future expiry date, and any three-digit CVC.</p>
+              <p>For a bank-verification test, use <code>4120 0000 0000 0007</code> and choose Authorize at the test prompt.</p>
+              {% else %}
+              <p>Open PayMongo checkout, select {{ 'QR Ph or an available e-wallet' if group.has_qr else 'an available e-wallet' }}, then use the PayMongo simulation page to choose a test outcome.</p>
+              {% if group.has_qr %}
+              <p class="company-payment__qr-warning"><strong>Do not scan and pay a test QR with a real banking or wallet app.</strong> Use its simulation link.</p>
+              {% endif %}
+              <button type="button" class="chain-link" data-get-test-action>Get PayMongo simulation link</button>
+              <div data-test-action-result role="status" aria-live="polite"></div>
+              {% endif %}
+              <p class="company-payment__hint">A successful test confirms this invoice and updates its trainees' payment status. Payment is confirmed only after verification with PayMongo.</p>
+              <a class="chain-link" href="https://docs.paymongo.com/docs/payment-acceptance-testing" target="_blank" rel="noreferrer noopener">PayMongo test instructions</a>
+            </aside>
+            {% endif %}
+            <p class="pay-note">
+              <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+              <span>PayMongo collects your payment details. Card numbers and security codes are never entered on this company page.</span>
+            </p>
+          </div>
+          <div class="form-footer">
+            <p>One payment covers this invoice.</p>
+            {% if checkout_url %}
+            <a href="{{ checkout_url }}" class="btn-submit company-payment__pay" rel="noreferrer noopener" data-company-checkout
+               {% if sandbox_checkout %}target="_blank" data-test-checkout{% endif %}>
+              <i class="fa-solid fa-lock" aria-hidden="true"></i> {{ 'Open PayMongo test checkout' if sandbox_checkout else 'Pay ₱' ~ total }}
+            </a>
+            {% else %}
+            <button class="btn-submit" type="button" disabled>{{ 'Unavailable in demo mode' if mock_checkout else 'Checkout unavailable' }}</button>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+      {% endfor %}
+
+      <div class="company-payment__followup">
+        <p data-payment-poll-result role="status" aria-live="polite"></p>
+        <p>Already completed payment? Confirmation may take a few moments.</p>
+        <a href="{{ status_url }}" class="chain-link">Check payment status <span aria-hidden="true">&#8599;</span></a>
+        <p class="company-payment__hint">Trainee names and uploaded documents are kept private. Any agreed price adjustment is already included in the amount above.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='corporate-payment.js') }}" defer></script>
+{% endblock %}

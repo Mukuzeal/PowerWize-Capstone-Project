@@ -1,0 +1,31 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+{% block title %}Company registration – {{ intake.company_name }}{% endblock %}
+{% block description %}Submit your own training requirements for your company's intake.{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+{% endblock %}
+{% block main %}
+<section class="formpage"><div class="shell"><div class="result-wrap">
+  {{ fhead([], intake.company_name, 'Your training <em>registration</em>',
+      'Everyone uses this same link and class code. Enter the code your coordinator shared and your roster email, then upload your requirements.') }}
+  <div class="form-card"><div class="form-body">
+    {% if message %}<p class="field" role="status">{{ message }}</p>{% endif %}
+    {% if error %}<p class="field" role="alert">{{ error }}</p>{% endif %}
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="enter_class">
+      <div class="field"><label for="entry-class-code">Class code</label>
+        <input id="entry-class-code" name="class_code" type="text" maxlength="24"
+               autocomplete="off" autocapitalize="characters" spellcheck="false"
+               placeholder="e.g. RQSGXMP" required>
+        <p class="field-hint">Your company coordinator shares this code with every trainee in your class.</p></div>
+      <div class="field"><label for="entry-email">Your company roster email</label>
+        <input id="entry-email" name="email" type="email" maxlength="150" autocomplete="email"
+               value="{{ email }}" placeholder="you@company.com" required>
+        <p class="field-hint">Use the email address your company listed for you. This page does not display anyone else's details.</p></div>
+      <button class="btn" type="submit" style="margin-top:1rem">Continue to registration</button>
+    </form>
+  </div></div>
+</div></div></section>
+{% endblock %}

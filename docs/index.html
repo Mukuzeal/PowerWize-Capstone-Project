@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerWize — AI-Enhanced Training and Consultation System | LSPU CCS Capstone</title>
+<meta name="description" content="Capstone research: an AI-enhanced training and consultation system with blockchain payment verification and tokenized certificates for EnergyWize Solutions Inc. College of Computer Studies, Laguna State Polytechnic University.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-000:#040907; --ink-050:#071009; --ink-100:#0A1710; --ink-200:#0F2018;
+  --ink-300:#152D22; --ink-400:#1D3B2D;
+  --fg:#E7F1EA; --fg-dim:#A5BDAF; --fg-mute:#6B8578; --fg-ghost:#3C5449;
+  --line:rgba(206,236,218,.085); --line-mid:rgba(206,236,218,.16); --line-strong:rgba(206,236,218,.30);
+  --forest:#0B5E33; --forest-deep:#083F23;
+  --signal:#35C77C; --signal-dim:#1C7A4B;
+  --amber:#E9A93B; --amber-deep:#9A6714;
+  --ember:#D8483C;
+  --paper:#EFEDE6; --paper-2:#E4E2D9; --paper-ink:#0A1710;
+  --maxw:1560px; --gut:clamp(1.25rem,3.4vw,3.75rem);
+  --sans:"Archivo",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
+  --fs-hero:clamp(2.1rem,5.4vw,5.2rem);
+  --fs-d1:clamp(1.7rem,4.4vw,3.4rem);
+  --fs-d3:clamp(1.25rem,1.9vw,1.75rem);
+  --fs-lead:clamp(1.02rem,1.15vw,1.22rem);
+  --fs-mono:.7rem; --fs-mono-lg:.78rem;
+  --sp-section:clamp(4rem,7vw,8rem);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ink-000); color:var(--fg);
+  font-family:var(--sans); font-size:1rem; line-height:1.62;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+img{max-width:100%; display:block}
+a{color:inherit}
+
+.wrap{max-width:var(--maxw); margin:0 auto; padding-inline:var(--gut)}
+.rule{height:1px; background:var(--line-mid); border:0; margin:0}
+
+/* ── mono label ─────────────────────────────────────────── */
+.label{
+  font-family:var(--mono); font-size:var(--fs-mono); font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--fg-mute);
+}
+.label .tick{color:var(--signal); margin-right:.6em}
+
+/* ── top bar ────────────────────────────────────────────── */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:rgba(4,9,7,.86); backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar .wrap{display:flex; align-items:center; gap:1.5rem; height:56px}
+.brand{font-family:var(--mono); font-size:var(--fs-mono-lg); font-weight:700; letter-spacing:.14em}
+.brand span{color:var(--signal)}
+.topnav{margin-left:auto; display:flex; gap:1.4rem; flex-wrap:wrap}
+.topnav a{
+  font-family:var(--mono); font-size:var(--fs-mono); letter-spacing:.14em;
+  text-transform:uppercase; color:var(--fg-mute); text-decoration:none;
+  padding:.3rem 0; border-bottom:1px solid transparent; transition:color .2s,border-color .2s;
+}
+.topnav a:hover{color:var(--fg); border-bottom-color:var(--signal)}
+@media(max-width:860px){ .topnav{display:none} }
+
+/* ── hero ───────────────────────────────────────────────── */
+.hero{
+  position:relative; padding-top:clamp(3rem,7vw,6rem); padding-bottom:var(--sp-section);
+  border-bottom:1px solid var(--line-mid); overflow:hidden;
+}
+.hero::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(900px 480px at 78% 8%, rgba(53,199,124,.10), transparent 62%),
+    radial-gradient(700px 400px at 4% 94%, rgba(233,169,59,.055), transparent 64%);
+}
+.hero>*{position:relative}
+.eyebrow{display:flex; flex-wrap:wrap; gap:.5rem 1.25rem; align-items:baseline; margin-bottom:clamp(2rem,4vw,3.25rem)}
+h1{
+  font-size:var(--fs-hero); font-weight:800; line-height:1.03;
+  letter-spacing:-.025em; margin:0 0 1.5rem; max-width:21ch; text-wrap:balance;
+}
+h1 .accent{color:var(--signal)}
+.hero-sub{
+  font-size:var(--fs-lead); color:var(--fg-dim); max-width:58ch;
+  margin:0 0 clamp(2.5rem,5vw,4rem); line-height:1.6;
+}
+.credits{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  border-top:1px solid var(--line-mid);
+}
+.credit{padding:1.5rem 0 0; border-right:1px solid var(--line); padding-right:1.5rem}
+.credit:last-child{border-right:0}
+@media(max-width:700px){ .credit{border-right:0; border-bottom:1px solid var(--line); padding-bottom:1.25rem} .credit:last-child{border-bottom:0} }
+.credit dt{margin:0 0 .85rem}
+.credit dd{margin:0; font-size:.95rem; line-height:1.75}
+.credit dd strong{font-weight:600; display:block}
+.credit dd .role{color:var(--fg-mute); font-size:.85rem}
+
+/* ── sections ───────────────────────────────────────────── */
+section{padding-block:var(--sp-section); border-bottom:1px solid var(--line)}
+.sec-head{margin-bottom:clamp(2rem,4vw,3.5rem)}
+.sec-head h2{
+  font-size:var(--fs-d1); font-weight:700; letter-spacing:-.02em;
+  margin:.9rem 0 0; max-width:24ch; line-height:1.08; text-wrap:balance;
+}
+.sec-head p{font-size:var(--fs-lead); color:var(--fg-dim); max-width:62ch; margin:1.1rem 0 0}
+
+.two-col{display:grid; grid-template-columns:1fr 1fr; gap:clamp(2rem,4vw,4.5rem)}
+@media(max-width:900px){ .two-col{grid-template-columns:1fr} }
+.prose p{margin:0 0 1.15rem; color:var(--fg-dim); max-width:66ch}
+.prose p:last-child{margin-bottom:0}
+.prose strong{color:var(--fg); font-weight:600}
+
+/* ── numbered list (objectives) ─────────────────────────── */
+.objectives{list-style:none; margin:0; padding:0; counter-reset:obj}
+.objectives li{
+  counter-increment:obj; position:relative;
+  padding:1.35rem 0 1.35rem 4rem; border-top:1px solid var(--line);
+}
+.objectives li:last-child{border-bottom:1px solid var(--line)}
+.objectives li::before{
+  content:counter(obj,decimal-leading-zero);
+  position:absolute; left:0; top:1.35rem;
+  font-family:var(--mono); font-size:var(--fs-mono-lg); font-weight:700;
+  color:var(--signal); letter-spacing:.08em;
+}
+.objectives strong{display:block; font-weight:600; margin-bottom:.3rem}
+.objectives span{color:var(--fg-dim); font-size:.95rem}
+
+/* ── phase strip (methodology) ──────────────────────────── */
+.phases{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); border-top:1px solid var(--line-mid)}
+.phase{padding:1.75rem 1.5rem 1.75rem 0; border-right:1px solid var(--line)}
+.phase:last-child{border-right:0}
+@media(max-width:760px){ .phase{border-right:0; border-bottom:1px solid var(--line)} .phase:last-child{border-bottom:0} }
+.phase h3{font-size:1.02rem; font-weight:600; margin:.85rem 0 .5rem}
+.phase p{margin:0; font-size:.9rem; color:var(--fg-mute); line-height:1.65}
+
+/* ── feature cards ──────────────────────────────────────── */
+.features{display:grid; grid-template-columns:repeat(auto-fit,minmax(310px,1fr)); gap:1px; background:var(--line-mid); border:1px solid var(--line-mid)}
+.feature{background:var(--ink-050); padding:clamp(1.6rem,2.4vw,2.25rem); transition:background .25s}
+.feature:hover{background:var(--ink-100)}
+.feature h3{font-size:var(--fs-d3); font-weight:600; letter-spacing:-.01em; margin:1rem 0 .75rem; line-height:1.2}
+.feature p{margin:0 0 1rem; color:var(--fg-dim); font-size:.95rem}
+.feature ul{margin:0; padding:0; list-style:none}
+.feature li{
+  position:relative; padding-left:1.15rem; margin-bottom:.45rem;
+  font-size:.9rem; color:var(--fg-mute); line-height:1.55;
+}
+.feature li::before{content:""; position:absolute; left:0; top:.62em; width:5px; height:5px; background:var(--signal-dim)}
+
+/* ── gallery ────────────────────────────────────────────── */
+.gal-group{margin-bottom:clamp(2.5rem,4vw,4rem)}
+.gal-group:last-child{margin-bottom:0}
+.gal-head{display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap; padding-bottom:1rem; border-bottom:1px solid var(--line-mid); margin-bottom:1.5rem}
+.gal-head h3{font-size:var(--fs-d3); font-weight:600; margin:0; letter-spacing:-.01em}
+.gal-head .count{font-family:var(--mono); font-size:var(--fs-mono); color:var(--fg-ghost); letter-spacing:.14em; margin-left:auto}
+.shots{display:grid; grid-template-columns:repeat(auto-fill,minmax(258px,1fr)); gap:1.25rem}
+.shot{
+  border:1px solid var(--line-mid); background:var(--ink-050);
+  cursor:zoom-in; overflow:hidden; transition:border-color .22s, transform .22s;
+}
+.shot:hover{border-color:var(--signal-dim); transform:translateY(-2px)}
+.shot img{aspect-ratio:16/10; object-fit:cover; object-position:top center; background:var(--ink-200)}
+.shot figcaption{
+  padding:.7rem .85rem; font-family:var(--mono); font-size:var(--fs-mono);
+  letter-spacing:.08em; color:var(--fg-mute); border-top:1px solid var(--line);
+  text-transform:uppercase;
+}
+
+/* lightbox */
+.lb{
+  position:fixed; inset:0; z-index:100; display:none;
+  background:rgba(4,9,7,.96); padding:clamp(1rem,3vw,3rem);
+  overflow:auto; align-items:center; justify-content:center;
+}
+.lb.open{display:flex}
+.lb figure{margin:0; max-width:1500px; width:100%}
+.lb img{width:100%; height:auto; border:1px solid var(--line-mid)}
+.lb figcaption{
+  font-family:var(--mono); font-size:var(--fs-mono-lg); color:var(--fg-dim);
+  letter-spacing:.1em; padding-top:1rem; text-align:center;
+}
+.lb-close{
+  position:fixed; top:1.1rem; right:1.3rem; width:42px; height:42px; border-radius:50%;
+  border:1px solid var(--line-strong); background:var(--ink-100); color:var(--fg);
+  font-size:1.1rem; cursor:pointer; line-height:1; display:grid; place-items:center;
+}
+.lb-close:hover{border-color:var(--signal); color:var(--signal)}
+
+/* ── stack table ────────────────────────────────────────── */
+.stack{width:100%; border-collapse:collapse; font-size:.93rem}
+.stack th,.stack td{text-align:left; padding:.95rem 1rem .95rem 0; border-bottom:1px solid var(--line); vertical-align:top}
+.stack th{
+  font-family:var(--mono); font-size:var(--fs-mono); font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--fg-mute);
+  width:30%; white-space:nowrap;
+}
+.stack td{color:var(--fg-dim)}
+.stack tr:last-child th,.stack tr:last-child td{border-bottom:0}
+
+/* ── metrics ────────────────────────────────────────────── */
+.metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line-mid); border:1px solid var(--line-mid)}
+.metric{background:var(--ink-050); padding:1.5rem}
+.metric .n{font-family:var(--mono); font-size:clamp(1.7rem,3.2vw,2.5rem); font-weight:700; color:var(--signal); line-height:1; letter-spacing:-.02em}
+.metric .k{margin-top:.6rem; font-family:var(--mono); font-size:var(--fs-mono); letter-spacing:.14em; text-transform:uppercase; color:var(--fg-mute)}
+
+/* ── links ──────────────────────────────────────────────── */
+.links{display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:1.25rem}
+.lnk{
+  display:block; text-decoration:none; padding:1.6rem;
+  border:1px solid var(--line-mid); background:var(--ink-050);
+  transition:border-color .22s, background .22s, transform .22s;
+}
+.lnk:hover{border-color:var(--signal-dim); background:var(--ink-100); transform:translateY(-2px)}
+.lnk .t{font-size:1.05rem; font-weight:600; margin:.9rem 0 .45rem; display:flex; align-items:center; gap:.5rem}
+.lnk .t .arw{color:var(--signal); font-family:var(--mono)}
+.lnk .d{font-size:.9rem; color:var(--fg-mute); margin:0}
+.lnk.muted{opacity:.62}
+.lnk.muted .t .arw{color:var(--fg-ghost)}
+
+/* chain proof block */
+.proof{
+  font-family:var(--mono); font-size:.76rem; line-height:1.95; color:var(--fg-dim);
+  background:var(--ink-100); border:1px solid var(--line-mid);
+  border-left:2px solid var(--signal); padding:1.35rem 1.5rem;
+  overflow-x:auto; white-space:pre; margin:1.75rem 0 0;
+}
+.proof b{color:var(--signal); font-weight:500}
+
+/* note */
+.note{
+  border-left:2px solid var(--amber); background:rgba(233,169,59,.045);
+  padding:1.1rem 1.4rem; margin:2rem 0 0; font-size:.92rem; color:var(--fg-dim);
+}
+.note strong{color:var(--amber); font-weight:600}
+
+/* ── footer ─────────────────────────────────────────────── */
+footer{padding-block:clamp(3rem,5vw,4.5rem); border-bottom:0}
+.foot-grid{display:flex; gap:1.5rem; flex-wrap:wrap; align-items:baseline; justify-content:space-between}
+.foot-grid p{margin:0; font-size:.88rem; color:var(--fg-mute); max-width:60ch}
+.seal{font-family:var(--mono); font-size:var(--fs-mono); letter-spacing:.16em; text-transform:uppercase; color:var(--fg-ghost)}
+
+/* ── reveal ─────────────────────────────────────────────── */
+.rv{opacity:0; transform:translateY(16px); transition:opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1)}
+.rv.in{opacity:1; transform:none}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .rv{opacity:1; transform:none; transition:none}
+  .shot:hover,.lnk:hover{transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand">POWER<span>WIZE</span></div>
+    <nav class="topnav">
+      <a href="#overview">Overview</a>
+      <a href="#problem">Problem</a>
+      <a href="#objectives">Objectives</a>
+      <a href="#methodology">Methodology</a>
+      <a href="#features">Features</a>
+      <a href="#screens">Screens</a>
+      <a href="#links">Links</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ══ HERO ══════════════════════════════════════════════ -->
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">
+      <span class="label"><span class="tick">◆</span>Laguna State Polytechnic University</span>
+      <span class="label">College of Computer Studies</span>
+      <span class="label">Capstone Research · 2026</span>
+    </div>
+
+    <h1>AI-Enhanced Training and Consultation System with <span class="accent">Blockchain Payment Verification</span> and Tokenized Certificates</h1>
+
+    <p class="hero-sub">
+      A single system carrying an energy-management trainee from a public registration
+      form to a certificate anyone can verify against a public blockchain — and giving a
+      solar prospect a grounded technical answer instead of a callback.
+      Built for <strong>EnergyWize Solutions Inc.</strong>
+    </p>
+
+    <dl class="credits">
+      <div class="credit">
+        <dt class="label">Researchers</dt>
+        <dd>
+          <strong>Bandao, Jan McZeal A.</strong>
+          <strong>Cosio, Chelsea P.</strong>
+          <strong>Esguerra, Leinard Kurt V.</strong>
+        </dd>
+      </div>
+      <div class="credit">
+        <dt class="label">Thesis Adviser</dt>
+        <dd>
+          <strong>Mia V. Villarica, DIT</strong>
+          <span class="role">College of Computer Studies</span>
+        </dd>
+      </div>
+      <div class="credit">
+        <dt class="label">Partner Organization</dt>
+        <dd>
+          <strong>EnergyWize Solutions Inc.</strong>
+          <span class="role">Energy management training &amp; solar PV</span>
+        </dd>
+      </div>
+      <div class="credit">
+        <dt class="label">Full Title</dt>
+        <dd><span class="role">POWERWIZE: AI-Enhanced Training and Consultation System with Blockchain Payment Verification and Tokenized Certificates for EnergyWize Solutions Inc.</span></dd>
+      </div>
+    </dl>
+  </div>
+</header>
+
+<!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+<section id="overview">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">01</span>Overview</span>
+      <h2>What the system does</h2>
+    </div>
+
+    <div class="two-col">
+      <div class="prose rv">
+        <p>
+          EnergyWize Solutions Inc. runs accredited energy-management training programmes —
+          Certified Energy Manager, Certified Energy Auditor, the Government Energy Management
+          Programme for local government units and other government entities, plus renewals —
+          and separately sells solar photovoltaic installations.
+        </p>
+        <p>
+          Both sides of that business ran on paper forms, spreadsheets, manually issued
+          certificates, and consultations that depended entirely on an engineer being free to
+          take the call. <strong>PowerWize replaces all of it with one system.</strong>
+        </p>
+        <p>
+          Three design commitments distinguish it from a conventional learning-management
+          system, and each one is enforced in code rather than by policy.
+        </p>
+      </div>
+
+      <div class="prose rv">
+        <p>
+          <strong>Payments and certificates are anchored to a public blockchain.</strong>
+          Each settled payment and each issued certificate is hashed and written to Polygon. A
+          QR code resolves to a public page that recomputes the hash and compares it against the
+          chain, so a tampered record is detectable by an employer with no access to the system.
+          The write is deliberately best-effort — a failed anchor never invalidates a paid
+          enrolment or an earned certificate.
+        </p>
+        <p>
+          <strong>The solar consultant cannot invent numbers.</strong> Every figure quoted comes
+          from a deterministic sizing engine, never from the language model. A post-generation
+          check discards the model's text entirely if it contains a number matching no computed
+          value.
+        </p>
+        <p>
+          <strong>Identity is verified before an account can exist.</strong> There is no public
+          signup route — an account is created only by redeeming a token issued after an
+          administrator reviewed a government ID and a selfie face-matched against it.
+        </p>
+      </div>
+    </div>
+
+    <div class="metrics rv" style="margin-top:clamp(2.5rem,4vw,3.75rem)">
+      <div class="metric"><div class="n">36</div><div class="k">Database tables</div></div>
+      <div class="metric"><div class="n">13</div><div class="k">Flask blueprints</div></div>
+      <div class="metric"><div class="n">7</div><div class="k">Training programmes</div></div>
+      <div class="metric"><div class="n">5</div><div class="k">User roles</div></div>
+      <div class="metric"><div class="n">48</div><div class="k">Captured screens</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PROBLEM ═══════════════════════════════════════════ -->
+<section id="problem">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">02</span>Problem Statement</span>
+      <h2>What was actually broken</h2>
+      <p>
+        EnergyWize's training and consultation operations were constrained by manual,
+        paper-dependent processes with no verifiable record of what had been issued.
+      </p>
+    </div>
+
+    <div class="two-col">
+      <div class="prose rv">
+        <p>
+          <strong>Enrolment could not be trusted or traced.</strong> Registrations arrived as
+          paper forms and email attachments. Verifying that an applicant was who they claimed
+          meant manually comparing a photocopied ID against a submitted photograph, with no
+          record of who checked what, or when. Nothing prevented an unverified enrolment.
+        </p>
+        <p>
+          <strong>Certificates could not be authenticated.</strong> A printed certificate is only
+          as credible as the organisation vouching for it. An employer or accrediting body
+          holding one had no way to confirm it was genuine and unaltered without contacting
+          EnergyWize directly — and EnergyWize had no way to prove a record had not been
+          modified after issue.
+        </p>
+        <p>
+          <strong>Payments were reconciled by hand.</strong> Corporate enrolments covering dozens
+          of employees were tracked on spreadsheets, with no systematic link between a
+          settled invoice and the specific trainees it entitled, and no durable proof of
+          settlement.
+        </p>
+      </div>
+
+      <div class="prose rv">
+        <p>
+          <strong>Training delivery did not scale.</strong> Assessment was manual at every stage.
+          Writing quizzes consumed instructor hours that could have gone to instruction, and a
+          trainee's progress existed only in whatever record their instructor happened to keep.
+        </p>
+        <p>
+          <strong>Solar consultations were a bottleneck.</strong> Every technical question — even
+          a basic one about sizing, net metering, or battery necessity — required an engineer.
+          Prospects waited for callbacks, and interest decayed while they waited. Deploying a
+          general-purpose chatbot instead was not an acceptable substitute: an assistant that
+          confidently invents a system size or a payback period does measurable commercial
+          damage.
+        </p>
+        <p>
+          <strong>Nothing was auditable.</strong> Across all of the above there was no single
+          record of who approved an enrolment, who altered a price, who issued a certificate, or
+          on what basis a consultation was quoted.
+        </p>
+      </div>
+    </div>
+
+    <div class="note rv">
+      <strong>Note for the research team.</strong> This section and the objectives below were
+      drafted from the implemented system and should be replaced with the exact wording of
+      Chapter 1 of the manuscript once it is final, so the website and the manuscript do not
+      diverge.
+    </div>
+  </div>
+</section>
+
+<!-- ══ OBJECTIVES ════════════════════════════════════════ -->
+<section id="objectives">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">03</span>Objectives</span>
+      <h2>What the system set out to achieve</h2>
+      <p>
+        <strong>General objective —</strong> to design and develop an AI-enhanced training and
+        consultation system with blockchain payment verification and tokenized certificates for
+        EnergyWize Solutions Inc., addressing the manual processes, unverifiable records, and
+        consultation bottlenecks identified above.
+      </p>
+    </div>
+
+    <span class="label rv" style="display:block;margin-bottom:1.25rem">Specific objectives</span>
+    <ol class="objectives rv">
+      <li>
+        <strong>Digitise and secure enrolment end to end</strong>
+        <span>Replace paper registration with online programme-specific forms, screen uploaded
+        government IDs and selfies with a vision model at the point of upload, and make account
+        creation strictly invitation-only so no unverified trainee can enter the system.</span>
+      </li>
+      <li>
+        <strong>Anchor payment records to a public blockchain</strong>
+        <span>Hash each settled payment and write it to the Polygon network, exposing a public
+        verification page so that proof of settlement does not depend on EnergyWize's own
+        records remaining intact.</span>
+      </li>
+      <li>
+        <strong>Issue tokenized, independently verifiable certificates</strong>
+        <span>Anchor each issued certificate on-chain and attach a QR code resolving to a public
+        page that recomputes and compares the hash, allowing any third party to detect tampering
+        without access to the system.</span>
+      </li>
+      <li>
+        <strong>Automate assessment and reduce instructor load</strong>
+        <span>Provide quiz generation from module material, automatic grading for multiple
+        choice, identification, and enumeration, and an in-module AI assistant answering trainee
+        questions — while routing essay answers to human review.</span>
+      </li>
+      <li>
+        <strong>Deliver reliable solar PV consultation without an engineer present</strong>
+        <span>Ground every answer in EnergyWize's own documentation through retrieval, compute
+        every quoted figure with a deterministic sizing engine, and discard any model-authored
+        text containing a number that does not match a computed value.</span>
+      </li>
+      <li>
+        <strong>Support corporate enrolment as a first-class case</strong>
+        <span>Let a company coordinator submit an employee roster without an account, bill one
+        invoice across the cohort with database-level idempotency, and gate cohort access
+        through classes whose entitlement is re-derived on every visit.</span>
+      </li>
+      <li>
+        <strong>Make every consequential action auditable</strong>
+        <span>Record approvals, account changes, price overrides, exports, and certificate
+        issuance against the staff member responsible, and surface the record through an audit
+        log and exportable reports.</span>
+      </li>
+      <li>
+        <strong>Evaluate the system against a recognised quality standard</strong>
+        <span>Assess functional suitability, usability, reliability, security, and the remaining
+        ISO/IEC 25010 characteristics through user acceptance testing with the partner
+        organisation's staff and trainees.</span>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ══ METHODOLOGY ═══════════════════════════════════════ -->
+<section id="methodology">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">04</span>Methodology</span>
+      <h2>How it was built and evaluated</h2>
+      <p>
+        Developmental research, delivered iteratively. Each cycle put a working slice of the
+        system in front of EnergyWize staff and folded their response into the next one, rather
+        than specifying the whole system once and building to that specification.
+      </p>
+    </div>
+
+    <div class="phases rv">
+      <div class="phase">
+        <span class="label"><span class="tick">P1</span>Analysis</span>
+        <h3>Requirements and process capture</h3>
+        <p>Interviews and document review with EnergyWize staff to map the existing enrolment,
+        training, certification, billing, and consultation workflows — including the paper forms
+        the public registration pages had to reproduce faithfully.</p>
+      </div>
+      <div class="phase">
+        <span class="label"><span class="tick">P2</span>Design</span>
+        <h3>Architecture and data modelling</h3>
+        <p>Data-flow diagrams, use-case models, and the entity-relationship design. Permission
+        design was consolidated into a single capability map so that an interface control and the
+        route behind it could not disagree.</p>
+      </div>
+      <div class="phase">
+        <span class="label"><span class="tick">P3</span>Development</span>
+        <h3>Iterative implementation</h3>
+        <p>Flask and PostgreSQL, built blueprint by blueprint with the partner reviewing each
+        increment. External integrations — payments, blockchain, AI providers — were isolated so
+        that a failure in any of them degrades rather than blocks.</p>
+      </div>
+      <div class="phase">
+        <span class="label"><span class="tick">P4</span>Testing</span>
+        <h3>Verification and grounding checks</h3>
+        <p>Functional testing per role, plus purpose-built scripts guarding the sizing
+        mathematics, the retrieval threshold, and the check that stops the language model
+        authoring numbers. A tracing harness exposes each consultation turn stage by stage.</p>
+      </div>
+      <div class="phase">
+        <span class="label"><span class="tick">P5</span>Evaluation</span>
+        <h3>ISO/IEC 25010 acceptance</h3>
+        <p>User acceptance testing with the partner organisation's administrators, trainers, and
+        trainees, evaluated against ISO/IEC 25010 product-quality characteristics.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ══════════════════════════════════════════ -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">05</span>System Features</span>
+      <h2>Six functional areas</h2>
+      <p>Each area below corresponds to a section of the screenshot gallery that follows.</p>
+    </div>
+
+    <div class="features">
+      <div class="feature rv">
+        <span class="label"><span class="tick">01</span>Administration</span>
+        <h3>Administrative dashboard</h3>
+        <p>The gate into the whole system — nothing proceeds until registrations are worked.</p>
+        <ul>
+          <li>Registration review with document inspection, approve and reject</li>
+          <li>Document images purged after review; only a digest is retained</li>
+          <li>Account management with per-account trainer capability grants</li>
+          <li>Training schedule and batch management</li>
+          <li>Analytics, audit log, and Excel exports across five entities</li>
+          <li>Three staff tiers: Admin, Super User, Secretary</li>
+        </ul>
+      </div>
+
+      <div class="feature rv">
+        <span class="label"><span class="tick">02</span>Instruction</span>
+        <h3>Instructor training management</h3>
+        <p>A trainer console for authoring, assessing, and tracking.</p>
+        <ul>
+          <li>Module authoring with file attachments and publication control</li>
+          <li>Quiz builder across four question types</li>
+          <li>AI quiz generation drafted from module material</li>
+          <li>Practical exams with evaluation criteria and optional camera</li>
+          <li>Grading queue flagging what the auto-grader could not settle</li>
+          <li>Per-trainee progress including recorded quiz tab switches</li>
+        </ul>
+      </div>
+
+      <div class="feature rv">
+        <span class="label"><span class="tick">03</span>Learning</span>
+        <h3>Trainee training &amp; AI feedback</h3>
+        <p>A syllabus resolved from the approved programme, not from identity.</p>
+        <ul>
+          <li>Materials with recorded reading progress</li>
+          <li>Timed quizzes; automatic grading for three of four question types</li>
+          <li>In-module AI assistant answering questions on the material</li>
+          <li>Practical exam submission and returned written feedback</li>
+          <li>Progress computed identically for trainee and trainer views</li>
+          <li>Per-module rating collection</li>
+        </ul>
+      </div>
+
+      <div class="feature rv">
+        <span class="label"><span class="tick">04</span>Consultation</span>
+        <h3>Solar PV consultation</h3>
+        <p>Retrieval-grounded advice where no figure is written by the model.</p>
+        <ul>
+          <li>Structured site survey with electricity-bill OCR</li>
+          <li>Deterministic engine: sizing, cost range, savings, payback, yield</li>
+          <li>Solara answers in English and Taglish, citing its sources</li>
+          <li>Off-topic questions refused before any chat model is called</li>
+          <li>Model text discarded if it contains an uncomputed number</li>
+          <li>Engineer review stored alongside computed figures, never over them</li>
+        </ul>
+      </div>
+
+      <div class="feature rv">
+        <span class="label"><span class="tick">05</span>Payments</span>
+        <h3>Payment interface &amp; verification</h3>
+        <p>Card, QRPH, corporate invoicing, and an on-chain receipt.</p>
+        <ul>
+          <li>PayMongo card and QRPH checkout for individual enrolment</li>
+          <li>Corporate invoicing from an approved roster, with audited overrides</li>
+          <li>Database-level idempotency keys — a retried webhook cannot double-charge</li>
+          <li>Unmatched webhooks quarantined raw, never dropped</li>
+          <li>Discount codes with expiry, usage cap, and programme scoping</li>
+          <li>Public receipt verification against the blockchain record</li>
+        </ul>
+      </div>
+
+      <div class="feature rv">
+        <span class="label"><span class="tick">06</span>Certification</span>
+        <h3>Tokenized certificate &amp; verification</h3>
+        <p>A certificate an employer can authenticate without asking anyone.</p>
+        <ul>
+          <li>Issuance gated on completion of every module in the programme</li>
+          <li>Certificate hash anchored to Polygon at issue</li>
+          <li>Public QR verification showing transaction, block, and confirmations</li>
+          <li>Hash recomputed and compared, so tampering is detectable</li>
+          <li>Expiry tracking where the programme defines one</li>
+          <li>Re-anchor action for certificates issued while offline</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="proof rv"><b>VERIFIED ON-CHAIN — the certificate shown in section 06 of the gallery</b>
+
+cert id      300cdcc6550be117ccb917953f3048a0
+transaction  0x3021448c822ede73a67e2bdd5857e0d3dcef449b1b9304df30dc519ae3f52230
+block        #50943409 · 9 confirmations
+network      Polygon Amoy
+status       Verified — the record is unchanged since issue</div>
+  </div>
+</section>
+
+<!-- ══ SCREENSHOTS ═══════════════════════════════════════ -->
+<section id="screens">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">06</span>Screenshots</span>
+      <h2>The running system</h2>
+      <p>
+        48 frames captured from the real application at 1600×1000 with a device scale factor
+        of 2 — no mockups and no edited pixels. Select any frame to enlarge it.
+      </p>
+    </div>
+
+    <div id="gallery"></div>
+  </div>
+</section>
+
+<!-- ══ TECHNOLOGY ════════════════════════════════════════ -->
+<section id="technology">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">07</span>Technology</span>
+      <h2>Stack and implementation</h2>
+    </div>
+
+    <div class="two-col">
+      <table class="stack rv">
+        <tr><th>Backend</th><td>Python 3 · Flask · gunicorn — 13 blueprints</td></tr>
+        <tr><th>Database</th><td>PostgreSQL 18 · raw psycopg2, no ORM, 36 tables</td></tr>
+        <tr><th>Schema</th><td>Applied idempotently in code at import time — no migration files</td></tr>
+        <tr><th>Templating</th><td>Jinja2 with shared macros</td></tr>
+        <tr><th>Frontend</th><td>Vanilla JavaScript — no framework, no build step</td></tr>
+      </table>
+
+      <table class="stack rv">
+        <tr><th>Payments</th><td>PayMongo — card, QRPH, hosted checkout</td></tr>
+        <tr><th>Blockchain</th><td>Polygon Amoy testnet via web3.py</td></tr>
+        <tr><th>AI</th><td>Groq Cloud or local LM Studio, selected per workload</td></tr>
+        <tr><th>Retrieval</th><td>Cosine similarity over PostgreSQL REAL[] embeddings</td></tr>
+        <tr><th>Vision</th><td>ID classification, selfie face-match, electricity-bill OCR</td></tr>
+      </table>
+    </div>
+
+    <div class="prose rv" style="margin-top:clamp(2rem,3.5vw,3rem)">
+      <p>
+        Three independent provider settings govern AI use — one for text generation, one for
+        vision, one for embeddings. The split is deliberate: a model good at reading a government
+        ID is not the one you want writing quiz questions, and changing the chat model must never
+        force a re-index of the retrieval corpus.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ LINKS ═════════════════════════════════════════════ -->
+<section id="links">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="label"><span class="tick">08</span>Links</span>
+      <h2>Repository and documentation</h2>
+    </div>
+
+    <div class="links">
+      <a class="lnk rv" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project">
+        <span class="label">Source code</span>
+        <div class="t">GitHub repository <span class="arw">→</span></div>
+        <p class="d">Complete, organised source for the application, maintenance scripts, and the solar knowledge base.</p>
+      </a>
+
+      <a class="lnk rv" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/SYSTEM_DOCUMENTATION.md">
+        <span class="label">Diagrams</span>
+        <div class="t">System documentation <span class="arw">→</span></div>
+        <p class="d">Architecture, context and level-1 DFDs, use-case model, the full 36-table ERD, and sequence diagrams.</p>
+      </a>
+
+      <a class="lnk rv" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/USER_MANUAL.md">
+        <span class="label">Usage</span>
+        <div class="t">User manual <span class="arw">→</span></div>
+        <p class="d">Step-by-step guide for every role, illustrated with the captured screens.</p>
+      </a>
+
+      <a class="lnk rv" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/SETUP.md">
+        <span class="label">Installation</span>
+        <div class="t">Setup &amp; deployment <span class="arw">→</span></div>
+        <p class="d">Requirements, configuration, database bootstrap, deployment, and troubleshooting.</p>
+      </a>
+
+      <a class="lnk rv" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/tree/main/docs/screenshots">
+        <span class="label">Gallery</span>
+        <div class="t">Screenshot index <span class="arw">→</span></div>
+        <p class="d">All 48 frames with a per-frame description of what each one demonstrates.</p>
+      </a>
+
+      <span class="lnk muted rv">
+        <span class="label">Live system</span>
+        <div class="t">Demonstration <span class="arw">○</span></div>
+        <p class="d">The system is demonstrated locally rather than from a permanent public deployment. Screenshots above show the running application.</p>
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ════════════════════════════════════════════ -->
+<footer>
+  <div class="wrap">
+    <hr class="rule" style="margin-bottom:2.5rem">
+    <div class="foot-grid">
+      <div>
+        <div class="brand" style="margin-bottom:.9rem">POWER<span>WIZE</span></div>
+        <p>
+          Submitted in partial fulfillment of the requirements for the degree of Bachelor of
+          Science in Information Technology, College of Computer Studies, Laguna State
+          Polytechnic University. Developed in partnership with EnergyWize Solutions Inc.
+        </p>
+      </div>
+      <div class="seal">© 2026 · Bandao · Cosio · Esguerra</div>
+    </div>
+  </div>
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Enlarged screenshot">
+  <button class="lb-close" id="lbClose" aria-label="Close">✕</button>
+  <figure><img id="lbImg" alt=""><figcaption id="lbCap"></figcaption></figure>
+</div>
+
+<script>
+/* ── gallery data ─────────────────────────────────────────
+   Mirrors docs/screenshots/README.md. Paths are relative to
+   this file, which is also the GitHub Pages site root.     */
+var GALLERY = [
+  { dir:"1-administrative-dashboard", title:"Administrative dashboard", shots:[
+    ["00_login.png","Public sign-in — shared by every role"],
+    ["01_dashboard_overview.png","KPI tiles — users, registrations, schedules, trainees"],
+    ["02_user_management.png","Account list with role labels and archive controls"],
+    ["03_schedules.png","Training schedule management"],
+    ["04_registration_review.png","Registration queue with approve and reject"],
+    ["05_corporate_payments.png","Corporate billing accounts"],
+    ["06_discount_codes.png","Discount code administration"],
+    ["07_modules_oversight.png","Cross-programme module oversight"],
+    ["08_export_reports.png","Excel export surface"],
+    ["09_trainee_feedback.png","Collected module ratings"],
+    ["10_audit_log.png","Audit trail"],
+    ["11_analytics.png","Analytics dashboard"],
+    ["12_create_user_form.png","Account creation form"]
+  ]},
+  { dir:"2-instructor-training-management", title:"Instructor training management", shots:[
+    ["01_trainer_console_dashboard.png","Trainer console landing"],
+    ["02_training_modules.png","Modules the trainer owns"],
+    ["03_exam_submissions_inbox.png","Practical-exam inbox"],
+    ["04_solar_consultations_queue.png","PV consultations — a per-account capability"],
+    ["05_trainee_progress.png","Progress across their trainees"],
+    ["06_module_library.png","Full module library"],
+    ["07_module_manage.png","Single-module management"],
+    ["08_quiz_builder.png","Quiz manager — mixed question types, Generate with AI"],
+    ["09_practical_exam_builder.png","Practical exam with evaluation criteria"],
+    ["10_create_module_form.png","New module form"],
+    ["11_grading_queue.png","Grading queue"]
+  ]},
+  { dir:"3-trainee-training-ai-feedback", title:"Trainee training &amp; AI feedback", shots:[
+    ["01_trainee_portal.png","Trainee portal"],
+    ["02_my_syllabus.png","Syllabus resolved from the approved programme"],
+    ["03_module_workspace.png","Materials, quiz, exam, completion, rating"],
+    ["04_ai_assistant_question.png","Question typed into the module assistant"],
+    ["05_ai_assistant_reply.png","Graceful degradation when the provider is unreachable"],
+    ["06_my_progress.png","Progress view"],
+    ["07_quiz_attempt.png","Quiz attempt screen"]
+  ]},
+  { dir:"4-solar-pv-consultation", title:"Solar PV consultation", shots:[
+    ["01_consultation_intake.png","Structured site-survey intake"],
+    ["02_solara_chat_opening.png","Solara opening turn and privacy notice"],
+    ["03_solara_user_question.png","Question composed"],
+    ["04_solara_knowledge_reply.png","Retrieval-grounded answer with a source citation"],
+    ["05_solara_taglish_quotation.png","Taglish turn — figures from the sizing engine"],
+    ["06_admin_consultation_queue.png","Engineer review queue"],
+    ["07_admin_consultation_review.png","Consultation detail and decision"]
+  ]},
+  { dir:"5-payment-verification", title:"Payment interface &amp; verification", shots:[
+    ["01_receipt_verification_portal.png","Public receipt verification"],
+    ["02_corporate_billing_records.png","Corporate payment records"],
+    ["03_discount_code_records.png","Discount code records"],
+    ["04_payment_checkout.png","Enrolment checkout"],
+    ["05_payment_card_method.png","Card method selected"],
+    ["06_payment_qrph_method.png","QRPH / e-wallet method"]
+  ]},
+  { dir:"6-tokenized-certificate-verification", title:"Tokenized certificate &amp; verification", shots:[
+    ["01_certificate_issuance_console.png","Eligible trainees before issuance"],
+    ["02_certificate_issued_result.png","Issued — on-chain badge"],
+    ["03_trainee_certificate_wallet.png","The trainee's own certificate view"],
+    ["04_public_qr_verification.png","Public QR verification page"]
+  ]}
+];
+
+(function buildGallery(){
+  var host = document.getElementById("gallery"), html = "";
+  for (var g = 0; g < GALLERY.length; g++) {
+    var grp = GALLERY[g], n = String(g + 1);
+    html += '<div class="gal-group rv">'
+         +  '<div class="gal-head"><span class="label"><span class="tick">'
+         +  (n.length < 2 ? "0" + n : n) + '</span>Section</span>'
+         +  '<h3>' + grp.title + '</h3>'
+         +  '<span class="count">' + grp.shots.length + ' frames</span></div>'
+         +  '<div class="shots">';
+    for (var i = 0; i < grp.shots.length; i++) {
+      var file = grp.shots[i][0], cap = grp.shots[i][1];
+      var src = "screenshots/" + grp.dir + "/" + file;
+      html += '<figure class="shot" data-src="' + src + '" data-cap="' + cap + '" tabindex="0">'
+           +  '<img loading="lazy" src="' + src + '" alt="' + cap + '">'
+           +  '<figcaption>' + file.replace(/\.png$/, "").replace(/_/g, " ") + '</figcaption>'
+           +  '</figure>';
+    }
+    html += "</div></div>";
+  }
+  host.innerHTML = html;
+})();
+
+/* ── lightbox ─────────────────────────────────────────── */
+(function(){
+  var lb = document.getElementById("lb"),
+      img = document.getElementById("lbImg"),
+      cap = document.getElementById("lbCap");
+
+  function open(shot){
+    img.src = shot.getAttribute("data-src");
+    img.alt = shot.getAttribute("data-cap");
+    cap.textContent = shot.getAttribute("data-cap");
+    lb.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function close(){
+    lb.classList.remove("open");
+    document.body.style.overflow = "";
+    img.src = "";
+  }
+
+  document.addEventListener("click", function(e){
+    var shot = e.target.closest ? e.target.closest(".shot") : null;
+    if (shot) { open(shot); return; }
+    if (e.target.id === "lbClose" || e.target === lb) close();
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape") close();
+    if ((e.key === "Enter" || e.key === " ") && document.activeElement &&
+        document.activeElement.classList.contains("shot")) {
+      e.preventDefault(); open(document.activeElement);
+    }
+  });
+})();
+
+/* ── scroll reveal ────────────────────────────────────── */
+(function(){
+  var els = document.querySelectorAll(".rv");
+  if (!("IntersectionObserver" in window)) {
+    for (var i = 0; i < els.length; i++) els[i].classList.add("in");
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+    });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+  for (var j = 0; j < els.length; j++) io.observe(els[j]);
+})();
+</script>
+
+</body>
+</html>

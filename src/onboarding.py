@@ -1,7 +1,8 @@
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, flash, session
 from werkzeug.security import generate_password_hash
-from db import get_db, get_account_token, mark_token_used, normalize_training_type
+from db import (get_account_token, normalize_training_type,
+                redeem_invitation_and_create_account)
 
 onboarding_bp = Blueprint("onboarding", __name__)
 
@@ -30,28 +31,21 @@ def create_account(token):
             errors.append("Passwords do not match.")
 
         if not errors:
-            conn = get_db()
-            cur  = conn.cursor()
-            # Check if account already exists for this email
-            cur.execute("SELECT id FROM users WHERE email = %s", (tok["email"],))
-            if cur.fetchone():
-                errors.append("An account already exists for this email. Please log in.")
-                cur.close(); conn.close()
+            name_parts = tok["full_name"].split()
+            fname = name_parts[0] if name_parts else tok["full_name"]
+            lname = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+
+            # Token claim + account insert + registration link, in ONE
+            # transaction. This used to be three separate connections (read
+            # token / insert user / mark used), so a crash or a double submit
+            # could leave a committed account with a still-live token.
+            uid, err = redeem_invitation_and_create_account(
+                token, generate_password_hash(password), fname, lname,
+                tok.get("contact_number", ""), tok.get("company_name", ""),
+                normalize_training_type(tok.get("form_type"), tok.get("training_type")))
+            if err:
+                errors.append(err)
             else:
-                name_parts = tok["full_name"].split()
-                fname = name_parts[0] if name_parts else tok["full_name"]
-                lname = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
-                cur.execute(
-                    "INSERT INTO users (role, fname, lname, email, password_hash, contact_number, company_name, payment_status, training_type) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                    ("trainee", fname, lname, tok["email"],
-                     generate_password_hash(password),
-                     tok.get("contact_number", ""), tok.get("company_name", ""),
-                     "unpaid", normalize_training_type(tok.get("form_type"), tok.get("training_type")))
-                )
-                conn.commit()
-                cur.close(); conn.close()
-                mark_token_used(token)
                 flash("Account created successfully! Please log in.", "success")
                 return redirect("/auth")
 

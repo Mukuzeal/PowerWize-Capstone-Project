@@ -1,0 +1,45 @@
+/* Reuse the trainee checkout's form-card, tabs and amount readout. */
+.company-payment [hidden] { display: none !important; }
+.company-payment__notice { margin-bottom: 1.5rem; }
+.company-payment__notice strong { display: block; margin-bottom: .4rem; }
+.company-payment__notice p { font-size: .9rem; line-height: 1.7; }
+.company-payment__panel + .company-payment__panel { margin-top: 1.25rem; }
+.company-payment__panel[role="tabpanel"] { margin-top: 0; }
+.company-payment__details { margin: 0; }
+.company-payment__details > div {
+  display: flex; justify-content: space-between; gap: 1rem;
+  padding-block: .75rem; border-bottom: var(--rule) solid var(--line-mid);
+}
+.company-payment__details dt { color: var(--fg-mute); font-size: .85rem; }
+.company-payment__details dd {
+  margin: 0; text-align: right; font-size: .9rem;
+  overflow-wrap: anywhere; min-width: 0;
+}
+.company-payment__method { padding-top: 1.75rem; }
+.company-payment__method h3 { font-size: 1.05rem; margin-bottom: .6rem; }
+.company-payment__method p { font-size: .9rem; line-height: 1.75; color: var(--fg-dim); }
+.company-payment p.company-payment__hint {
+  font-size: .8rem; color: var(--fg-mute); line-height: 1.65; margin-top: .8rem;
+}
+.company-payment__pay { text-decoration: none; justify-content: center; }
+.company-payment__followup { padding-block: 1.5rem; text-align: center; }
+.company-payment__followup > p { font-size: .85rem; color: var(--fg-dim); line-height: 1.7; }
+.company-payment__followup .chain-link { margin-top: .65rem; }
+.company-payment__sandbox {
+  margin-top: 1.5rem; padding: 1.1rem;
+  border: var(--rule) solid var(--amber); background: var(--ink-100);
+}
+.company-payment__sandbox h3 { font-size: 1rem; margin-bottom: .75rem; }
+.company-payment__sandbox p { font-size: .85rem; line-height: 1.7; margin-block: .65rem; color: var(--fg-dim); }
+.company-payment__sandbox code { display: inline-block; color: var(--signal); overflow-wrap: anywhere; }
+.company-payment__sandbox .chain-link { white-space: normal; text-align: left; cursor: pointer; }
+.company-payment__sandbox .company-payment__qr-warning { color: var(--amber); }
+.company-receipt .result-row { align-items: flex-start; }
+.company-receipt .result-row .value { max-width: 65%; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .company-payment .form-footer > * { width: 100%; }
+  .company-payment .form-footer .btn-submit { justify-content: center; }
+  .company-payment .mode-tab { flex: 1; justify-content: center; padding-inline: .8rem; }
+  .company-payment__details > div { flex-direction: column; gap: .25rem; }
+  .company-payment__details dd { text-align: left; }
+}

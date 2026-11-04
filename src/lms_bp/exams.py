@@ -8,7 +8,7 @@ from db import (lms_get_module, lms_get_exam, lms_get_exam_questions,
                 lms_get_all_submissions, lms_get_exam_submission_detail,
                 lms_grade_submission, lms_get_submission_user_module,
                 lms_update_progress, lms_get_user_exam_submission,
-                lms_submit_exam, lms_submit_exam_answers)
+                lms_submit_exam, lms_submit_exam_answers, class_gate)
 
 from . import lms_bp
 from permissions import current_can
@@ -118,6 +118,10 @@ def exam_submit_route(module_id):
         abort(404)
     uid = _uid()
     if _is_trainee():
+        gate_ok, gate_reason = class_gate(uid)
+        if not gate_ok:
+            flash(gate_reason, 'warning')
+            return redirect(url_for('registration.portal'))
         unlocked, _mods, _pm, _idx = _module_access(uid, module_id)
         if not unlocked or exam.get('is_locked'):
             flash('This practical exam is locked. Ask your trainer to unlock it.', 'warning')

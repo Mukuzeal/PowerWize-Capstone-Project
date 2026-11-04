@@ -12,19 +12,18 @@ from db import (audit_log, create_discount_code, update_discount_code,
                 set_discount_active, delete_discount_code, get_discount_codes,
                 get_discount_code)
 from permissions import require
+from pricing import PROGRAM_LABELS
 
 from . import admin_bp
 
 # Programs a code can be scoped to. Same codes lms_bp uses for a syllabus, so a
 # code scoped to "cea_training" matches exactly the trainees on that program.
-PROGRAMS = [
-    ("",             "All programs"),
-    ("training",     "CEM Training"),
-    ("cea_training", "CEA Training"),
-    ("cem_renewal",  "CEM Renewal"),
-    ("cea_renewal",  "CEA Renewal"),
-    ("gemp_lgu",     "GEMP (LGU)"),
-    ("gemp_oge",     "GEMP (Gov't Entity)"),
+# Names come from pricing.PROGRAM_LABELS so this screen and the corporate
+# picker cannot drift apart. "renewal" is omitted: it has no published price,
+# so no payment can ever be scoped to it.
+PROGRAMS = [("", "All programs")] + [
+    (code, PROGRAM_LABELS[code]) for code in
+    ("training", "cea_training", "cem_renewal", "cea_renewal", "gemp_lgu", "gemp_oge")
 ]
 
 

@@ -5,9 +5,12 @@ from db import (lms_get_modules_for_trainee, lms_get_progress, lms_get_module,
                 lms_get_user_exam_submission, get_user_feedback, lms_update_progress,
                 lms_get_module_requirements, save_feedback, lms_update_material_pct)
 
+from db import class_gate
+
 from . import lms_bp
 from ._shared import (_uid, _is_trainee, _module_content_text, _ai_module_chat,
-                      _progress_steps, _module_access, _module_unlocked, _check_completion)
+                      _progress_steps, _module_access, _module_unlocked,
+                      _check_completion, _may_study)
 
 
 # ── TRAINEE ROUTES ────────────────────────────────────────────────────────────
@@ -16,6 +19,14 @@ from ._shared import (_uid, _is_trainee, _module_content_text, _ai_module_chat,
 def learn():
     if not _uid():
         return redirect(url_for('auth.auth'))
+    # A trainee whose fee was paid through a company invoice opens their
+    # training by joining the class their employer booked. Individual
+    # enrolment is unaffected — see db/classes.py::class_gate().
+    if _is_trainee():
+        gate_ok, gate_reason = class_gate(_uid())
+        if not gate_ok:
+            flash(gate_reason, 'warning')
+            return redirect(url_for('registration.portal'))
     mods         = lms_get_modules_for_trainee(_uid(), published_only=True)
     progress_list = lms_get_progress(_uid())
     prog_map     = {p['module_id']: p for p in progress_list}
@@ -35,6 +46,11 @@ def learn():
 def learn_module(module_id):
     if not _uid():
         return redirect(url_for('auth.auth'))
+    if _is_trainee():
+        gate_ok, gate_reason = class_gate(_uid())
+        if not gate_ok:
+            flash(gate_reason, 'warning')
+            return redirect(url_for('registration.portal'))
     mod = lms_get_module(module_id)
     if not mod or not mod['is_published']:
         abort(404)
@@ -79,6 +95,13 @@ def learn_module(module_id):
 def material_progress(module_id):
     if not _uid() or not _is_trainee():
         return jsonify(error="Unauthorized"), 403
+    # Authorise the MODULE, not just the session. This accepted a progress
+    # update for any module id from any trainee — including one outside their
+    # syllabus and one in a company class they had never joined — and that
+    # progress feeds completion and the certificate.
+    ok, reason = _may_study(_uid(), module_id)
+    if not ok:
+        return jsonify(error=reason), 403
     data = request.get_json() or {}
     try:
         pct = max(0, min(100, int(data.get('pct', 0))))
@@ -129,6 +152,11 @@ def chat_msg(module_id):
     mod = lms_get_module(module_id)
     if not mod:
         return jsonify(error="Module not found"), 404
+    # The chat is grounded in the module's own material, so reaching it is
+    # reading that material by another route.
+    ok, reason = _may_study(_uid(), module_id)
+    if not ok:
+        return jsonify(error=reason), 403
     data     = request.get_json() or {}
     messages = data.get('messages', [])
     user_msg = data.get('user_message', '').strip()

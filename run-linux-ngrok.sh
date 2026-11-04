@@ -46,8 +46,7 @@ done
 pkill -f "[P]owerWize/\.venv/bin/python app\.py" 2>/dev/null && echo "[app] stopped old instance" || true
 sleep 1
 
-# 3. Same LM Studio model-name override as run-linux.sh -------------------
-export LM_STUDIO_MODEL="${LM_STUDIO_MODEL:-qwen3-vl-4b-instruct}"
+# 3. LM_STUDIO_MODEL comes from .env — see the note in run-linux.sh -------
 
 # 4. Start Flask in the background, logged to a file ----------------------
 echo "[app] starting on http://127.0.0.1:5000 (log: /tmp/powerwize-app.log)"

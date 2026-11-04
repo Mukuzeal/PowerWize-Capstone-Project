@@ -1,0 +1,10 @@
+{% extends "site/base.html" %}
+{% block title %}Payment needs review – EnergyWize{% endblock %}
+{% block main %}
+<section class="formpage"><div class="shell">
+  <h1>Payment needs review</h1>
+  <p role="alert">{{ message }}</p>
+  <p>Your administrator needs to confirm your registration and training fee before you can start a payment.</p>
+  <a href="{{ url_for('auth.auth_logout') }}">Log out</a>
+</div></section>
+{% endblock %}

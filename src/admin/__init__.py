@@ -23,3 +23,6 @@ from . import analytics      # noqa: E402,F401
 from . import exports        # noqa: E402,F401
 from . import corporate      # noqa: E402,F401
 from . import discounts      # noqa: E402,F401
+from . import intake         # noqa: E402,F401
+from . import payments_ops    # noqa: E402,F401
+from . import classes       # noqa: E402,F401

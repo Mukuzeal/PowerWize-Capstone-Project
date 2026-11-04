@@ -7,25 +7,23 @@ from db import (lms_create_module, lms_get_modules, lms_get_module,
                 lms_update_module, lms_toggle_publish, lms_delete_module,
                 lms_archive_module, lms_restore_module, lms_toggle_module_lock,
                 lms_add_file, lms_get_files, lms_get_file, lms_delete_file,
-                lms_get_quiz, lms_get_exam, lms_get_questions)
+                lms_get_quiz, lms_get_exam, lms_get_questions,
+                lms_file_by_filename)
 
 from permissions import current_can
 
 from . import lms_bp
-from ._shared import _uid, _role, _is_instructor, _is_trainee, _allowed, _owns_module, _back_to_modules, LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL
+from ._shared import (_uid, _role, _is_instructor, _is_trainee, _allowed,
+                      _owns_module, _back_to_modules, _may_study,
+                      LMS_UPLOAD_DIR, EXAM_UPLOAD_DIR, ALLOWED_MATERIAL)
 
 
 # ── INSTRUCTOR ROUTES ─────────────────────────────────────────────────────────
 
-_PROGRAM_LABELS = {
-    'training':    'CEM Training',
-    'cea_training':'CEA Training',
-    'renewal':     'Renewal',
-    'cea_renewal': 'CEA Renewal',
-    'cem_renewal': 'CEM Renewal',
-    'gemp_lgu':    'GEMP LGU',
-    'gemp_oge':    'GEMP Gov Entity',
-}
+# Program names live in pricing.PROGRAM_LABELS; there were three copies of
+# this map and they had already drifted ("GEMP LGU" here, "GEMP (LGU)" on the
+# discount screen).
+from pricing import PROGRAM_LABELS as _PROGRAM_LABELS
 
 @lms_bp.route('/lms/')
 @lms_bp.route('/lms/modules')
@@ -223,7 +221,21 @@ def file_delete(module_id, file_id):
 
 @lms_bp.route('/lms/files/<path:filename>')
 def serve_file(filename):
+    """Serve one module material file.
+
+    Previously this checked only that someone was logged in, so any account
+    could fetch any file in the upload directory — including material for a
+    programme they are not enrolled in, and for a company class they never
+    joined. The file is now resolved to its owning module and authorised the
+    same way the module page is.
+    """
     if not _uid():
+        abort(403)
+    f = lms_file_by_filename(filename)
+    if not f:
+        abort(404)
+    ok, _reason = _may_study(_uid(), f['module_id'])
+    if not ok:
         abort(403)
     return send_from_directory(LMS_UPLOAD_DIR, filename)
 

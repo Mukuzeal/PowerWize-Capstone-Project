@@ -19,9 +19,11 @@ from db import (audit_log, get_unpaid_trainees, create_corporate_payment,
                 get_corporate_payments, get_corporate_payment, get_corporate_items,
                 add_corporate_event, get_corporate_events, set_corporate_intent,
                 mark_corporate_paid, cancel_corporate_payment,
-                expire_stale_corporate_payments, save_corporate_receipt)
+                expire_stale_corporate_payments, save_corporate_receipt,
+                corporate_price_edit_state, update_corporate_price,
+                update_corporate_email)
 from permissions import require
-from pricing import calculate_fee, to_centavos
+from pricing import calculate_fee, program_option_label, to_centavos
 import paymongo
 from utils import base_url
 
@@ -64,7 +66,11 @@ def _programs_for(trainee):
     for code in order:
         fee = calculate_fee(code, trainee.get("reg_training_type"))
         if fee:
-            out.append({"code": code, "label": fee["label"], "total": fee["total"]})
+            # Named per program: calculate_fee's own label says "Training" for
+            # both CEA and CEM, which is ambiguous in a list of options.
+            out.append({"code": code,
+                        "label": program_option_label(code, trainee.get("reg_training_type")),
+                        "total": fee["total"]})
     return out
 
 
@@ -165,7 +171,8 @@ def corporate_new():
             continue
         items.append({"user_id": t["id"], "training_type": chosen,
                       "form_type": t.get("form_type"), "price_php": fee["total"],
-                      "price_label": fee["label"]})
+                      "price_label": program_option_label(
+                          chosen, t.get("reg_training_type"))})
         list_total += fee["total"]
 
     custom_total = None
@@ -235,10 +242,44 @@ def corporate_panel(cid):
     rec = get_corporate_payment(cid=cid)
     if not rec:
         return "<p class=\"empty\">That corporate payment no longer exists.</p>", 404
+    price_editable, price_edit_reason = corporate_price_edit_state(cid)
     return render_template("admin/_corporate_panel.html",
                            rec=rec,
+                           price_editable=price_editable, price_edit_reason=price_edit_reason,
                            items=get_corporate_items(cid),
                            events=get_corporate_events(cid))
+
+
+@admin_bp.route('/admin/corporate/<int:cid>/email', methods=['POST'])
+def corporate_edit_email(cid):
+    resp = require('corporate_payments')
+    if resp:
+        return resp
+    if 'expected_email' not in request.form:
+        return jsonify(error='Reload the invoice before editing its company email.'), 400
+    row, error, status = update_corporate_email(cid, request.form.get('contact_email'),
+        request.form.get('expected_email'), session.get('user_id'))
+    if error:
+        return jsonify(error=error), status
+    return jsonify(ok=True, contact_email=row['contact_email'],
+        message='Company email saved. No email was sent. Use Send payment link when ready.')
+
+
+@admin_bp.route('/admin/corporate/<int:cid>/price', methods=['POST'])
+def corporate_override_price(cid):
+    resp = require('corporate_payments')
+    if resp:
+        return resp
+    expected = request.form.get('expected_centavos', '').strip()
+    if not expected.isascii() or not expected.isdigit() or len(expected) > 15:
+        return jsonify(error='Reload the invoice to get its current price before saving.'), 400
+    row, error, status = update_corporate_price(cid, request.form.get('custom_total', ''),
+        request.form.get('override_note', ''), session.get('user_id'), int(expected))
+    if error:
+        return jsonify(error=error), status
+    return jsonify(ok=True, id=cid, amount_centavos=row['amount_centavos'],
+                   custom_total_php=str(row['custom_total_php']) if row['custom_total_php'] is not None else None,
+                   message='Invoice total updated. Generate the payment link when the amount is final.')
 
 
 @admin_bp.route("/admin/corporate/<int:cid>/cancel", methods=["POST"])
@@ -288,153 +329,26 @@ def _description(rec):
     return f"EnergyWize corporate training invoice {rec['reference']} — {rec['company_name']}"
 
 
-# ── Payment: QRPH ─────────────────────────────────────────────────────────────
-
-@admin_bp.route("/admin/corporate/<int:cid>/pay/qrph", methods=["POST"])
-def corporate_pay_qrph(cid):
-    resp = require("corporate_payments")
-    if resp:
-        return resp
-    rec, err = _payable(cid)
-    if err:
-        return err
-    try:
-        result = paymongo.create_qrph_intent(
-            None, _description(rec), base_url().rstrip("/") + f"/admin/corporate/{cid}",
-            metadata=_intent_metadata(rec), amount_centavos=rec["amount_centavos"])
-        set_corporate_intent(cid, "qrph", result["pi_id"])
-        add_corporate_event(cid, session.get("user_id"), "qrph_generated",
-                            f"QRPH code generated for PHP {rec['amount_centavos'] / 100:,.2f}")
-        return jsonify({"pi_id": result["pi_id"], "qr_image": result.get("qr_image"),
-                        "test_url": result.get("test_url"),
-                        "expires_at": rec["expires_at"].isoformat()})
-    except Exception as e:
-        current_app.logger.warning("Corporate QRPH failed for %s: %s", cid, e)
-        return jsonify(error=str(e)), 500
-
-
-@admin_bp.route("/admin/corporate/<int:cid>/poll")
-def corporate_poll(cid):
-    resp = require("corporate_payments")
-    if resp:
-        return resp
-    rec = get_corporate_payment(cid=cid)
-    if not rec:
-        return jsonify(status="missing"), 404
-    if rec["status"] == "paid":
-        return jsonify(status="paid")
-    if rec["status"] != "pending":
-        return jsonify(status=rec["status"])
-    if not rec["paymongo_id"]:
-        return jsonify(status="awaiting_intent")
-    try:
-        pi = paymongo.retrieve_payment_intent(rec["paymongo_id"])
-    except Exception as e:
-        return jsonify(status="error", detail=str(e)), 500
-    if pi["status"] == "succeeded":
-        _settle(cid, rec["paymongo_id"])
-        return jsonify(status="paid")
-    return jsonify(status=pi["status"])
-
-
-# ── Payment: card ─────────────────────────────────────────────────────────────
-
-@admin_bp.route("/admin/corporate/<int:cid>/pay/card/initiate", methods=["POST"])
-def corporate_card_initiate(cid):
-    resp = require("corporate_payments")
-    if resp:
-        return resp
-    rec, err = _payable(cid)
-    if err:
-        return err
-    try:
-        pi = paymongo.create_payment_intent(
-            None, _description(rec), metadata=_intent_metadata(rec),
-            amount_centavos=rec["amount_centavos"])
-        set_corporate_intent(cid, "card", pi["id"])
-        session["corp_pending_pi"] = pi["id"]
-        session["corp_pending_id"] = cid
-        add_corporate_event(cid, session.get("user_id"), "card_initiated",
-                            f"Card checkout started for PHP {rec['amount_centavos'] / 100:,.2f}")
-        return jsonify({"pi_id": pi["id"], "client_key": pi["client_key"]})
-    except Exception as e:
-        current_app.logger.warning("Corporate card intent failed for %s: %s", cid, e)
-        return jsonify(error=str(e)), 500
-
-
-@admin_bp.route("/admin/corporate/<int:cid>/pay/card/method", methods=["POST"])
-def corporate_card_method(cid):
-    resp = require("corporate_payments")
-    if resp:
-        return resp
-    rec, err = _payable(cid)
-    if err:
-        return err
-    data = request.get_json(force=True)
-    try:
-        pm_id = paymongo.create_card_payment_method(
-            number    = str(data["number"]).replace(" ", "").replace("-", "").strip(),
-            exp_month = int(data["exp_month"]),
-            exp_year  = int(data["exp_year"]),
-            cvc       = str(data["cvc"]).strip(),
-            name      = str(data["name"]).strip(),
-            email     = rec.get("contact_email") or session.get("user_email", "billing@energywize.com"),
-        )
-        return jsonify({"pm_id": pm_id})
-    except Exception as e:
-        return jsonify(error=str(e)), 400
-
-
-@admin_bp.route("/admin/corporate/<int:cid>/pay/card/attach", methods=["POST"])
-def corporate_card_attach(cid):
-    resp = require("corporate_payments")
-    if resp:
-        return resp
-    rec, err = _payable(cid)
-    if err:
-        return err
-    data       = request.get_json(force=True)
-    pm_id      = data.get("payment_method_id")
-    client_key = data.get("client_key")
-    pi_id      = rec["paymongo_id"]
-    if not pm_id or not client_key or not pi_id:
-        return jsonify(error="Missing parameters"), 400
-    return_url = base_url().rstrip("/") + f"/admin/corporate/{cid}/card/return"
-    try:
-        result = paymongo.attach_payment_method(pi_id, pm_id, client_key, return_url)
-        if result["status"] == "succeeded":
-            _settle(cid, pi_id)
-            return jsonify(status="paid")
-        if result["status"] == "awaiting_next_action":
-            return jsonify(status="redirect", url=result["redirect_url"])
-        return jsonify(status=result["status"])
-    except Exception as e:
-        return jsonify(error=str(e)), 500
-
-
-@admin_bp.route("/admin/corporate/<int:cid>/card/return")
-def corporate_card_return(cid):
-    resp = require("corporate_payments")
-    if resp:
-        return resp
-    rec = get_corporate_payment(cid=cid)
-    if not rec or not rec["paymongo_id"]:
-        return redirect("/admin#corporate")
-    try:
-        pi = paymongo.retrieve_payment_intent(rec["paymongo_id"])
-        if pi["status"] == "succeeded":
-            _settle(cid, rec["paymongo_id"])
-            flash("Payment confirmed. All listed trainees can now proceed to the LMS.", "success")
-        else:
-            flash("The card payment was not completed.", "error")
-    except Exception as e:
-        flash(f"Could not confirm the payment: {e}", "error")
-    return redirect("/admin#corporate")
+# ── Payment: RETIRED ──────────────────────────────────────────────────────────
+#
+# The corporate card and QRPH entry points were removed. They accepted a raw
+# PAN and CVC into this server (corporate_card_method forwarded them to
+# PayMongo), which put the application in scope for card data it never needed
+# to touch — and the operator-facing text claimed the opposite.
+#
+# Corporate invoices are now settled through PayMongo-hosted checkout:
+# admin/payments_ops.py issues the link, corporate_public_bp.py serves the
+# payer, and corporate_checkout.py validates every entry point before
+# settlement. No card details reach this host.
+#
+# The INDIVIDUAL trainee flow in payment_bp.py is untouched and still uses the
+# older card path. That is a separate migration and is NOT claimed here.
 
 
 # ── Settlement ────────────────────────────────────────────────────────────────
 
-def settle_corporate_payment(reference=None, paymongo_id=None, cid=None, actor_id=None):
+def settle_corporate_payment(reference=None, paymongo_id=None, cid=None, actor_id=None,
+                             payment_id=None, method=None):
     """Confirm a corporate invoice exactly once, whoever reports it first.
 
     mark_corporate_paid() does the record flip and every trainee's
@@ -443,7 +357,8 @@ def settle_corporate_payment(reference=None, paymongo_id=None, cid=None, actor_i
     all collapse into a single settlement. Everything after it — the receipt
     anchor, the email — runs only for the caller that won.
     """
-    rec = mark_corporate_paid(reference=reference, paymongo_id=paymongo_id, cid=cid)
+    rec = mark_corporate_paid(reference=reference, paymongo_id=paymongo_id, cid=cid,
+                              confirmed_payment_id=payment_id, method=method)
     if not rec:
         return None
     _anchor_receipt(rec, actor_id)
@@ -454,12 +369,36 @@ def settle_corporate_payment(reference=None, paymongo_id=None, cid=None, actor_i
     return rec
 
 
-def _settle(cid, paymongo_id):
-    return settle_corporate_payment(paymongo_id=paymongo_id, cid=cid,
-                                    actor_id=session.get("user_id"))
-
-
 def _anchor_receipt(rec, actor_id=None):
+    """Serialize anchoring per invoice, including admin retries."""
+    from db import get_db
+    conn = None; cur = None
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT pg_try_advisory_lock(%s,%s)', (1506418001, rec['id']))
+        owned = cur.fetchone()[0]
+        conn.commit()
+        if not owned:
+            current_app.logger.info('Corporate receipt anchor already running for %s', rec['reference'])
+            return False
+        fresh = get_corporate_payment(cid=rec['id'])
+        if not fresh or fresh['status'] != 'paid':
+            return False
+        if fresh.get('tx_hash'):
+            return True
+        return _write_corporate_anchor(fresh, actor_id)
+    except Exception as e:
+        current_app.logger.warning('Corporate invoice %s paid but receipt anchoring could not run: %s', rec.get('reference'), type(e).__name__)
+        return False
+    finally:
+        # Closing the session releases its advisory lock even on RPC failure.
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+def _write_corporate_anchor(rec, actor_id=None):
     """Best-effort Polygon anchor, exactly like payments and certificates: the
     payment is valid whether or not the chain write lands, the failure is
     logged rather than swallowed, and the record shows Off-chain with a
@@ -479,8 +418,17 @@ def _anchor_receipt(rec, actor_id=None):
             "status":          "paid",
         }
         receipt_hash = compute_anchor("corporate_payment", record)
-        chain        = store_hash_on_chain(receipt_hash)
-        qr_path      = generate_receipt_qr(receipt_id, chain["tx_hash"])
+        # A receipt exists even if Polygon is unavailable. Its QR looks up the
+        # stored transaction later, so retrying an anchor keeps the same ID.
+        qr_path = generate_receipt_qr(receipt_id, None)
+        save_corporate_receipt(rec["id"], receipt_id, receipt_hash,
+                               None, qr_path, ANCHOR_VERSION)
+        import os
+        if paymongo.environment() == 'test' and os.getenv('POLYGON_NETWORK', 'amoy') != 'amoy':
+            raise ValueError('PayMongo sandbox receipts require Polygon Amoy, not mainnet.')
+        chain = store_hash_on_chain(receipt_hash)
+        if not chain.get('confirmed'):
+            raise RuntimeError('Polygon did not confirm a successful anchoring transaction.')
         save_corporate_receipt(rec["id"], receipt_id, receipt_hash,
                                chain["tx_hash"], qr_path, ANCHOR_VERSION)
         add_corporate_event(rec["id"], actor_id, "anchored",

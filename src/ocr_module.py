@@ -34,12 +34,18 @@ _BILL_PROMPT = (
 )
 
 
-def extract_bill_data(file_path: str) -> dict | None:
-    """Return {'kwh': float|None, 'amount': float|None} or None on failure."""
-    ext = os.path.splitext(file_path)[1].lower()
+def extract_bill_data_from_bytes(data: bytes, ext: str) -> dict | None:
+    """Return {'kwh': float|None, 'amount': float|None} or None on failure.
+
+    Works entirely in memory. A customer's electricity bill carries their
+    name, address and account number, so it should never need to exist as a
+    file on disk just to be read — the two numbers we want are all that is
+    kept.
+    """
+    ext = (ext or "").lower()
 
     try:
-        img_bytes, mime = _load_image(file_path, ext)
+        img_bytes, mime = _load_image_bytes(data, ext)
     except Exception:
         return None
 
@@ -53,25 +59,40 @@ def extract_bill_data(file_path: str) -> dict | None:
             return result
 
     # Fallback: pytesseract
-    return _tesseract_extract(file_path, ext)
+    return _tesseract_from_bytes(data, ext)
 
 
-def _load_image(file_path: str, ext: str) -> tuple[bytes | None, str]:
-    """Return (image_bytes, mime_type). Converts PDF first page to PNG if needed."""
+def extract_bill_data(file_path: str) -> dict | None:
+    """Path-taking wrapper for callers that already hold a file.
+
+    Does NOT delete the file — whoever created it owns its lifetime.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            data = f.read()
+    except Exception:
+        return None
+    return extract_bill_data_from_bytes(data, os.path.splitext(file_path)[1])
+
+
+def _load_image_bytes(data: bytes, ext: str) -> tuple[bytes | None, str]:
+    """Return (image_bytes, mime_type). Converts PDF first page to PNG."""
     if ext == ".pdf":
-        png = _pdf_to_png(file_path)
-        return png, "image/png"
-    with open(file_path, "rb") as f:
-        data = f.read()
+        return _pdf_bytes_to_png(data), "image/png"
     mime = "image/jpeg" if ext in (".jpg", ".jpeg") else \
            "image/webp"  if ext == ".webp" else "image/png"
     return data, mime
 
 
-def _pdf_to_png(path: str) -> bytes | None:
+def _pdf_bytes_to_png(data: bytes) -> bytes | None:
+    """First page of a PDF as PNG, without writing the PDF to disk.
+
+    Same backend order as before (PyMuPDF, then pdf2image); both accept a
+    byte stream, so neither needs a temporary file.
+    """
     try:
         import fitz
-        doc = fitz.open(path)
+        doc = fitz.open(stream=data, filetype="pdf")
         if doc.page_count == 0:
             doc.close()
             return None
@@ -85,8 +106,8 @@ def _pdf_to_png(path: str) -> bytes | None:
         pass
 
     try:
-        from pdf2image import convert_from_path
-        pages = convert_from_path(path, first_page=1, last_page=1, dpi=150)
+        from pdf2image import convert_from_bytes
+        pages = convert_from_bytes(data, first_page=1, last_page=1, dpi=150)
         if not pages:
             return None
         buf = io.BytesIO()
@@ -152,7 +173,7 @@ def _groq_extract(img_bytes: bytes, mime: str) -> dict | None:
     return None
 
 
-def _tesseract_extract(file_path: str, ext: str) -> dict | None:
+def _tesseract_from_bytes(data: bytes, ext: str) -> dict | None:
     try:
         from PIL import Image
         import pytesseract
@@ -160,22 +181,14 @@ def _tesseract_extract(file_path: str, ext: str) -> dict | None:
         return None
     try:
         if ext == ".pdf":
-            text = _pdf_tesseract(file_path)
+            from pdf2image import convert_from_bytes
+            pages = convert_from_bytes(data, first_page=1, last_page=1)
+            text = pytesseract.image_to_string(pages[0]) if pages else ""
         else:
-            text = pytesseract.image_to_string(Image.open(file_path))
+            text = pytesseract.image_to_string(Image.open(io.BytesIO(data)))
         return _regex_parse(text) if text else None
     except Exception:
         return None
-
-
-def _pdf_tesseract(path: str) -> str:
-    try:
-        from pdf2image import convert_from_path
-        import pytesseract
-        pages = convert_from_path(path, first_page=1, last_page=1)
-        return pytesseract.image_to_string(pages[0]) if pages else ""
-    except Exception:
-        return ""
 
 
 def _regex_parse(text: str) -> dict | None:

@@ -8,7 +8,7 @@ import requests as _http
 from permissions import current_can, home_url_for
 
 from db import (lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms_update_progress,
-               lms_get_modules_for_trainee)
+               lms_get_modules_for_trainee, lms_get_module, class_gate)
 
 _PROJECT_ROOT    = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 LMS_UPLOAD_DIR   = os.path.join(_PROJECT_ROOT, 'uploads', 'lms')
@@ -279,8 +279,17 @@ def _module_access(user_id, module_id):
     `mods` is the trainee's full syllabus in program order — callers that
     already need the list (e.g. learn()) can reuse it instead of re-querying.
     `index` is None if module_id isn't in the trainee's published syllabus.
+
+    The class gate is applied here as well as at each route, so a new route
+    cannot forget it. Routes still check it themselves, because "you have not
+    joined your company's class" and "this module is locked until you finish
+    the previous one" are different problems and must not share a message.
     """
     mods = lms_get_modules_for_trainee(user_id, published_only=True)
+    gate_ok, _gate_reason = class_gate(user_id)
+    if not gate_ok:
+        prog_map = {p['module_id']: p for p in lms_get_progress(user_id)}
+        return False, mods, prog_map, None
     prog_map = {p['module_id']: p for p in lms_get_progress(user_id)}
     ids = [m['id'] for m in mods]
     if module_id not in ids:
@@ -288,6 +297,43 @@ def _module_access(user_id, module_id):
     index = ids.index(module_id)
     unlocked = _module_unlocked(mods, prog_map, index)
     return unlocked, mods, prog_map, index
+
+
+def _may_study(user_id, module_id):
+    """(ok, reason) — may this account read or alter work on this module?
+
+    One rule for every trainee-facing entry point: the module page, the
+    material-progress update, the module chat, and serving a material file.
+    Each of those used to decide for itself, and three of them decided
+    nothing at all — being logged in was enough, so an unjoined trainee could
+    download material and post progress for a module outside their syllabus.
+
+    Instructors who own the module (and staff who can manage modules) pass
+    straight through; this gate is about trainees.
+    """
+    mod = lms_get_module(module_id)
+    if not mod:
+        return False, "That module does not exist."
+    if not _is_trainee():
+        if _is_instructor() and (_owns_module(mod) or current_can("manage_modules")):
+            return True, None
+        return False, "You do not have access to this module."
+    if not mod.get("is_published"):
+        return False, "That module is not published."
+
+    # The class gate first, scoped to the module's OWN programme: a CEM
+    # membership must not open CEA material.
+    gate_ok, gate_reason = class_gate(user_id, mod.get("training_type"))
+    if not gate_ok:
+        return False, gate_reason
+
+    unlocked, _mods, _pm, index = _module_access(user_id, module_id)
+    if index is None:
+        return False, "That module is not part of your programme."
+    if not unlocked:
+        return False, ("This module is locked. Complete the previous module, "
+                       "or ask your trainer to unlock it.")
+    return True, None
 
 
 def _module_unlocked(mods, prog_map, index):

@@ -8,4 +8,9 @@ from .lms import *
 from .misc import *
 from .corporate import *
 from .discounts import *
+from .intake import *
+from .checkout import *
+from .shared_registration import *
+from .notifications import *
+from .classes import *
 from .rag import *
