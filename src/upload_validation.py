@@ -456,6 +456,11 @@ def face_match(selfie_bytes: bytes, selfie_filename: str) -> dict:
         upload_path = os.path.join(current_app.config["UPLOAD_FOLDER"], saved_filename)
         with open(upload_path, "wb") as f:
             f.write(selfie_bytes)
+        # The registration form posts this name back as a plain string, so
+        # record it against the session — that is what lets registration.py
+        # tell "my selfie" from "a filename someone typed in".
+        from utils import remember_upload
+        remember_upload(saved_filename, "selfie_with_id")
     except Exception as e:
         return {"valid": False, "reason": f"Error saving photo: {str(e)}"}
 

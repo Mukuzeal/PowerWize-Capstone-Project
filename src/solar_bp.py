@@ -11,7 +11,7 @@ from db import (save_solar_request, update_solar_request,
 from solar_engine import compute as solar_compute
 from solar_engine import PANEL_WATTAGE_W, ELECTRICITY_RATE
 from solar_engine import assess_suitability
-from ocr_module import extract_bill_data
+from ocr_module import extract_bill_data_from_bytes
 from permissions import current_can, is_staff, require, home_url_for
 from utils import save_file
 from rag import retrieve
@@ -20,8 +20,10 @@ load_dotenv()
 
 solar_bp = Blueprint("solar", __name__)
 
-UPLOAD_FOLDER = os.path.join("static", "uploads", "solar_bills")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# No bill upload folder any more: bills are read in memory for their kWh and
+# amount, then dropped (see solar_submit). The directory is deliberately not
+# re-created on boot — historical files there are handled by a separately
+# reviewed cleanup.
 
 # ── AI provider helpers ────────────────────────────────────────────────────────
 # Talking and looking at documents are different jobs and want different models,
@@ -3217,9 +3219,10 @@ def solar_ocr():
     if ext not in {".pdf", ".png", ".jpg", ".jpeg", ".webp"}:
         return jsonify({"error": "Unsupported file type"}), 400
 
-    path = os.path.join(UPLOAD_FOLDER, f"ocr_temp_{os.urandom(4).hex()}{ext}")
-    f.save(path)
-    result = extract_bill_data(path)
+    # Read and discard. The previous version wrote ocr_temp_* into the public
+    # upload folder and never deleted it, so every preview left a customer's
+    # bill on disk indefinitely.
+    result = extract_bill_data_from_bytes(f.read(), ext)
     if result:
         return jsonify(result)
     return jsonify({"error": "Could not extract data — please enter manually"})
@@ -3243,18 +3246,28 @@ def solar_submit():
         prefill = dict(f)
         return render_template("solar/solar_request.html", errors=errors, prefill=prefill)
 
-    # Handle bill upload
+    # Handle bill upload.
+    #
+    # The bill is read for its two numbers and then dropped. It is never
+    # written to disk and no path is recorded: an electricity bill carries the
+    # customer's name, address and account number, and the consultation only
+    # ever needs the kWh and the amount. `bill_path` stays None by design —
+    # the column still exists for historical rows (see the separately
+    # reviewed cleanup) but nothing writes to it any more.
     bill_path  = None
     ocr_kwh    = None
     ocr_amount = None
     if "bill" in request.files and request.files["bill"].filename:
         bf  = request.files["bill"]
         ext = os.path.splitext(bf.filename)[1].lower()
-        fname = f"bill_{os.urandom(6).hex()}{ext}"
-        save_path = os.path.join(UPLOAD_FOLDER, fname)
-        bf.save(save_path)
-        bill_path = os.path.join("static", "uploads", "solar_bills", fname)
-        ocr = extract_bill_data(save_path)
+        bill_bytes = bf.read()
+        try:
+            ocr = extract_bill_data_from_bytes(bill_bytes, ext)
+        finally:
+            # Drop the only copy whether extraction succeeded, failed or
+            # raised. CPython frees it at once; this also stops the bytes
+            # travelling any further down the request.
+            del bill_bytes
         if ocr:
             ocr_kwh    = ocr.get("kwh")
             ocr_amount = ocr.get("amount")

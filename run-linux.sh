@@ -39,10 +39,10 @@ pkill -f "[P]owerWize/\.venv/bin/python app\.py" 2>/dev/null && echo "[app] kill
 # override=True), so real environment variables win. Anything that differs per
 # OS is set here instead of forking .env.
 #
-# LM Studio exposes this model as "qwen3-vl-4b-instruct" on Linux, while .env
-# carries the Windows-side key "qwen/qwen3-vl-4b" — that name 400s here with
-# "No models loaded". Check `lms ps` if AI calls start failing.
-export LM_STUDIO_MODEL="${LM_STUDIO_MODEL:-qwen3-vl-4b-instruct}"
+# LM_STUDIO_MODEL comes from .env ("qwen/qwen3-vl-4b"). LM Studio must serve the
+# model under that exact identifier or calls 400 with "No models loaded" —
+# check `lms ps`, and if it shows another name, reload it with:
+#   lms load qwen/qwen3-vl-4b --identifier qwen/qwen3-vl-4b
 
 # 4. Run the app --------------------------------------------------------------
 echo "[app] starting on http://127.0.0.1:5000"

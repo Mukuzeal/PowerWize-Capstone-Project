@@ -48,6 +48,9 @@ src/static/receipts/
 src/static/uploads/
 src/uploads/
 uploads/
+# Phase 0 migration backups hold verbatim copies of government IDs and
+# selfies, plus a rollback script naming every file. Never commit them.
+backups/
 
 # ── Database ─────────────────────────────────────────────────────────────────
 pgdata/
@@ -57,6 +60,13 @@ pgdata/
 *.sqlite3
 *.db
 *.dump
+# A dated backup suffix defeats every rule above: `powerwize_dump.sql.bak-...`
+# ends in neither `.sql` nor `.bak`, so it was sitting untracked and one
+# `git add -A` away from publishing names, addresses, contact numbers and 15
+# password hashes to a public repository. Match the dump by prefix instead.
+*dump*.sql*
+*.sql.*
+*backup*.sql*
 
 # ── Editor and OS noise ──────────────────────────────────────────────────────
 # `~$...` files are the lock files Word leaves behind while a document is open.

@@ -3,7 +3,7 @@ import secrets
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, request, session, render_template, jsonify
+from flask import Flask, request, session, render_template, jsonify, abort
 from flask_wtf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from db import init_db
@@ -19,6 +19,9 @@ from payment_bp import payment_bp
 from solar_bp import solar_bp
 from lms_bp import lms_bp
 from upload_validation import validation_bp
+from company_bp import company_bp
+from corporate_public_bp import corporate_public_bp
+from classes_bp import classes_bp
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 app = Flask(__name__, template_folder=os.path.join(base_dir, "templates"), static_folder=os.path.join(base_dir, "static"))
@@ -31,7 +34,20 @@ if not secret_key:
     print("[WARNING] SECRET_KEY not set in environment — using a random key for this process. "
           "Set SECRET_KEY to keep sessions valid across restarts.")
 app.secret_key = secret_key
-app.config["UPLOAD_FOLDER"] = os.path.join(base_dir, "static", "uploads")
+# Registration documents (IDs, selfies, resumes) live OUTSIDE static/, like
+# the LMS material and exam submissions already do — anything under static/ is
+# served by Flask with no authentication, so an upload folder in there is
+# world-readable no matter what the admin routes check. Served only through
+# admin.registration_document / admin_registration_selfie, both behind
+# require("review_registrations").
+app.config["UPLOAD_FOLDER"] = os.path.join(base_dir, "uploads", "registrations")
+# Where documents lived before Phase 0. Still read — but ONLY by the
+# permission-gated admin routes, never by Flask's static handler (see the
+# /static/uploads/ block below). Without this fallback every registration
+# submitted before the migration would 404 in the review queue, breaking
+# approvals for existing applicants. Remove once the migration has run and
+# been verified.
+app.config["LEGACY_UPLOAD_FOLDER"] = os.path.join(base_dir, "static", "uploads")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 csrf = CSRFProtect(app)
@@ -51,6 +67,9 @@ app.register_blueprint(payment_bp)
 app.register_blueprint(solar_bp)
 app.register_blueprint(lms_bp)
 app.register_blueprint(validation_bp)
+app.register_blueprint(company_bp)
+app.register_blueprint(corporate_public_bp)
+app.register_blueprint(classes_bp)
 
 csrf.exempt(app.view_functions["payment.webhook"])
 csrf.exempt(app.view_functions["upload_validation.api_face_match"])
@@ -68,6 +87,23 @@ init_db()
 # — it is a per-process cost, so otherwise the first user of every gunicorn
 # worker pays it. See rag.embeddings.warm().
 warm_embedder()
+
+@app.route("/static/uploads/<path:filename>")
+def _blocked_legacy_uploads(filename):
+    """Registration documents are never public.
+
+    New uploads go to uploads/registrations/ (see UPLOAD_FOLDER above), but
+    files written before that change are still physically present under
+    static/, where Flask's static handler would happily serve them to anyone.
+    This rule is more specific than the built-in /static/<path:filename>, so
+    it wins and closes the hole immediately — before, and independently of,
+    the file migration in scripts/migrate_registration_uploads.py.
+
+    Kept permanently: it costs nothing and stops a future upload path from
+    silently re-publishing identity documents.
+    """
+    abort(404)
+
 
 @app.errorhandler(403)
 def forbidden(e):

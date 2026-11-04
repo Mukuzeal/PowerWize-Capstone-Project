@@ -8,7 +8,7 @@ employee_bp = Blueprint("employee", __name__)
 # Import LMS functions
 from db import (lms_get_modules, lms_get_archived_modules, lms_get_all_submissions,
                 lms_get_progress, lms_get_modules_for_trainee,
-                lms_get_module_requirements, get_user_training_type)
+                lms_get_module_requirements, get_user_training_type, instructor_classes)
 from lms_bp._shared import _progress_steps
 
 
@@ -110,5 +110,6 @@ def employee():
                            archived_modules=archived_modules,
                            submissions=submissions,
                            progress_list=progress_list,
+                           assigned_classes=instructor_classes(emp_id) if does_modules else [],
                            prog_map=prog_map)
 

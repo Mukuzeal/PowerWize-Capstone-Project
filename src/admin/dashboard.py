@@ -59,6 +59,9 @@ def admin():
     # of the package's import order, and gated the same way the nav is: a role
     # that cannot see a pane never has its data rendered into the page.
     extra = {}
+    if current_can("review_registrations"):
+        from .intake import dashboard_context as intake_context
+        extra.update(intake_context())
     if current_can("corporate_payments"):
         from .corporate import dashboard_context as corporate_context
         extra.update(corporate_context())

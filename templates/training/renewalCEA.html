@@ -15,16 +15,21 @@
 <section class="formpage">
   <div class="shell">
 
+    {% if company_registration %}
+      {% include "company/_upload_header.html" %}
+    {% else %}
     {{ fhead(
       [('Home', url_for('registration.index')), ('Programs', url_for('registration.programs'))],
       'RCEA',
       'DOE-CEA Certificate<br><em>Renewal Program</em>',
       'For existing DOE-Certified Energy Auditors renewing their expiring certificate. Fill in all required fields completely.'
     ) }}
+    {% endif %}
 
     {{ errors_block(errors) }}
 
-    <form class="form-card" method="POST" action="/renewal/submit" enctype="multipart/form-data" novalidate data-wizard>
+    <form class="form-card" method="POST" action="{{ company_registration_action or '/renewal/submit' }}" enctype="multipart/form-data" novalidate data-wizard>
+      {% if company_registration %}<input type="hidden" name="action" value="submit_registration">{% endif %}
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <!-- Section 1: Info -->
@@ -61,7 +66,7 @@
         <div class="row-2">
           <div class="field">
             <label>Company Name <span class="req">*</span></label>
-            <input type="text" name="company_name" placeholder="Your company or organization" value="{{ form_data.get('company_name','') if form_data else '' }}" required>
+            <input type="text" name="company_name" placeholder="Your company or organization" value="{{ company_registration.company_name if company_registration else (form_data.get('company_name','') if form_data else '') }}" {% if company_registration %}readonly{% endif %} required>
           </div>
           <div class="field">
             <label>Designation <span class="req">*</span></label>
@@ -94,7 +99,7 @@
             <label>Email Address <span class="req">*</span></label>
             <div class="input-icon-wrap">
               <i class="fa-solid fa-envelope"></i>
-              <input type="email" name="email" placeholder="you@example.com" value="{{ form_data.get('email','') if form_data else '' }}" required>
+              <input type="email" name="email" placeholder="you@example.com" value="{{ session.get('company_registration_grant', {}).get('email_key') or (form_data.get('email','') if form_data else '') }}" {% if session.get('company_registration_grant') %}readonly{% endif %} required>
             </div>
           </div>
           <div class="field">

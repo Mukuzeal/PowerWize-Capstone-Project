@@ -118,6 +118,23 @@ public form (registration.py) → admin review (admin/registrations.py) → emai
   → certificate issued (lms_bp/certificates.py) → anchored on Polygon → QR verify page
 ```
 
+A corporate trainee has one extra step: their company's **class join code**.
+`class_gate()` in [src/db/classes.py](src/db/classes.py) opens the LMS only
+once they are in the class their employer booked, and it re-derives that
+entitlement on every access — a membership row is not standing authority, so a
+later rejection, roster revocation or cancelled invoice closes access without
+anyone deleting the row. The code names a class; it never authorises.
+
+Two **documented exceptions** to "a corporate trainee must enter a code":
+
+- **Individual enrolment is never gated.** Someone who paid for themselves is
+  on no corporate invoice, so there is no class to join.
+- **Access is open until a class exists** for their invoice or intake in that
+  programme. If staff have not created one there is no code to enter, and
+  denying training already paid for because of an internal gap is the wrong
+  failure. The gate appears the moment the class does. This is a real hole in
+  the rule and is accepted knowingly.
+
 Two invariants that explain a lot of otherwise-odd code:
 
 - **Account creation is invitation-only.** There is deliberately no email+password signup; a plain one would mint trainees that skipped ID upload, selfie liveness, and admin verification. The token carries the approved `training_type` and `payment_status`. See the comment block in [src/auth.py:74-79](src/auth.py#L74-L79).

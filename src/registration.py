@@ -1,25 +1,96 @@
-import re
 import uuid
 from datetime import date, datetime
 from flask import Blueprint, request, render_template, session, redirect
-from db import (get_schedules, insert_registration, get_registration_by_email,
+from db import (get_schedules, insert_registration, get_registration_for_user,
                 get_user_basic_info, lms_get_modules_for_trainee, lms_get_progress,
-                lms_get_module_requirements, lms_get_certificate)
+                lms_get_module_requirements, lms_get_certificate,
+                classes_for_user)
 from permissions import is_staff, home_url_for
 from site_bp import render_home, render_programs
-from utils import save_file, check_required
+from utils import save_file, check_required, owns_upload
 
 registration_bp = Blueprint("registration", __name__)
 
 
-def _file_prefix(form):
-    full_name = form.get("full_name", "").strip()
-    parts = full_name.split()
-    fname = re.sub(r"[^\w]", "", parts[0])  if parts           else "unknown"
-    lname = re.sub(r"[^\w]", "", parts[-1]) if len(parts) > 1  else "unknown"
-    uid  = session.get("user_id",   "0")
-    role = session.get("user_role", "trainee")
-    return f"{uid}_{role}_{fname}_{lname}"
+# ── Company intake invitations ───────────────────────────────────────────────
+#
+# A company-invited applicant reaches the SAME public form; the invitation only
+# decides which roster slot the submission attaches to. Nothing about
+# validation, uploads or admin review changes, which is the point — there is no
+# second registration pipeline.
+
+INVITE_FIELD = "intake_invite"
+
+
+@registration_bp.after_request
+def private_company_registration(response):
+    if session.get('company_registration_grant'):
+        response.headers['Cache-Control'] = 'no-store'
+        # HTTPS CSRF checks need a same-origin referrer; external sites must
+        # never receive the company grant URL in a Referer header.
+        response.headers['Referrer-Policy'] = 'same-origin'
+        response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
+
+
+def _invite_token():
+    """The invitation accompanying this submission, if any. Accepted from the
+    query string (the emailed link) or a hidden form field (the POST)."""
+    supplied = (request.values.get(INVITE_FIELD, "") or "").strip()
+    grant = session.get('company_registration_grant') or {}
+    return supplied or grant.get('token', '')
+
+
+def save_registration(entry, invite_token=None):
+    """Persist a registration, attaching it to a roster slot when invited.
+
+    Returns (reg_id, error). On an invited submission the invitation claim and
+    the insert share one transaction, so a half-written state is impossible.
+    An invalid or spent invitation is refused outright rather than silently
+    falling back to an unattached registration — otherwise a company would see
+    a roster slot still reading "not submitted" while the person believes they
+    have applied.
+    """
+    from db import (REGISTRATION_INSERT_SQL, registration_insert_params,
+                    claim_slot_with_registration, invitation_state)
+
+    if not invite_token:
+        insert_registration(entry)
+        return entry["id"], None
+
+    slot, reason = invitation_state(invite_token)
+    if not slot:
+        return None, ("This invitation link has already been used."
+                      if reason == "used" else
+                      "This invitation link is not valid or has expired.")
+    if slot["form_type"] != entry["form_type"]:
+        return None, ("This invitation is for a different training program. "
+                      "Please use the link your company sent you.")
+    if entry.get('email', '').strip().lower() != slot['email_key']:
+        return None, "Use the email address listed for you on the company roster."
+
+    grant = session.get('company_registration_grant') or {}
+    shared = grant.get('token') == invite_token
+    if shared and entry.get('email', '').strip().lower() != grant.get('email_key'):
+        return None, "Use the roster email address you entered for this company registration."
+    if shared and (not grant.get('class_id') or not grant.get('class_code_hash')):
+        return None, "Open the company registration link and enter your class code again."
+    from db import get_intake
+    intake = get_intake(intake_id=slot['intake_id'])
+    entry['company_name'] = intake['company_name']
+
+    reg_id, err = claim_slot_with_registration(
+        invite_token, entry["id"], REGISTRATION_INSERT_SQL,
+        registration_insert_params(entry),
+        shared_token=grant.get('link_token') if shared else None,
+        email_key=grant.get('email_key') if shared else None,
+        registration_class_id=grant.get('class_id') if shared else None,
+        registration_code_hash=grant.get('class_code_hash') if shared else None)
+    if err:
+        return None, "This invitation link has already been used."
+    if shared:
+        session.pop('company_registration_grant', None)
+    return reg_id, None
 
 
 # The public-facing pages live in site_bp; these endpoints keep their names
@@ -86,7 +157,7 @@ def portal():
     if not is_staff() and user["payment_status"] == "unpaid":
         return redirect("/payment")
 
-    reg = get_registration_by_email(user["email"])
+    reg = get_registration_for_user(session['user_id'])
     lms = _portal_learning(session["user_id"])
 
     # A certificate is valid for three years (lms_issue_certificate). Flagging
@@ -96,7 +167,9 @@ def portal():
         cert_days = (lms["cert"]["expires_at"] - date.today()).days
 
     return render_template("shared/portal.html", user=user, reg=reg,
-                           cert_days=cert_days, **lms)
+                           cert_days=cert_days,
+                           my_classes=classes_for_user(session["user_id"]),
+                           **lms)
 
 
 # ── CEA Renewal ──────────────────────────────────────────────────────────────
@@ -132,11 +205,12 @@ def renewal_submit():
     if agree and agree != "yes":
         errors.append("You must agree to the Terms & Conditions.")
 
-    prefix      = _file_prefix(f)
-    photo_id    = save_file("photo_id",    prefix=prefix)
-    expired_doe = save_file("expired_doe", prefix=prefix)
-    valid_id    = save_file("valid_id",    prefix=prefix)
+    photo_id    = save_file("photo_id")
+    expired_doe = save_file("expired_doe")
+    valid_id    = save_file("valid_id")
     selfie_with_id = f.get("selfie_with_id", "").strip()
+    # Client-supplied filename: only honour it if this session uploaded it.
+    selfie_with_id = selfie_with_id if owns_upload(selfie_with_id, "selfie_with_id") else None
     if not photo_id:    errors.append("Please upload your recent 2x2 Photo ID.")
     if not expired_doe: errors.append("Please upload your expired DOE Certificate.")
     if not valid_id:    errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -154,7 +228,10 @@ def renewal_submit():
         birthdate=birthdate, age=age, doe_expiry=doe_expiry,
         training_type=training_type, batch_id=batch_id,
         photo_id=photo_id, expired_doe=expired_doe, valid_id=valid_id, selfie_with_id=selfie_with_id)
-    insert_registration(entry)
+    reg_id, invite_error = save_registration(entry, _invite_token())
+    if invite_error:
+        return render_template("auth/token_invalid.html",
+                               reason=invite_error), 400
     return render_template("shared/success.html", entry=entry)
 
 
@@ -191,11 +268,12 @@ def renewal_cem_submit():
     if agree and agree != "yes":
         errors.append("You must agree to the Terms & Conditions.")
 
-    prefix      = _file_prefix(f)
-    photo_id    = save_file("photo_id",    prefix=prefix)
-    expired_doe = save_file("expired_doe", prefix=prefix)
-    valid_id    = save_file("valid_id",    prefix=prefix)
+    photo_id    = save_file("photo_id")
+    expired_doe = save_file("expired_doe")
+    valid_id    = save_file("valid_id")
     selfie_with_id = f.get("selfie_with_id", "").strip()
+    # Client-supplied filename: only honour it if this session uploaded it.
+    selfie_with_id = selfie_with_id if owns_upload(selfie_with_id, "selfie_with_id") else None
     if not photo_id:    errors.append("Please upload your recent 2x2 Photo ID.")
     if not expired_doe: errors.append("Please upload your expired DOE-CEM Certificate.")
     if not valid_id:    errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -213,7 +291,10 @@ def renewal_cem_submit():
         birthdate=birthdate, age=age, doe_expiry=doe_expiry,
         training_type=training_type, batch_id=batch_id,
         photo_id=photo_id, expired_doe=expired_doe, valid_id=valid_id, selfie_with_id=selfie_with_id)
-    insert_registration(entry)
+    reg_id, invite_error = save_registration(entry, _invite_token())
+    if invite_error:
+        return render_template("auth/token_invalid.html",
+                               reason=invite_error), 400
     return render_template("shared/success.html", entry=entry)
 
 
@@ -250,11 +331,12 @@ def cea_training_submit():
     if agree and agree != "yes":
         errors.append("You must agree to the Terms & Conditions.")
 
-    prefix   = _file_prefix(f)
-    photo_id = save_file("photo_id", prefix=prefix)
-    resume   = save_file("resume",   prefix=prefix)
-    valid_id = save_file("valid_id", prefix=prefix)
+    photo_id = save_file("photo_id")
+    resume   = save_file("resume")
+    valid_id = save_file("valid_id")
     selfie_with_id = f.get("selfie_with_id", "").strip()
+    # Client-supplied filename: only honour it if this session uploaded it.
+    selfie_with_id = selfie_with_id if owns_upload(selfie_with_id, "selfie_with_id") else None
     if not photo_id: errors.append("Please upload your recent 2x2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV.")
     if not valid_id: errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -271,7 +353,10 @@ def cea_training_submit():
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
         photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
-    insert_registration(entry)
+    reg_id, invite_error = save_registration(entry, _invite_token())
+    if invite_error:
+        return render_template("auth/token_invalid.html",
+                               reason=invite_error), 400
     return render_template("shared/success.html", entry=entry)
 
 
@@ -314,11 +399,12 @@ def gemp_lgu_submit():
     if agree and agree != "yes":
         errors.append("You must agree to the Terms & Conditions.")
 
-    prefix   = _file_prefix(f)
-    photo_id = save_file("photo_id", prefix=prefix)
-    resume   = save_file("resume",   prefix=prefix, pdf_only=True)
-    valid_id = save_file("valid_id", prefix=prefix)
+    photo_id = save_file("photo_id")
+    resume   = save_file("resume", pdf_only=True)
+    valid_id = save_file("valid_id")
     selfie_with_id = f.get("selfie_with_id", "").strip()
+    # Client-supplied filename: only honour it if this session uploaded it.
+    selfie_with_id = selfie_with_id if owns_upload(selfie_with_id, "selfie_with_id") else None
     if not photo_id: errors.append("Please upload your recent 2×2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV (PDF only).")
     if not valid_id: errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -336,7 +422,10 @@ def gemp_lgu_submit():
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
         gemp_designation=gemp_designation,
         photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
-    insert_registration(entry)
+    reg_id, invite_error = save_registration(entry, _invite_token())
+    if invite_error:
+        return render_template("auth/token_invalid.html",
+                               reason=invite_error), 400
     return render_template("shared/success.html", entry=entry)
 
 
@@ -372,11 +461,12 @@ def gemp_oge_submit():
     if agree and agree != "yes":
         errors.append("You must agree to the Terms & Conditions.")
 
-    prefix   = _file_prefix(f)
-    photo_id = save_file("photo_id", prefix=prefix)
-    resume   = save_file("resume",   prefix=prefix, pdf_only=True)
-    valid_id = save_file("valid_id", prefix=prefix)
+    photo_id = save_file("photo_id")
+    resume   = save_file("resume", pdf_only=True)
+    valid_id = save_file("valid_id")
     selfie_with_id = f.get("selfie_with_id", "").strip()
+    # Client-supplied filename: only honour it if this session uploaded it.
+    selfie_with_id = selfie_with_id if owns_upload(selfie_with_id, "selfie_with_id") else None
     if not photo_id: errors.append("Please upload your recent 2×2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV (PDF only).")
     if not valid_id: errors.append("Please upload your valid PRC ID or government-issued ID.")
@@ -394,7 +484,10 @@ def gemp_oge_submit():
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
         gemp_designation=gemp_designation,
         photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
-    insert_registration(entry)
+    reg_id, invite_error = save_registration(entry, _invite_token())
+    if invite_error:
+        return render_template("auth/token_invalid.html",
+                               reason=invite_error), 400
     return render_template("shared/success.html", entry=entry)
 
 
@@ -424,11 +517,12 @@ def training_submit():
     if agree and agree != "yes":
         errors.append("You must agree to the Terms & Conditions.")
 
-    prefix   = _file_prefix(f)
-    photo_id = save_file("photo_id", prefix=prefix)
-    resume   = save_file("resume",   prefix=prefix, pdf_only=True)
-    valid_id = save_file("valid_id", prefix=prefix)
+    photo_id = save_file("photo_id")
+    resume   = save_file("resume", pdf_only=True)
+    valid_id = save_file("valid_id")
     selfie_with_id = f.get("selfie_with_id", "").strip()
+    # Client-supplied filename: only honour it if this session uploaded it.
+    selfie_with_id = selfie_with_id if owns_upload(selfie_with_id, "selfie_with_id") else None
     if not photo_id: errors.append("Please upload your recent 2x2 Photo ID.")
     if not resume:   errors.append("Please upload your Resume or CV (PDF only).")
     if not valid_id: errors.append("Please upload your PRC License or valid government-issued ID.")
@@ -445,6 +539,9 @@ def training_submit():
         company_address=company_address, contact_number=contact_number, email=email,
         birthdate=birthdate, age=age, training_type=training_type, batch_id=batch_id,
         photo_id=photo_id, resume=resume, valid_id=valid_id, selfie_with_id=selfie_with_id)
-    insert_registration(entry)
+    reg_id, invite_error = save_registration(entry, _invite_token())
+    if invite_error:
+        return render_template("auth/token_invalid.html",
+                               reason=invite_error), 400
     return render_template("shared/success.html", entry=entry)
 

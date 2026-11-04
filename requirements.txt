@@ -11,6 +11,8 @@ Pillow
 pytesseract
 pdf2image
 pymupdf
+pypdfium2
 openpyxl
 fastembed
 numpy
+cryptography>=42.0

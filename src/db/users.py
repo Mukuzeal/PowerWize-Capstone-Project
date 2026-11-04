@@ -27,6 +27,170 @@ def create_account_token(reg_id, email, is_qualified):
     return token
 
 
+def claim_account_invitation(reg_id, email, is_qualified):
+    """(token, created) — mint ONE invitation per registration.
+
+    The partial unique index below makes this repeat-safe at the database
+    level: a second call while a live, unused invitation exists inserts
+    nothing and returns created=False. That is what prevents a double submit,
+    or a retry after a failed email, from producing two valid tokens.
+
+    A token that was already USED is not blocking — the account exists, so
+    there is nothing left to invite.
+    """
+    import secrets
+    token = secrets.token_urlsafe(32)
+    conn = get_db(); cur = conn.cursor()
+    try:
+        # Clear a lapsed, unused invitation so the partial unique index does
+        # not block a legitimate re-issue. Only expired ones: a live token is
+        # what makes this call a no-op, and a used one is history.
+        cur.execute("DELETE FROM account_tokens WHERE reg_id = %s "
+                    "AND used_at IS NULL AND expires_at <= NOW()", (reg_id,))
+        cur.execute("""
+            INSERT INTO account_tokens (token, reg_id, email, is_qualified, expires_at)
+            SELECT %s, %s, %s, %s, %s
+             WHERE NOT EXISTS (
+                   SELECT 1 FROM account_tokens
+                    WHERE reg_id = %s AND used_at IS NULL)
+            RETURNING token
+        """, (_hash_token(token), reg_id, email, int(is_qualified),
+              datetime.now() + timedelta(days=7), reg_id))
+        created = cur.fetchone() is not None
+        conn.commit()
+        return (token if created else None), created
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close(); conn.close()
+
+
+def rotate_account_invitation(reg_id, email, is_qualified):
+    """Replace an unused invitation with a fresh one. (token, rotated).
+
+    This is how a resend works, and it ISSUES A NEW LINK rather than resending
+    the old one. Only `sha256(token)` is ever stored, so the previous
+    plaintext is genuinely unrecoverable — any claim that the same link can be
+    sent again would be false. Rotating also means a link that may have leaked
+    while bouncing around a mail system stops working.
+
+    Refuses once the invitation has been used: at that point the account
+    exists and there is nothing left to invite.
+    """
+    import secrets
+    token = secrets.token_urlsafe(32)
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT 1 FROM account_tokens WHERE reg_id = %s AND used_at IS NOT NULL",
+                    (reg_id,))
+        if cur.fetchone():
+            conn.rollback()
+            return None, False
+        cur.execute("DELETE FROM account_tokens WHERE reg_id = %s AND used_at IS NULL",
+                    (reg_id,))
+        cur.execute(
+            "INSERT INTO account_tokens (token, reg_id, email, is_qualified, expires_at) "
+            "VALUES (%s,%s,%s,%s,%s)",
+            (_hash_token(token), reg_id, email, int(is_qualified),
+             datetime.now() + timedelta(days=7)))
+        conn.commit()
+        return token, True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close(); conn.close()
+
+
+def account_exists_for_email(email):
+    """True if a user account already exists for this address.
+
+    Guards against inviting someone who has already signed up — the token
+    would be dead weight and the email confusing. Compared case-insensitively
+    because `users.email` is UNIQUE but case-SENSITIVE in Postgres while the
+    registration forms store the address with only .strip() applied.
+    """
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT 1 FROM users WHERE lower(email) = lower(%s) "
+                "AND archived_at IS NULL", ((email or "").strip(),))
+    found = cur.fetchone() is not None
+    cur.close(); conn.close()
+    return found
+
+
+def invitation_status(reg_id):
+    """What an admin needs to see about a registration's invitation."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT email, expires_at, used_at, created_at
+          FROM account_tokens WHERE reg_id = %s
+         ORDER BY created_at DESC LIMIT 1
+    """, (reg_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if not row:
+        return {"state": "none"}
+    if row["used_at"]:
+        return {"state": "used", "at": row["used_at"], "email": row["email"]}
+    if row["expires_at"] and row["expires_at"] < datetime.now():
+        return {"state": "expired", "at": row["expires_at"], "email": row["email"]}
+    return {"state": "active", "at": row["expires_at"], "email": row["email"]}
+
+
+def redeem_invitation_and_create_account(token, password_hash, fname, lname,
+                                         contact_number, company_name,
+                                         training_type):
+    """Claim the token AND create the account in ONE transaction.
+
+    (user_id, error). Previously this spanned three connections — read the
+    token, insert the user, mark the token used — and psycopg2 does not
+    autocommit, so they were three transactions. A crash between them left a
+    committed account with a still-valid token, or a spent token with no
+    account. Two simultaneous posts of the same link raced the same way, with
+    only `users.email UNIQUE` turning it into an unhandled IntegrityError.
+
+    The guarded UPDATE is the concurrency control: exactly one caller claims
+    the token, and the account insert shares its fate.
+    """
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""
+            UPDATE account_tokens SET used_at = NOW()
+             WHERE token = %s AND used_at IS NULL AND expires_at > NOW()
+            RETURNING reg_id, email, is_qualified
+        """, (_hash_token(token),))
+        tok = cur.fetchone()
+        if not tok:
+            conn.rollback()
+            return None, "This link is invalid, expired, or already used."
+
+        cur.execute("SELECT id FROM users WHERE lower(email) = lower(%s)", (tok["email"],))
+        if cur.fetchone():
+            conn.rollback()
+            return None, "An account already exists for this email. Please log in."
+
+        # `registration_id` is the authoritative link. Matching on the email
+        # string was ambiguous: `registrations.email` is not unique, so a
+        # person who registered twice had no single answer.
+        cur.execute("""
+            INSERT INTO users (role, fname, lname, email, password_hash,
+                               contact_number, company_name, payment_status,
+                               training_type, registration_id)
+            VALUES ('trainee',%s,%s,%s,%s,%s,%s,'unpaid',%s,%s)
+            RETURNING id
+        """, (fname, lname, tok["email"], password_hash, contact_number or "",
+              company_name or "", training_type, tok["reg_id"]))
+        uid = cur.fetchone()["id"]
+        conn.commit()
+        return uid, None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close(); conn.close()
+
+
 def get_account_token(token):
     conn = get_db()
     cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)

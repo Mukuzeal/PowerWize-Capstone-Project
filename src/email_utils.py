@@ -15,16 +15,108 @@ EMAIL_CONFIG = {
 }
 
 
-def _send(to_email: str, subject: str, html: str):
+# Mail transport.
+#
+#   smtp     — real delivery (production)
+#   preview  — write the message to outbox/ and return; nothing leaves the host
+#   mock     — record in memory only; what tests use
+#
+# `preview` is the development default so a local run never emails a real
+# company contact. Set MAIL_TRANSPORT=smtp deliberately.
+VALID_TRANSPORTS = ("preview", "mock", "smtp")
+MAIL_TRANSPORT = os.getenv("MAIL_TRANSPORT", "preview").strip().lower()
+if MAIL_TRANSPORT not in VALID_TRANSPORTS:
+    # Fail loudly rather than guessing. A typo like MAIL_TRANSPORT=smpt must
+    # not silently fall back to something that does — or does not — send.
+    raise RuntimeError(
+        f"MAIL_TRANSPORT={MAIL_TRANSPORT!r} is not valid. "
+        f"Use one of: {', '.join(VALID_TRANSPORTS)}.")
+_PROJECT_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTBOX_DIR     = os.path.join(_PROJECT_ROOT, "outbox")
+
+# Populated by the mock transport so tests can assert on what WOULD be sent.
+SENT_MESSAGES = []
+
+
+class MailDeliveryError(Exception):
+    """Transport-level failure. Raised so callers can record an attempt and
+    retry, rather than a send silently appearing to succeed."""
+
+
+def _render(to_email, subject, html):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['user']}>"
     msg["To"]      = to_email
     msg.attach(MIMEText(html, "html"))
-    with smtplib.SMTP(EMAIL_CONFIG["host"], EMAIL_CONFIG["port"]) as server:
-        server.starttls()
-        server.login(EMAIL_CONFIG["user"], EMAIL_CONFIG["password"])
-        server.sendmail(EMAIL_CONFIG["user"], to_email, msg.as_string())
+    return msg
+
+
+def _send(to_email: str, subject: str, html: str):
+    """Hand the message to the configured transport.
+
+    Returns a short string naming what actually happened, so a caller can
+    record "submitted to the mail server" rather than asserting "delivered" —
+    SMTP acceptance is not proof of delivery, and nothing here can observe
+    the recipient's mailbox.
+    """
+    msg = _render(to_email, subject, html)
+
+    if MAIL_TRANSPORT == "mock":
+        SENT_MESSAGES.append({"to": to_email, "subject": subject, "html": html})
+        return "mock"
+
+    if MAIL_TRANSPORT == "preview":
+        os.makedirs(OUTBOX_DIR, exist_ok=True)
+        safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in to_email)
+        from datetime import datetime as _dt
+        path = os.path.join(
+            OUTBOX_DIR, f"{_dt.now().strftime('%Y%m%d-%H%M%S-%f')}_{safe}.html")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"<!-- To: {to_email}\n     Subject: {subject} -->\n{html}")
+        print(f"[mail:preview] {to_email} — {subject} -> {path}")
+        return "preview"
+
+    try:
+        with smtplib.SMTP(EMAIL_CONFIG["host"], EMAIL_CONFIG["port"]) as server:
+            server.starttls()
+            server.login(EMAIL_CONFIG["user"], EMAIL_CONFIG["password"])
+            server.sendmail(EMAIL_CONFIG["user"], to_email, msg.as_string())
+    except Exception as e:
+        raise MailDeliveryError(f"{type(e).__name__}: {e}") from e
+    return "submitted"
+
+
+def send_registration_code(to_email, company_name, code):
+    from html import escape
+    return _send(to_email, 'Your EnergyWize registration verification code',
+        '<html><body><h2>Verify your registration email</h2><p>Use this code to register for ' +
+        escape(company_name) + ':</p><p style="font-size:28px;letter-spacing:6px"><strong>' +
+        escape(code) + '</strong></p><p>This code expires in 10 minutes. '
+        'Do not share it. If you did not request it, you can ignore this message.</p></body></html>')
+
+
+def send_company_registration_link(to_email, company_name, contact_person,
+                                   program_label, registration_url, class_code, expires_at):
+    from html import escape
+    html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#173c2b;padding:24px">
+      <div style="max-width:600px;margin:auto">
+        <h2>Company trainee registration</h2>
+        <p>Dear {escape(contact_person)},</p>
+        <p>Registration is ready for <strong>{escape(company_name)}</strong>:
+           {escape(program_label)}.</p>
+        <p>Share this same registration link and class code with all trainees on your company roster.</p>
+        <p><a href="{escape(registration_url, quote=True)}">Open company registration</a></p>
+        <p>Class code: <strong style="font-size:24px;letter-spacing:3px">{escape(class_code)}</strong></p>
+        <p>Each trainee enters this code and their own roster email, then completes their
+           registration and uploads their requirements. No email verification code is needed.</p>
+        <p>The registration link is valid until {escape(expires_at)}, unless replaced or revoked.</p>
+        <p>Staff review the requirements before account invitations and training access.
+           Approved, paid trainees can also use the class code to join their training class.</p>
+        <p style="word-break:break-all">Registration link: {escape(registration_url)}</p>
+        <p>EnergyWize Solutions</p>
+      </div></body></html>'''
+    return _send(to_email, 'Company trainee registration - EnergyWize', html)
 
 
 def send_password_reset_email(to_email, full_name, token, base_url):
@@ -120,16 +212,7 @@ def send_acceptance_email(to_email, full_name, token, is_qualified, base_url):
 </body>
 </html>"""
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Your EnergyWize Registration Has Been Accepted"
-    msg["From"]    = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['user']}>"
-    msg["To"]      = to_email
-    msg.attach(MIMEText(html, "html"))
-
-    with smtplib.SMTP(EMAIL_CONFIG["host"], EMAIL_CONFIG["port"]) as server:
-        server.starttls()
-        server.login(EMAIL_CONFIG["user"], EMAIL_CONFIG["password"])
-        server.sendmail(EMAIL_CONFIG["user"], to_email, msg.as_string())
+    return _send(to_email, "Your EnergyWize Registration Has Been Accepted", html)
 
 
 def send_corporate_payment_confirmation(to_email, staff_name, rec, items, base_url):
@@ -203,3 +286,90 @@ def send_corporate_payment_confirmation(to_email, staff_name, rec, items, base_u
 </body>
 </html>"""
     _send(to_email, f"Corporate payment confirmed - {rec['reference']}", html)
+
+
+def send_company_correction_notice(to_email, company_name, trainee_name,
+                                   correction_note, program_label, base_url):
+    """Tell a company contact that one of their nominated trainees must fix
+    something.
+
+    Company-safe by construction: the trainee's name, the program, and the
+    correction text an admin wrote FOR the applicant. No uploaded document, no
+    link to one, no private reviewer note, and no other trainee's details.
+    """
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;background:#F3F4F6;margin:0;padding:24px">
+<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+  <div style="background:#0D3B27;padding:28px 32px;text-align:center">
+    <span style="display:inline-block;background:#D4A72A;border-radius:8px;padding:8px 16px;font-size:22px;font-weight:700;color:#0D3B27">E</span>
+    <h1 style="color:#fff;font-size:22px;margin:12px 0 0">Energy<span style="color:#D4A72A">Wize</span></h1>
+  </div>
+  <div style="padding:32px">
+    <p style="margin:0 0 16px">Hello {company_name},</p>
+    <p style="margin:0 0 16px;line-height:1.7">
+      One of your nominated trainees for <strong>{program_label}</strong> needs to
+      correct part of their registration before we can approve it.
+    </p>
+    <div style="background:#FEF9C3;border:1px solid #D97706;border-radius:8px;padding:16px 20px;margin:20px 0">
+      <p style="font-weight:600;color:#92400E;margin:0 0 8px">{trainee_name}</p>
+      <p style="color:#78350F;margin:0;line-height:1.7;font-size:14px">{correction_note}</p>
+    </div>
+    <p style="margin:0 0 16px;line-height:1.7">
+      We have contacted them directly as well. They can resubmit using the same
+      registration link you shared with them.
+    </p>
+    <p style="margin:0;line-height:1.7;color:#6B7280;font-size:13px">
+      You can check the status of everyone on your roster using the company
+      status link EnergyWize sent you.
+    </p>
+  </div>
+</div>
+</body>
+</html>"""
+    return _send(to_email,
+                 f"Action needed: {trainee_name} — registration requirements",
+                 html)
+
+
+def send_company_payment_link(to_email, company_name, contact_person, reference,
+                              amount_php, trainee_count, pay_url, expires_at):
+    """The final company email: one link to settle one invoice.
+
+    Deliberately carries no roster. The payer needs the amount, the reference
+    and the link; a forwarded email should not disclose who is enrolled.
+    """
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;background:#F3F4F6;margin:0;padding:24px">
+<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+  <div style="background:#0D3B27;padding:28px 32px;text-align:center">
+    <span style="display:inline-block;background:#D4A72A;border-radius:8px;padding:8px 16px;font-size:22px;font-weight:700;color:#0D3B27">E</span>
+    <h1 style="color:#fff;font-size:22px;margin:12px 0 0">Energy<span style="color:#D4A72A">Wize</span></h1>
+  </div>
+  <div style="padding:32px">
+    <p style="margin:0 0 16px">Hello {contact_person},</p>
+    <p style="margin:0 0 16px;line-height:1.7">
+      All {trainee_count} nominated trainee(s) from <strong>{company_name}</strong>
+      have been approved. Your invoice is ready to settle.
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:20px 0">
+      <tr><td style="padding:8px 0;color:#6B7280">Reference</td>
+          <td style="padding:8px 0;text-align:right;font-family:monospace">{reference}</td></tr>
+      <tr><td style="padding:8px 0;color:#6B7280">Trainees</td>
+          <td style="padding:8px 0;text-align:right">{trainee_count}</td></tr>
+      <tr><td style="padding:8px 0;color:#6B7280;border-top:1px solid #E5E7EB">Amount due</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;border-top:1px solid #E5E7EB">PHP {amount_php:,.2f}</td></tr>
+    </table>
+    <p style="text-align:center;margin:24px 0">
+      <a href="{pay_url}" style="display:inline-block;background:#0D3B27;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600">Pay this invoice</a>
+    </p>
+    <p style="margin:0;line-height:1.7;color:#6B7280;font-size:13px">
+      This payment link expires on {expires_at}. Payment is processed by PayMongo —
+      EnergyWize never sees your card details.
+    </p>
+  </div>
+</div>
+</body>
+</html>"""
+    return _send(to_email, f"Payment link — {company_name} training invoice {reference}", html)

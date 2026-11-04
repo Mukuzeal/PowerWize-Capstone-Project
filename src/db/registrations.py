@@ -97,10 +97,11 @@ def get_batches_full():
     return out
 
 
-def insert_registration(entry):
-    conn = get_db()
-    cur  = conn.cursor()
-    cur.execute("""
+# The insert is published as SQL + params so a caller that needs it to share
+# a transaction with other statements (claim_slot_with_registration, where the
+# invitation claim and the insert must commit together or not at all) runs the
+# exact same statement rather than a second, drifting copy of it.
+REGISTRATION_INSERT_SQL = """
         INSERT INTO registrations (
             id, form_type, form_label, submitted_at,
             title, full_name, middle_name, residence,
@@ -110,7 +111,11 @@ def insert_registration(entry):
             photo_id, resume, expired_doe, valid_id, selfie_with_id,
             gemp_designation
         ) VALUES (%s,%s,%s,%s, %s,%s,%s,%s, %s,%s,%s, %s,%s,%s,%s,%s, %s,%s, %s,%s,%s,%s,%s, %s)
-    """, (
+"""
+
+
+def registration_insert_params(entry):
+    return (
         entry.get("id"),           entry.get("form_type"),   entry.get("form_label"), entry.get("submitted_at"),
         entry.get("title"),        entry.get("full_name"),   entry.get("middle_name"), entry.get("residence"),
         entry.get("company_name"), entry.get("designation"), entry.get("company_address"),
@@ -118,7 +123,13 @@ def insert_registration(entry):
         entry.get("training_type"), entry.get("batch_id") or None,
         entry.get("photo_id"), entry.get("resume"), entry.get("expired_doe"), entry.get("valid_id"), entry.get("selfie_with_id"),
         entry.get("gemp_designation"),
-    ))
+    )
+
+
+def insert_registration(entry):
+    conn = get_db()
+    cur  = conn.cursor()
+    cur.execute(REGISTRATION_INSERT_SQL, registration_insert_params(entry))
     conn.commit()
     cur.close()
     conn.close()
@@ -136,9 +147,16 @@ def get_registrations():
     rows = [dict(r) for r in cur.fetchall()]
     cur.close()
     conn.close()
+    # Attach the SHARED readiness verdict so the console shows the same
+    # answer the company portal and payment eligibility use. Without this the
+    # pane rendered raw `status`, so an accepted registration whose identity
+    # review was still pending displayed a plain "Accepted" badge while every
+    # other surface correctly called it not-ready.
+    from review_policy import readiness
     for row in rows:
         if row.get("submitted_at"):
             row["submitted_at"] = row["submitted_at"].strftime("%Y-%m-%d %H:%M")
+        row["readiness"] = readiness(row)
     return rows
 
 
@@ -157,6 +175,34 @@ def set_registration_status(reg_id, status, is_qualified=None):
     conn.close()
 
 
+# Shared by account pricing and the staff trainee picker. A linked account
+# always wins over email history. Older accounts may use a single unambiguous
+# email match, without writing an inferred registration_id back to the account.
+ACCOUNT_REGISTRATION_JOIN_SQL = """
+    LEFT JOIN registrations r ON r.id = u.registration_id OR (
+        u.registration_id IS NULL AND lower(r.email) = lower(u.email)
+        AND NOT EXISTS (
+            SELECT 1 FROM registrations other
+             WHERE lower(other.email) = lower(u.email) AND other.id <> r.id
+        )
+    )
+"""
+
+
+def get_registration_for_user(user_id):
+    """Account-bound registration facts; None when identity is unresolved."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""SELECT r.id,r.form_type,r.form_label,r.training_type,
+                              r.status,r.submitted_at
+                         FROM users u """ + ACCOUNT_REGISTRATION_JOIN_SQL +
+                    " WHERE u.id=%s AND r.id IS NOT NULL", (user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    finally:
+        cur.close(); conn.close()
+
+
 def get_registration_by_email(email):
     conn = get_db()
     cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -169,17 +215,156 @@ def get_registration_by_email(email):
     return dict(row) if row else None
 
 
+def get_registration_full(reg_id):
+    """The whole row, for review_policy.readiness()."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM registrations WHERE id = %s", (reg_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    return dict(row) if row else None
+
+
+def set_correction_note(reg_id, note):
+    """The one piece of review text the company portal renders. Cleared when
+    the applicant is later accepted or rejected, so a stale instruction does
+    not linger on a resolved row."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE registrations SET correction_note = %s, "
+                "correction_set_at = NOW() WHERE id = %s", (note, reg_id))
+    conn.commit(); cur.close(); conn.close()
+
+
+def clear_correction_note(reg_id):
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE registrations SET correction_note = NULL, "
+                "correction_set_at = NULL WHERE id = %s", (reg_id,))
+    conn.commit(); cur.close(); conn.close()
+
+
 def get_pending_selfies():
-    """Get registrations with submitted selfies pending admin review."""
+    """Registrations whose selfie still needs a human decision.
+
+    `selfie_reviewed_at IS NULL` is the filter that makes this a queue. Before
+    it existed the list was driven only by the filename being present, so an
+    approved selfie was never removed and staff saw it again every visit.
+    """
     conn = get_db()
     cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
         SELECT id, full_name, email, submitted_at, form_label, selfie_with_id
         FROM registrations
         WHERE selfie_with_id IS NOT NULL AND selfie_with_id != ''
+          AND selfie_reviewed_at IS NULL
         ORDER BY submitted_at DESC
     """)
     rows = [dict(r) for r in cur.fetchall()]
     cur.close()
     conn.close()
+    return rows
+
+
+# ── Document retention ───────────────────────────────────────────────────────
+#
+# Uploads exist to support two decisions and are deleted once both are made.
+# What survives is the outcome plus a SHA-256 of each file, so an audit can
+# confirm which document was reviewed without the document being kept.
+
+DOC_FIELDS = ("photo_id", "resume", "expired_doe", "valid_id", "selfie_with_id")
+
+
+def record_selfie_review(reg_id, outcome, reviewed_by=None):
+    """Close the selfie gate. Idempotent: only the first decision sticks."""
+    conn = get_db(); cur = conn.cursor()
+    cur.execute(
+        "UPDATE registrations SET selfie_reviewed_at = NOW(), selfie_outcome = %s "
+        "WHERE id = %s AND selfie_reviewed_at IS NULL",
+        (outcome, reg_id),
+    )
+    changed = cur.rowcount
+    conn.commit(); cur.close(); conn.close()
+    return changed == 1
+
+
+def registration_review_state(reg_id):
+    """(status, selfie_reviewed, has_selfie, already_purged) for one row."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT status, selfie_reviewed_at, selfie_with_id, documents_purged_at
+        FROM registrations WHERE id = %s
+    """, (reg_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if not row:
+        return None
+    return {
+        "status":          row["status"],
+        "selfie_reviewed": row["selfie_reviewed_at"] is not None,
+        "has_selfie":      bool((row["selfie_with_id"] or "").strip()),
+        "purged":          row["documents_purged_at"] is not None,
+    }
+
+
+def get_registration_documents(reg_id):
+    """{field: filename} for the documents still recorded against a row."""
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT " + ", ".join(DOC_FIELDS) +
+                " FROM registrations WHERE id = %s", (reg_id,))
+    row = cur.fetchone()
+    cur.close(); conn.close()
+    if not row:
+        return {}
+    return {f: (row[f] or "").strip() for f in DOC_FIELDS if (row[f] or "").strip()}
+
+
+def record_document_purge(reg_id, entries, outcome, reviewed_by=None):
+    """Write the evidence rows, clear the pointers that are actually gone,
+    and stamp the registration only if nothing was left behind.
+
+    One transaction. Two rules make a partial failure recoverable:
+
+      * a field is cleared only if its file is confirmed gone ('deleted' or
+        already 'missing'). Clearing a pointer to a file that is still on
+        disk would orphan it with nothing referencing it.
+      * `documents_purged_at` is set only when every entry succeeded. If one
+        deletion failed, the stamp stays NULL so the next gate action — or a
+        sweep — retries it instead of believing the job is done.
+
+    Returns True if the registration is now fully purged.
+    """
+    gone = [e for e in entries if e.get("note") in ("deleted", "missing")]
+    complete = len(gone) == len(entries)
+
+    conn = get_db(); cur = conn.cursor()
+    try:
+        for e in entries:
+            cur.execute("""
+                INSERT INTO registration_document_reviews
+                    (reg_id, field, sha256, byte_size, file_ext, outcome, reviewed_by, note)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (reg_id, field) DO UPDATE
+                   SET sha256 = COALESCE(EXCLUDED.sha256, registration_document_reviews.sha256),
+                       note   = EXCLUDED.note
+            """, (reg_id, e["field"], e.get("sha256"), e.get("byte_size"),
+                  e.get("file_ext"), outcome, reviewed_by, e.get("note")))
+        if gone:
+            cur.execute(
+                "UPDATE registrations SET " +
+                ", ".join(f"{e['field']} = NULL" for e in gone) +
+                (", documents_purged_at = NOW()" if complete else "") +
+                " WHERE id = %s", (reg_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close(); conn.close()
+    return complete
+
+
+def get_document_reviews(reg_id):
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM registration_document_reviews "
+                "WHERE reg_id = %s ORDER BY field", (reg_id,))
+    rows = [dict(r) for r in cur.fetchall()]
+    cur.close(); conn.close()
     return rows

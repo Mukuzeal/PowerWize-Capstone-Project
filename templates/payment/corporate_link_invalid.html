@@ -1,0 +1,17 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+{% block title %}Payment link unavailable – EnergyWize{% endblock %}
+{% block description %}Get help with an unavailable company payment link.{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+{% endblock %}
+{% block main %}
+<section class="formpage"><div class="shell"><div class="result-wrap">
+  {{ fhead([], 'Company payment', 'Payment link <em>unavailable</em>', reason) }}
+  <div class="form-card"><div class="form-body">
+    <p>This payment link may have been replaced, revoked or expired. Ask your company coordinator for the current link.</p>
+    <p><strong>Already completed payment?</strong> Do not pay again. Contact EnergyWize with your invoice reference or PayMongo receipt so the payment can be checked.</p>
+    <p>Email <a href="mailto:{{ SITE.emails[0][1] }}">{{ SITE.emails[0][1] }}</a> for assistance.</p>
+  </div></div>
+</div></div></section>
+{% endblock %}

@@ -199,6 +199,51 @@
         {% endif %}
       </div>
 
+      {# ── Company class ───────────────────────────────────────────────────
+         The code names a class; it proves nothing. Entitlement is re-checked
+         server-side on every attempt (db/classes.py::membership_authority),
+         so a wrong code and an ineligible account fail for different, stated
+         reasons. #}
+      {% if session.get('user_role') == 'trainee' %}
+      <div class="decision-card">
+        <h3>My class</h3>
+        {% if my_classes %}
+        <p>You are in {{ my_classes|length }}
+           class{{ '' if my_classes|length == 1 else 'es' }}.
+           Your trainer can see your progress here.</p>
+        <ul style="margin:.5rem 0 1rem 1.1rem;font-size:14px">
+          {% for c in my_classes %}
+          <li><strong>{{ c.name }}</strong>
+            {% if c.company_name %}<span style="opacity:.7"> · {{ c.company_name }}</span>{% endif %}
+            <br><span style="opacity:.7;font-size:13px">{{ c.training_type }}</span></li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>If your company booked this training as a batch, your trainer will
+           give you a class code. Entering it puts you in their roll call &mdash;
+           it does not change your programme or your payment.</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('classes.portal_join_class') }}"
+              style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div style="flex:1 1 180px;min-width:0">
+            <label class="corp-lab" for="join_code">Class code</label>
+            <input class="corp-in" type="text" id="join_code" name="join_code"
+                   placeholder="e.g. 7KQM3PX" autocomplete="off"
+                   maxlength="14" style="text-transform:uppercase"
+                   aria-describedby="join-code-help" required>
+          </div>
+          <button class="dec-btn" type="submit" style="flex:0 0 auto">
+            <span class="dec-text"><span class="dec-title">Join class</span></span>
+          </button>
+        </form>
+        <p id="join-code-help" style="font-size:12px;opacity:.7;margin-top:.5rem">
+          Case and spacing do not matter. You can only join a class your
+          company has already enrolled and paid you into.
+        </p>
+      </div>
+      {% endif %}
+
       {# ── Actions ─────────────────────────────────────────────────────────── #}
       <div class="dsub"><p class="mono mono--fg">Everything else</p></div>
 

@@ -5,9 +5,9 @@ from flask import (Blueprint, request, render_template, redirect, session, jsoni
                    current_app)
 from dotenv import load_dotenv
 from db import (get_db, dict_cur, log_payment, mark_payment_paid, mark_payment_failed,
-                mark_user_paid, get_user_payment_status, get_registration_by_email,
+                mark_user_paid, get_user_payment_status, get_registration_for_user,
                 save_blockchain_receipt, get_receipt_by_id, get_receipt_by_user,
-                get_user_id_for_paymongo, get_payment_discount, get_user_training_type,
+                get_user_id_for_paymongo, get_payment_discount, normalize_training_type,
                 validate_discount, redeem_discount)
 import paymongo
 from blockchain import generate_receipt_id, create_receipt_hash, store_hash_on_chain, verify_hash_on_chain
@@ -29,14 +29,26 @@ def _require_unpaid():
     return uid if get_user_payment_status(uid) == "unpaid" else None
 
 
-def _base_fee(email):
-    """The published fee for whoever is paying, read from their registration."""
-    reg = get_registration_by_email(email) if email else None
-    fee = calculate_fee(reg["form_type"], reg["training_type"]) if reg else None
+class PaymentPricingError(ValueError):
+    pass
+
+
+@payment_bp.errorhandler(PaymentPricingError)
+def payment_pricing_error(error):
+    if request.path == '/payment' and request.method == 'GET':
+        return render_template('payment/pricing_unavailable.html', message=str(error)), 409
+    return jsonify(error=str(error)), 409
+
+
+def _base_fee(user_id):
+    """Price the account's registration, never a later application by email."""
+    reg = get_registration_for_user(user_id)
+    if not reg:
+        raise PaymentPricingError('Your training registration could not be identified. Please contact an administrator before paying.')
+    fee = calculate_fee(reg["form_type"], reg["training_type"])
     if fee is None:
-        fallback = float(os.getenv("TRAINING_FEE", "5000"))
-        fee = {"base": fallback, "vat": 0, "total": fallback,
-               "label": "Training Fee", "has_vat": False}
+        raise PaymentPricingError('Your registered program has no published fee. Please contact an administrator before paying.')
+    fee['program_code'] = normalize_training_type(reg['form_type'], reg['training_type'])
     return fee
 
 
@@ -49,11 +61,11 @@ def _charge_for(user_id):
     tampered request body cannot move the amount. Returns
     (amount_php, amount_centavos, description, discount_row_or_None, discount_php).
     """
-    fee  = _base_fee(session.get("user_email"))
+    fee  = _base_fee(user_id)
     code = session.get("discount_code")
     discount, discount_php, desc = None, 0.0, fee["label"]
     if code:
-        row, err = validate_discount(code, get_user_training_type(user_id))
+        row, err = validate_discount(code, fee['program_code'])
         if err:
             # The code went stale between entry and payment (expired, hit its
             # cap, deactivated). Drop it and charge full price rather than
@@ -111,7 +123,7 @@ def payment():
     if get_user_payment_status(session["user_id"]) == "paid":
         return redirect("/portal")
 
-    fee = _base_fee(session.get("user_email"))
+    fee = _base_fee(session['user_id'])
     amount_php, _, _, discount, discount_php = _charge_for(session["user_id"])
 
     error = "Payment was not completed. Please try again." if request.args.get("error") else None
@@ -136,12 +148,12 @@ def discount_apply():
     if not uid:
         return jsonify({"error": "Unauthorized"}), 403
     code = (request.get_json(force=True) or {}).get("code", "")
-    row, err = validate_discount(code, get_user_training_type(uid))
+    fee = _base_fee(uid)
+    row, err = validate_discount(code, fee['program_code'])
     if err:
         session.pop("discount_code", None)
         return jsonify({"error": err}), 400
     session["discount_code"] = row["code"]
-    fee = _base_fee(session.get("user_email"))
     amount_php, _, _, _, discount_php = _charge_for(uid)
     return jsonify({
         "code":          row["code"],
@@ -381,10 +393,45 @@ def webhook():
         return jsonify({"error": "Invalid signature"}), 400
 
     event = request.get_json(force=True)
-    etype = event.get("data", {}).get("attributes", {}).get("type", "")
+
+    # Envelope-agnostic extraction. Hosted Checkout documents a DIFFERENT
+    # shape from payment.paid — event type at `data.type` and the resource at
+    # `data.data`, versus `data.attributes.type` / `data.attributes.data`.
+    # Probing both is correct under either, so the integration does not depend
+    # on resolving which generation of the docs applies.
+    _d        = event.get("data") or {}
+    _env      = _d.get("attributes") or {}
+    etype     = _env.get("type") or _d.get("type") or ""
+    _resource = _env.get("data") or _d.get("data") or {}
+    _livemode = _d.get("livemode", _env.get("livemode"))
+
+    if etype == "checkout_session.payment.paid":
+        import paymongo as _pm
+        from corporate_checkout import validate_and_settle, SettlementRefused
+
+        session_obj = _pm._normalise_session(_resource)
+        if session_obj.get("livemode") is None:
+            session_obj["livemode"] = _livemode
+        try:
+            settled, msg = validate_and_settle(session_obj, "webhook")
+            current_app.logger.info("checkout webhook: %s", msg)
+        except SettlementRefused as e:
+            # Acknowledged so PayMongo stops retrying, but STORED — money may
+            # already have been taken for a session we never persisted, and a
+            # log line is not a recovery path.
+            from db import record_unresolved_event
+            paid = _pm.paid_payment(session_obj) or {}
+            record_unresolved_event(
+                "webhook", etype, str(e), event,
+                cs_id=session_obj.get("id"), payment_id=paid.get("id"),
+                reference_hint=session_obj.get("reference_number"),
+                amount_centavos=paid.get("amount"), currency=paid.get("currency"),
+                livemode=session_obj.get("livemode"))
+            current_app.logger.error("checkout webhook REFUSED (stored): %s", e)
+        return jsonify({"received": True}), 200
 
     if etype == "payment.paid":
-        payment_obj = event["data"]["attributes"]["data"]
+        payment_obj = _resource
         attrs       = payment_obj.get("attributes", {}) or {}
         paymongo_id = payment_obj["id"]
         # The event carries a payment id (pay_...), but what we stored when we
@@ -394,15 +441,16 @@ def webhook():
         intent_id   = attrs.get("payment_intent_id")
         reference   = (attrs.get("metadata") or {}).get("reference")
 
-        if not _handle_corporate_paid(reference, intent_id, paymongo_id):
+        if not _handle_corporate_paid(reference, intent_id, paymongo_id, attrs):
             _handle_payment_paid(paymongo_id, intent_id)
 
     return jsonify({"received": True}), 200
 
 
-def _handle_corporate_paid(reference, intent_id, paymongo_id):
-    """True if this event belonged to a corporate invoice (settled now or
-    already settled by an earlier delivery), so the trainee path is skipped."""
+def _handle_corporate_paid(reference, intent_id, paymongo_id, attrs=None):
+    """True if this event belonged to a corporate invoice, so the trainee
+    path is skipped. Validation applies here exactly as it does to hosted
+    checkout — this path must not be a way around it."""
     from admin.corporate import settle_corporate_payment
     from db import get_corporate_payment
 
@@ -414,6 +462,41 @@ def _handle_corporate_paid(reference, intent_id, paymongo_id):
             rec = get_corporate_payment(paymongo_id=pmid)
     if not rec:
         return False
+
+    # This legacy path used to settle directly, which meant the amount,
+    # currency and environment checks applied to hosted checkout could be
+    # walked straight past by a payment.paid event. Corporate money now has
+    # exactly one way in, whichever event shape carried it.
+    from db import record_unresolved_event
+    import paymongo as _pm
+
+    amount   = attrs.get("amount")
+    currency = (attrs.get("currency") or "").upper()
+    livemode = attrs.get("livemode")
+    expect_live = _pm.environment() == "live"
+
+    problems = []
+    if livemode is None:
+        problems.append("no livemode evidence on the event")
+    elif bool(livemode) != expect_live:
+        problems.append(f"livemode={livemode} but process is {_pm.environment()}")
+    if currency and currency != "PHP":
+        problems.append(f"currency {currency}")
+    if amount is not None and int(amount) != int(rec["amount_centavos"]):
+        problems.append(f"amount {amount} != invoice {rec['amount_centavos']}")
+
+    if problems:
+        from db import flag_attention
+        reason = ("payment.paid refused for corporate invoice "
+                  f"{rec['reference']}: " + "; ".join(problems))
+        flag_attention(rec["id"], reason)
+        record_unresolved_event("webhook", "payment.paid", reason,
+                                {"attrs": attrs}, payment_id=paymongo_id,
+                                reference_hint=reference, amount_centavos=amount,
+                                currency=currency or None, livemode=livemode)
+        current_app.logger.error(reason)
+        return True        # accounted for — stored, not silently dropped
+
     # Already paid/cancelled/expired -> settle_corporate_payment matches no
     # row and returns None. Either way the event is accounted for here.
     settle_corporate_payment(cid=rec["id"])
@@ -466,6 +549,14 @@ def verify_receipt():
             tx_hash    = None
 
         receipt = get_receipt_by_id(receipt_id) if receipt_id else None
+        receipt_kind = 'payment'
+        if not receipt and receipt_id:
+            from db import get_corporate_receipt_by_id
+            receipt = get_corporate_receipt_by_id(receipt_id)
+            if receipt:
+                receipt_kind = 'corporate_payment'
+                receipt['is_corporate'] = True
+                receipt['amount_php'] = receipt['amount_centavos'] / 100
         if not receipt:
             result = {"verified": False, "reason": "Receipt ID not found in database."}
         else:
@@ -476,7 +567,7 @@ def verify_receipt():
                 # Rebuild the fingerprint from the row as it stands right now,
                 # so an edited amount or status fails to match the chain.
                 from blockchain import verify_anchor
-                result = verify_anchor(tx_hash, "payment", receipt)
+                result = verify_anchor(tx_hash, receipt_kind, receipt)
             else:
                 # Anchored before v2: the payload cannot be recomputed, so this
                 # only shows a hash was recorded, not that the row is unchanged.

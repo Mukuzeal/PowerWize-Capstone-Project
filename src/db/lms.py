@@ -97,13 +97,8 @@ def normalize_training_type(form_type, reg_training_type):
 
 
 def get_user_training_type(user_id):
-    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute(
-        "SELECT form_type, training_type FROM registrations "
-        "WHERE email=(SELECT email FROM users WHERE id=%s) ORDER BY submitted_at DESC LIMIT 1",
-        (user_id,)
-    )
-    row = cur.fetchone(); cur.close(); conn.close()
+    from .registrations import get_registration_for_user
+    row = get_registration_for_user(user_id)
     if not row:
         return 'training'
     return normalize_training_type(row.get('form_type'), row.get('training_type'))
@@ -765,3 +760,19 @@ def lms_get_module_requirements(module_ids):
     return {r["module_id"]: {"has_quiz": bool(r["has_quiz"]),
                              "has_pdf": bool(r["has_pdf"]),
                              "has_exam": bool(r["has_exam"])} for r in rows}
+
+
+def lms_file_by_filename(filename):
+    """The stored file row for an on-disk name, so a download can be traced
+    back to its owning module.
+
+    /lms/files/<filename> served anything in the upload directory to any
+    logged-in user. Without this lookup there was nothing to authorise
+    against: the filename alone does not say which module — or whose
+    programme — the material belongs to.
+    """
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM lms_module_files WHERE filename=%s LIMIT 1",
+                (filename,))
+    row = cur.fetchone(); cur.close(); conn.close()
+    return dict(row) if row else None

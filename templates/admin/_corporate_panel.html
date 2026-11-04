@@ -3,6 +3,28 @@
    static markup, so Jinja keeps it consistent with the rest of the console. #}
 {% set charged = rec.amount_centavos / 100 %}
 
+<section style="margin-bottom:1.25rem" aria-labelledby="corp-email-heading">
+  <div class="corp-sub" id="corp-email-heading">Company email</div>
+  <p id="corp-current-email" style="overflow-wrap:anywhere">{{ rec.contact_email or 'No email address saved' }}</p>
+  {% if rec.status == 'pending' %}
+  <details id="corp-email-editor" style="margin-top:.75rem">
+    <summary class="btn-docs">Edit company email</summary>
+    <form id="corp-email-form" data-cid="{{ rec.id }}" onsubmit="return corpSaveEmail(event, {{ rec.id }})" style="margin-top:1rem">
+      <input type="hidden" name="expected_email" value="{{ rec.contact_email or '' }}">
+      <label class="corp-lab" for="corp-contact-email">Company email address</label>
+      <input class="corp-in" id="corp-contact-email" name="contact_email" type="email" required maxlength="254"
+             autocomplete="email" value="{{ rec.contact_email or '' }}">
+      <p class="corp-hint">Updates this invoice{% if rec.intake_id %} and its Company Intake contact{% endif %}. Past invoices and delivery records keep their original addresses. Saving does not send email.</p>
+      <button type="submit" class="btn-add">Save email</button>
+    </form>
+  </details>
+  {% if rec.intake_id and rec.pay_token_hash and not rec.pay_token_revoked_at %}
+  <button type="button" class="btn-docs" style="margin-top:.75rem" onclick="corpSendSavedLink(event, {{ rec.id }})">Send payment link</button>
+  {% endif %}
+  {% endif %}
+  <div id="corp-email-result" role="status" aria-live="polite"></div>
+</section>
+
 <div class="stats-grid" style="margin-bottom:1.25rem">
   <div class="stat-card c-blue">
     <div class="s-label">List total</div>
@@ -33,6 +55,34 @@
   {% if rec.override_at %}<span style="color:var(--text-tertiary)"> · set {{ rec.override_at.strftime('%d %b %Y, %H:%M') }}</span>{% endif %}
 </div>
 {% endif %}
+
+{% if rec.status == 'pending' %}
+<div class="corp-sub">Price override</div>
+{% if price_editable %}
+<form id="corp-price-form" data-cid="{{ rec.id }}" onsubmit="return corpSavePrice(event, {{ rec.id }})" style="margin-bottom:1.25rem">
+  <input type="hidden" name="expected_centavos" value="{{ rec.amount_centavos }}">
+  <div class="corp-grid-2">
+    <div>
+      <label class="corp-lab" for="corp-custom-total">Custom total (PHP, optional)</label>
+      <input class="corp-in" id="corp-custom-total" name="custom_total" inputmode="decimal"
+             value="{{ '{:.2f}'.format(rec.custom_total_php) if rec.custom_total_php is not none else '' }}"
+             placeholder="Published total: {{ '{:,.2f}'.format(rec.list_total_php) }}">
+      <p class="corp-hint">Leave blank to use the published total. This changes the whole invoice total.</p>
+    </div>
+    <div>
+      <label class="corp-lab" for="corp-override-note">Reason for price change (required)</label>
+      <textarea class="corp-in" id="corp-override-note" name="override_note" maxlength="2000" rows="2"
+                required placeholder="e.g. Agreed company discount">{{ rec.override_note or '' }}</textarea>
+    </div>
+  </div>
+  <button type="submit" class="btn-add">Save invoice total</button>
+  <p class="corp-hint">Set the final amount before generating a payment link. Published trainee prices remain in the record.</p>
+</form>
+{% else %}
+<p class="corp-note">{{ price_edit_reason }}</p>
+{% endif %}
+{% endif %}
+<div id="corp-price-result" role="status" aria-live="polite"></div>
 
 {% if rec.status == 'paid' %}
   {% if rec.tx_hash %}
@@ -81,64 +131,26 @@
 
 {% if rec.status == 'pending' %}
 <div class="corp-sub">Collect &#8369;{{ "{:,.2f}".format(charged) }}</div>
-<div id="corp-pay-err" class="corp-note corp-note--err" style="display:none"></div>
+<p class="corp-hint" style="margin-bottom:1rem">
+  <i class="fa-solid fa-shield-halved"></i>
+  Payment is collected on PayMongo&#39;s hosted page. Card details never reach
+  EnergyWize &mdash; staff never handle them.
+</p>
+{% else %}
+<div class="corp-sub">Payment operations</div>
+{% endif %}
 
-<div class="corp-tabs">
-  <button type="button" class="corp-tab active" id="corp-tab-card"
-          onclick="corpTab('card', this)"><i class="fa-solid fa-credit-card"></i> Card</button>
-  <button type="button" class="corp-tab" id="corp-tab-qr"
-          onclick="corpTab('qr', this)"><i class="fa-solid fa-qrcode"></i> QR / E-wallet</button>
+{# Deliberately OUTSIDE the pending gate. Attempts, attention flags and
+   unresolved gateway events belong to every status: a PAID invoice can still
+   have money that never settled, and a CANCELLED one can still hold an open
+   attempt whose guard blocks a replacement link. Hiding this panel once the
+   status moved on hid recovery exactly when it was needed. Link issuance is
+   gated inside hpRender() on invoice.collectable instead. #}
+<div id="corp-hp" data-cid="{{ rec.id }}">
+  <div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading payment operations&hellip;</div>
 </div>
 
-<div id="corp-panel-card" class="corp-pay-panel">
-  <div class="corp-grid-2">
-    <div>
-      <label class="corp-lab" for="corp-c-number">Card number</label>
-      <input class="corp-in" type="text" id="corp-c-number" inputmode="numeric"
-             maxlength="19" placeholder="1234 5678 9012 3456" autocomplete="off">
-    </div>
-    <div>
-      <label class="corp-lab" for="corp-c-name">Name on card</label>
-      <input class="corp-in" type="text" id="corp-c-name" placeholder="Juan dela Cruz" autocomplete="off">
-    </div>
-    <div>
-      <label class="corp-lab" for="corp-c-exp">Expiry (MM / YY)</label>
-      <input class="corp-in" type="text" id="corp-c-exp" inputmode="numeric"
-             maxlength="7" placeholder="MM / YY">
-    </div>
-    <div>
-      <label class="corp-lab" for="corp-c-cvc">CVC</label>
-      <input class="corp-in" type="text" id="corp-c-cvc" inputmode="numeric"
-             maxlength="4" placeholder="123">
-    </div>
-  </div>
-  <p class="corp-hint"><i class="fa-solid fa-shield-halved"></i>
-     PayMongo processes the card. The number never touches our servers.</p>
-  <button type="button" class="btn-add" id="corp-btn-card" onclick="corpPayCard({{ rec.id }})">
-    <i class="fa-solid fa-lock"></i> Charge &#8369;{{ "{:,.2f}".format(charged) }}
-  </button>
-</div>
-
-<div id="corp-panel-qr" class="corp-pay-panel" style="display:none">
-  <div style="text-align:center">
-    <div id="corp-qr-box" style="display:none">
-      <div id="corp-qr-state" class="corp-hint" style="justify-content:center">
-        <i class="fa-solid fa-circle-notch fa-spin"></i> Waiting for payment…
-      </div>
-      <img id="corp-qr-img" src="" alt="QRPH payment code"
-           style="max-width:220px;width:100%;background:#fff;padding:10px;border-radius:10px">
-      <p class="corp-hint" style="justify-content:center">
-        Valid until {{ rec.expires_at.strftime('%d %b %Y, %H:%M') }}
-      </p>
-      <a id="corp-qr-test" class="btn-docs" href="#" target="_blank" rel="noopener"
-         style="display:none"><i class="fa-solid fa-flask"></i> Simulate payment (test mode)</a>
-    </div>
-    <button type="button" class="btn-add" id="corp-btn-qr" onclick="corpGenQR({{ rec.id }})">
-      <i class="fa-solid fa-qrcode"></i> Generate QR code
-    </button>
-  </div>
-</div>
-
+{% if rec.status == 'pending' %}
 <div class="corp-sub">Cancel this invoice</div>
 <form method="post" action="{{ url_for('admin.corporate_cancel', cid=rec.id) }}"
       style="margin-bottom:1.25rem">

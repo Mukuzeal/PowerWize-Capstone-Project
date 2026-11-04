@@ -1,0 +1,151 @@
+/* Company status portal: use the site's colors and typography, with enough
+   space for contact details and review actions. Scoped to this page. */
+.company-roster__wrap {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.company-roster .fhead h1 {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1.08;
+}
+
+.company-roster__panel .section-header {
+  padding-block: 1.4rem;
+}
+
+.company-roster__panel .section-header p {
+  line-height: 1.8;
+}
+
+.company-roster__table-wrap {
+  overflow-x: auto;
+}
+
+.company-roster__table {
+  width: 100%;
+  min-width: 56rem;
+  table-layout: fixed;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: .875rem;
+  line-height: 1.6;
+}
+
+.company-roster__caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.company-roster__table th {
+  padding: 1rem 1.25rem;
+  color: var(--fg-mute);
+  font-family: var(--mono);
+  font-size: .65rem;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line-mid);
+}
+
+.company-roster__table th:nth-child(1) { width: 16%; }
+.company-roster__table th:nth-child(2) { width: 26%; }
+.company-roster__table th:nth-child(3) { width: 19%; }
+.company-roster__table th:nth-child(4) { width: 15%; }
+.company-roster__table th:nth-child(5) { width: 24%; }
+
+.company-roster__table td {
+  padding: 1.15rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.company-roster__table tbody tr:last-child td { border-bottom: 0; }
+.company-roster__name { font-weight: 600; }
+.company-roster__email,
+.company-roster__date,
+.company-roster__action { color: var(--fg-dim); }
+.company-roster__date { font-variant-numeric: tabular-nums; }
+
+.roster-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  max-width: 100%;
+  padding: .3rem .6rem;
+  border: 1px solid var(--line-mid);
+  color: var(--fg-dim);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.roster-status::before {
+  content: "";
+  width: .3rem;
+  height: .3rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.roster-status--approved { color: var(--signal); }
+.roster-status--pending { color: var(--fg); }
+.roster-status--correction,
+.roster-status--rejected { color: var(--ember-fg); }
+
+.company-roster__note {
+  margin: 0;
+  padding: 1.25rem 1.75rem;
+  border-top: 1px solid var(--line-mid);
+  color: var(--fg-mute);
+  font-size: .8rem;
+  line-height: 1.7;
+}
+
+.company-roster__table .company-roster__empty {
+  padding: 2.5rem 1.75rem;
+  color: var(--fg-dim);
+}
+
+@media (max-width: 720px) {
+  .company-roster__table { display: block; min-width: 0; }
+  .company-roster__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .company-roster__table tbody { display: block; }
+  .company-roster__table tr {
+    display: block;
+    padding: 1.2rem;
+    border-bottom: 1px solid var(--line-mid);
+  }
+  .company-roster__table tr:last-child { border-bottom: 0; }
+  .company-roster__table td {
+    display: grid;
+    grid-template-columns: 6.25rem minmax(0, 1fr);
+    gap: .6rem;
+    padding: .4rem 0;
+    border: 0;
+    align-items: start;
+  }
+  .company-roster__table td::before {
+    content: attr(data-label);
+    color: var(--fg-mute);
+    font-weight: 400;
+    font-size: .75rem;
+  }
+  .company-roster__table td .roster-status { justify-self: start; }
+  .company-roster__table .company-roster__empty { display: block; padding: 1rem 0; }
+  .company-roster__table .company-roster__empty::before { content: none; }
+  .company-roster__note { padding: 1.2rem; }
+}

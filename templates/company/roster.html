@@ -1,0 +1,91 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+
+{% block title %}Registration Status – {{ intake.company_name }}{% endblock %}
+{% block description %}Registration status for your nominated trainees.{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='company-roster.css') }}">
+{% endblock %}
+
+{% block main %}
+<section class="formpage company-roster">
+  <div class="shell">
+    <div class="company-roster__wrap">
+
+      {{ fhead(
+        [],
+        intake.company_name,
+        'Registration <em>status</em>',
+        'Where each of your nominated trainees stands. ' ~ total ~ ' expected.'
+      ) }}
+
+      <div class="form-card company-roster__panel">
+        <div class="section-header">
+          <div class="section-icon"><i class="fa-solid fa-list-check"></i></div>
+          <div>
+            <h2>Your roster</h2>
+            <p>
+              {%- set parts = [] -%}
+              {%- for key, label in [('approved','approved'), ('pending_review','pending review'),
+                                     ('needs_correction','needs correction'),
+                                     ('not_submitted','not submitted'), ('rejected','not approved')] -%}
+                {%- if counts.get(key) -%}{%- set _ = parts.append(counts.get(key) ~ ' ' ~ label) -%}{%- endif -%}
+              {%- endfor -%}
+              {{ parts | join(' · ') or 'No trainees listed yet' }}
+            </p>
+          </div>
+        </div>
+
+        <div class="company-roster__table-wrap">
+          <table class="company-roster__table">
+            <caption class="company-roster__caption">Registration status and next steps for {{ intake.company_name }} trainees</caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Status</th>
+                <th scope="col">Submitted</th>
+                <th scope="col">Action needed</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for s in slots %}
+              <tr>
+                <td data-label="Name" class="company-roster__name">{{ s.full_name }}</td>
+                <td data-label="Email" class="company-roster__email">{{ s.email }}</td>
+                <td data-label="Status">
+                  {% if s.status == 'approved' %}<span class="roster-status roster-status--approved">Approved</span>
+                  {% elif s.status == 'pending_review' %}<span class="roster-status roster-status--pending">{{ s.status_label }}</span>
+                  {% elif s.status == 'needs_correction' %}<span class="roster-status roster-status--correction">Needs correction</span>
+                  {% elif s.status == 'rejected' %}<span class="roster-status roster-status--rejected">Not approved</span>
+                  {% else %}<span class="roster-status">Not submitted</span>{% endif %}
+                </td>
+                <td data-label="Submitted" class="company-roster__date">{{ s.submitted_at.strftime('%d %b %Y') if s.submitted_at else '—' }}</td>
+                <td data-label="Action needed" class="company-roster__action">
+                  {% if s.status == 'needs_correction' and s.correction %}{{ s.correction }}
+                  {% elif s.status == 'not_submitted' and s.invite_revoked %}Invitation withdrawn — contact EnergyWize
+                  {% elif s.status == 'not_submitted' %}Awaiting their submission
+                  {% elif s.status == 'rejected' %}Please contact EnergyWize
+                  {% else %}—{% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="company-roster__empty">No trainees have been added to this intake yet.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="company-roster__note">
+          Uploaded documents are not shown here. EnergyWize contacts each
+          trainee directly about their own requirements.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

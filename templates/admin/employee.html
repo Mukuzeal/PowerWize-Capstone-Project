@@ -351,10 +351,33 @@
     <span class="dash__ico"><i class="fa-solid fa-chart-line"></i></span>
     <span class="dash__label">Trainee progress</span>
   </button>
+  <button class="dash__item" type="button" data-section="company-batches">
+    <span class="dash__no">06</span>
+    <span class="dash__ico"><i class="fa-solid fa-users"></i></span>
+    <span class="dash__label">My company batches</span>
+  </button>
   {% endif %}
 </nav>
 
 <main class="dash__main" id="main">
+
+  {% if can('manage_modules') %}
+  <section class="dpane" id="pane-company-batches" aria-labelledby="h-company-batches">
+    <div class="dhead"><div><p class="mono mono--signal">Assigned training</p>
+      <h1 id="h-company-batches">My company batches</h1></div></div>
+    {% for batch in assigned_classes %}
+    <article class="dcard" style="margin-bottom:1rem;padding:1rem">
+      <h2 style="margin-top:0">{{ batch.name }}</h2>
+      <p>{{ batch.company_name or 'Company batch' }} · {{ batch.member_count }} joined trainee(s)</p>
+      <p>Class code: <strong>{{ batch.join_code }}</strong> · {{ 'Open to joins' if batch.join_open else 'Joining closed' }}</p>
+      <button type="button" class="act" onclick="loadAssignedBatch({{ batch.id }},this)">Members &amp; progress</button>
+      <div id="assigned-batch-{{ batch.id }}" role="status" aria-live="polite" style="margin-top:1rem;overflow-x:auto"></div>
+    </article>
+    {% else %}
+    <p>No company batches assigned yet. An administrator can assign you from Company Intake.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
 
   {# ── 01 · Dashboard ─────────────────────────────────────────────────────── #}
   <section class="dpane is-on" id="pane-dashboard" aria-labelledby="h-dashboard">
@@ -742,6 +765,41 @@
   {% endif %}
 
 </main>
+<script>
+async function loadAssignedBatch(id,button) {
+  var out = document.getElementById('assigned-batch-'+id);
+  button.disabled = true;
+  out.textContent = 'Loading trainee progress…';
+  try {
+    var res = await fetch('/api/class/'+id+'/progress');
+    if (!res.ok) throw new Error(res.status === 403 ? 'This batch is no longer assigned to you, or your training access changed.' : 'Could not load this batch (HTTP '+res.status+').');
+    var d = await res.json();
+    out.replaceChildren();
+    var summary = document.createElement('p');
+    summary.textContent = d.batch.members+' joined trainee(s) · '+d.batch.pct+'% batch progress';
+    out.appendChild(summary);
+    if (!d.members.length) {
+      var empty = document.createElement('p');empty.textContent = 'No trainees have joined this batch yet.';out.appendChild(empty);
+    } else {
+      var table = document.createElement('table');table.style.width='100%';
+      var head = table.createTHead().insertRow();
+      ['Trainee','Email','Modules completed','Progress','Next requirement'].forEach(function(label) {
+        var cell=document.createElement('th');cell.scope='col';cell.textContent=label;head.appendChild(cell);
+      });
+      var body=table.createTBody();
+      d.members.forEach(function(member) {
+        var row=body.insertRow();
+        [member.name,member.email,member.completed+' / '+member.total,member.pct+'%',
+          member.next ? member.next.module+' — '+member.next.label : 'No outstanding module requirements'].forEach(function(value) {
+            var cell=row.insertCell();cell.textContent=value;
+          });
+      });
+      out.appendChild(table);
+    }
+  } catch(e) {out.textContent=String(e.message || e)+' Use Members & progress to retry.';}
+  finally {button.disabled=false;}
+}
+</script>
 
 <footer class="dash__foot">
   <p class="mono">© {{ year }} {{ SITE.legal }} · DOE training programme</p>
