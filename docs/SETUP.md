@@ -124,6 +124,46 @@ LM_STUDIO_MODEL=local-model
 fastembed/ONNX with no GPU required, so retrieval keeps working even when LM
 Studio is not running. This is the recommended default.
 
+### Why not OpenRouter — evaluated 2026-11-04
+
+OpenRouter was considered as a replacement for Groq and **not adopted**.
+Recording the reasoning so the question does not get re-opened from scratch.
+
+In its favour, and both points still stand:
+
+- It fronts 300+ models, so vision work would stop depending on one vendor's
+  catalogue. This is a real weakness of Groq here — the key in use could reach
+  exactly **one** image-capable model, and the model the code originally
+  defaulted to had already been retired.
+- It has an embeddings endpoint, which Groq does not. Of limited value to this
+  project, since `local_cpu` embeds in-process with no network call and no cost.
+
+Against, and decisive:
+
+- **Free tier is 50 requests/day, 20/minute**, lifting to 1,000/day only after a
+  one-time paid credit purchase. One end-to-end walkthrough of this system
+  spends 15–30 requests: a Solara turn costs 2–3 (extractor, topic gate, chat),
+  each registration's uploads cost 2 vision calls, and quiz generation, bill
+  OCR and every module-assistant question cost one each. That is one or two
+  demonstrations per day — unacceptable for a panel session.
+- **Latency.** Groq is materially faster, and a Solara turn makes its calls
+  sequentially. The measured baseline is in [RAG_SETUP.md](RAG_SETUP.md); any
+  provider change must be re-measured with `scripts/solar_latency_check.py`
+  rather than assumed.
+- **Grounding behaviour is model-sensitive.** The post-generation guard discards
+  the model's text when it contains a number matching no computed value. A
+  different model phrases figures differently and can trip that guard more
+  often, silently pushing replies onto the deterministic template. `RAG_MIN_SCORE`
+  is tuned from `scripts/rag_eval.py` output, not guessed, so switching models
+  means re-running it.
+
+If this is revisited, the cheap path is **not** a fourth provider branch. All
+four call sites — `lms_bp/_shared.py`, `solar_bp.py`, `upload_validation.py`,
+`ocr_module.py` — already speak OpenAI-compatible `/v1/chat/completions` with
+identical request bodies, and so does the LM Studio path. Making the base URL,
+key and model configurable turns the choice into three environment variables and
+*collapses* the dispatch logic instead of growing it.
+
 ### Retrieval tuning
 
 ```ini
