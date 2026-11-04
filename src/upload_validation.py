@@ -28,7 +28,7 @@ AI_PROVIDER = os.getenv("VISION_PROVIDER", os.getenv("AI_PROVIDER", "groq")).low
 
 # Groq config
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # LMStudio config

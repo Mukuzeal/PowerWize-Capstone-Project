@@ -61,7 +61,8 @@ retained as audit evidence.
 |---|---|
 | **[System Documentation](docs/SYSTEM_DOCUMENTATION.md)** | Architecture, context and level-1 DFDs, use-case diagram, the full 36-table ERD, and sequence diagrams — all derived from source |
 | **[User Manual](docs/USER_MANUAL.md)** | Step-by-step guide for every role, illustrated with captured screens |
-| **[Setup & Deployment Guide](docs/SETUP.md)** | Installation, configuration, database bootstrap, and deployment |
+| **[Setup Guide](docs/SETUP.md)** | Installation, configuration, database bootstrap, and verification |
+| **[Azure Deployment](docs/DEPLOY_AZURE.md)** | Hosting on Azure App Service — database, persistent uploads, settings, and post-deploy steps |
 | **[Screenshots](docs/screenshots/)** | 48 captured frames across the six major feature areas |
 | **[RAG Setup](docs/RAG_SETUP.md)** | Retrieval configuration, threshold tuning, and grounding internals for Solara |
 | **[CLAUDE.md](CLAUDE.md)** | Developer-facing architecture notes and repository conventions |

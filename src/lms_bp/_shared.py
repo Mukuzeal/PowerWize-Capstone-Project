@@ -11,14 +11,20 @@ from db import (lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms
                lms_get_modules_for_trainee, lms_get_module, class_gate)
 
 _PROJECT_ROOT    = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-LMS_UPLOAD_DIR   = os.path.join(_PROJECT_ROOT, 'uploads', 'lms')
-EXAM_UPLOAD_DIR  = os.path.join(_PROJECT_ROOT, 'uploads', 'exam_submissions')
+# Same reasoning as app.py's data_dir: module material and exam submissions
+# must survive a redeploy, so hosting points POWERWIZE_DATA_DIR at persistent
+# storage outside the deployed tree. Defaults to the project root for local
+# runs. Both files read the one variable so the two never diverge.
+_DATA_ROOT       = os.getenv("POWERWIZE_DATA_DIR", _PROJECT_ROOT)
+LMS_UPLOAD_DIR   = os.path.join(_DATA_ROOT, 'uploads', 'lms')
+EXAM_UPLOAD_DIR  = os.path.join(_DATA_ROOT, 'uploads', 'exam_submissions')
 os.makedirs(LMS_UPLOAD_DIR,  exist_ok=True)
 os.makedirs(EXAM_UPLOAD_DIR, exist_ok=True)
 
-# Quiz generation and hints are text work, so they follow TEXT_PROVIDER rather
-# than whichever model is configured for reading documents. See solar_bp.py for
-# the full split; AI_PROVIDER remains the fallback for both.
+# Quiz generation, hints and the module assistant are text work, so they follow
+# TEXT_PROVIDER rather than whichever model is configured for reading documents.
+# See solar_bp.py for the full split; AI_PROVIDER remains the fallback for both.
+# Read by _text_chat, which every AI call in this package goes through.
 AI_PROVIDER     = os.getenv("TEXT_PROVIDER", os.getenv("AI_PROVIDER", "groq")).lower()
 GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL      = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
@@ -146,6 +152,36 @@ def _extract_text(filepath, original_name):
     return text[:6000]
 
 
+def _text_chat(messages, system=None, max_tokens=512, temperature=0.7):
+    """Send a text completion to whichever provider TEXT_PROVIDER names.
+
+    Both callers below used to post straight at LM_STUDIO_URL, so AI_PROVIDER
+    was computed and never read: under the documented TEXT_PROVIDER=groq setup
+    the request went to a local server that is not running, and quiz generation
+    and the module assistant both failed. solar_bp.py::_ai_chat does this same
+    dispatch for the consultation path; this is the LMS half of it.
+    """
+    body = ([{"role": "system", "content": system}] + messages) if system else messages
+    if AI_PROVIDER == "lmstudio":
+        resp = _http.post(
+            f"{LM_STUDIO_URL}/v1/chat/completions",
+            json={"model": LM_STUDIO_MODEL, "messages": body,
+                  "max_tokens": max_tokens, "temperature": temperature, "stream": False},
+            timeout=120,
+        )
+    else:
+        resp = _http.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={"model": GROQ_MODEL, "messages": body,
+                  "max_tokens": max_tokens, "temperature": temperature},
+            timeout=60,
+        )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
+
 def _ai_generate_quiz(content_text, module_title, num_questions=10):
     prompt = (
         f'You are creating a quiz for a training module titled "{module_title}".\n\n'
@@ -167,15 +203,8 @@ def _ai_generate_quiz(content_text, module_title, num_questions=10):
         ']\n'
         'Each question must have exactly 4 choices with exactly 1 correct answer.'
     )
-    resp = _http.post(
-        f"{LM_STUDIO_URL}/v1/chat/completions",
-        json={"model": LM_STUDIO_MODEL,
-              "messages": [{"role": "user", "content": prompt}],
-              "max_tokens": 3000, "temperature": 0.3, "stream": False},
-        timeout=120,
-    )
-    resp.raise_for_status()
-    raw = resp.json()["choices"][0]["message"]["content"].strip()
+    raw = _text_chat([{"role": "user", "content": prompt}],
+                     max_tokens=3000, temperature=0.3)
     start, end = raw.find('['), raw.rfind(']') + 1
     if start >= 0 and end > start:
         raw = raw[start:end]
@@ -198,15 +227,7 @@ def _ai_module_chat(messages, module_title, module_content):
         'Do not answer the off-topic part even partially, even as a joke or a one-liner.\n\n'
         f'Module content summary:\n{module_content[:2500] if module_content else "No content available."}'
     )
-    resp = _http.post(
-        f"{LM_STUDIO_URL}/v1/chat/completions",
-        json={"model": LM_STUDIO_MODEL,
-              "messages": [{"role": "system", "content": system}] + messages[-10:],
-              "max_tokens": 512, "temperature": 0.7, "stream": False},
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"].strip()
+    return _text_chat(messages[-10:], system=system, max_tokens=512, temperature=0.7)
 
 
 def _module_content_text(module_id):

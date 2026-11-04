@@ -124,6 +124,46 @@ LM_STUDIO_MODEL=local-model
 fastembed/ONNX with no GPU required, so retrieval keeps working even when LM
 Studio is not running. This is the recommended default.
 
+### Why not OpenRouter — evaluated 2026-11-04
+
+OpenRouter was considered as a replacement for Groq and **not adopted**.
+Recording the reasoning so the question does not get re-opened from scratch.
+
+In its favour, and both points still stand:
+
+- It fronts 300+ models, so vision work would stop depending on one vendor's
+  catalogue. This is a real weakness of Groq here — the key in use could reach
+  exactly **one** image-capable model, and the model the code originally
+  defaulted to had already been retired.
+- It has an embeddings endpoint, which Groq does not. Of limited value to this
+  project, since `local_cpu` embeds in-process with no network call and no cost.
+
+Against, and decisive:
+
+- **Free tier is 50 requests/day, 20/minute**, lifting to 1,000/day only after a
+  one-time paid credit purchase. One end-to-end walkthrough of this system
+  spends 15–30 requests: a Solara turn costs 2–3 (extractor, topic gate, chat),
+  each registration's uploads cost 2 vision calls, and quiz generation, bill
+  OCR and every module-assistant question cost one each. That is one or two
+  demonstrations per day — unacceptable for a panel session.
+- **Latency.** Groq is materially faster, and a Solara turn makes its calls
+  sequentially. The measured baseline is in [RAG_SETUP.md](RAG_SETUP.md); any
+  provider change must be re-measured with `scripts/solar_latency_check.py`
+  rather than assumed.
+- **Grounding behaviour is model-sensitive.** The post-generation guard discards
+  the model's text when it contains a number matching no computed value. A
+  different model phrases figures differently and can trip that guard more
+  often, silently pushing replies onto the deterministic template. `RAG_MIN_SCORE`
+  is tuned from `scripts/rag_eval.py` output, not guessed, so switching models
+  means re-running it.
+
+If this is revisited, the cheap path is **not** a fourth provider branch. All
+four call sites — `lms_bp/_shared.py`, `solar_bp.py`, `upload_validation.py`,
+`ocr_module.py` — already speak OpenAI-compatible `/v1/chat/completions` with
+identical request bodies, and so does the LM Studio path. Making the base URL,
+key and model configurable turns the choice into three environment variables and
+*collapses* the dispatch logic instead of growing it.
+
 ### Retrieval tuning
 
 ```ini
@@ -349,6 +389,10 @@ tuned from.
 
 ## 8. Deployment
 
+For a step-by-step hosted deployment on Azure App Service — the platform this
+project is hosted on — see **[DEPLOY_AZURE.md](DEPLOY_AZURE.md)**. The rest of
+this section covers what any platform needs.
+
 ### Production server
 
 `Procfile` holds the production command:
@@ -363,16 +407,30 @@ requirement described in [section 5](#5-running-the-application).
 ### Platform checklist
 
 1. Provision a PostgreSQL instance and set `DATABASE_URL` to its connection
-   string.
+   string. Most managed providers require TLS — append `?sslmode=require`.
 2. Set every variable from [section 3](#3-configuration) in the platform's
    environment configuration. Do not upload `.env`.
-3. Deploy. `init_db()` creates the schema on first boot.
-4. Register the PayMongo webhook against
+3. **Point `POWERWIZE_DATA_DIR` at persistent storage outside the deployed
+   tree.** Uploaded registration documents, module material and exam
+   submissions are written to disk, and their database rows outlive the
+   process — if the files are wiped by a redeploy, those rows point at nothing.
+   Unset, uploads land next to the code, which is wrong anywhere the deployed
+   tree is replaced on deployment.
+4. **Point `EMBED_CACHE_DIR` at persistent storage too.** The embedding model
+   is a ~130 MB download; without a durable cache it is re-fetched on every
+   cold start, and the first visitor pays for it.
+5. Set `TEXT_PROVIDER` and `VISION_PROVIDER` to `groq`. A hosted deployment has
+   no LM Studio server to reach, so those calls would hang until they timed
+   out. `EMBED_PROVIDER=local_cpu` is correct and runs in-process.
+6. Deploy. `init_db()` creates the schema on first boot.
+7. Register the PayMongo webhook against
    `https://your-domain/payment/webhook`.
-5. Fund the Polygon wallet.
-6. Create the first administrator with `scripts/create_admin.py`, passing the
-   password by environment variable.
-7. Build the retrieval index ([section 7](#7-building-the-retrieval-index)).
+8. Fund the Polygon wallet.
+9. Create the first administrator with `scripts/create_admin.py`, passing the
+   password by environment variable and `POWERWIZE_ALLOW_REMOTE=1` to clear the
+   non-localhost guard.
+10. Build the retrieval index ([section 7](#7-building-the-retrieval-index)),
+    again with `POWERWIZE_ALLOW_REMOTE=1`.
 
 ### Exposing a local server for webhook testing
 
