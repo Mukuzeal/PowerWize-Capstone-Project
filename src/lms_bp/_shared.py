@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from datetime import datetime
 
@@ -211,6 +212,59 @@ def _ai_generate_quiz(content_text, module_title, num_questions=10):
     return json.loads(raw)
 
 
+# Asked to summarise a module, both gpt-oss and Llama reach for a markdown
+# table or a bold-headed outline. The chat panel renders a reply as text with
+# newlines turned into <br> (learn_module.html::appendBubble), so that markup
+# reaches the trainee literally — rows of pipes, stray asterisks, '###'. The
+# prompt asks for prose; this strips what the model sends regardless.
+_MD_TABLE_RULE = re.compile(r'^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$')
+_MD_HEADING    = re.compile(r'^\s*#{1,6}\s*')
+_MD_BULLET     = re.compile(r'^\s*([-*+•]|\d+[.)])\s+')
+_MD_BOLD       = re.compile(r'\*\*(.+?)\*\*|__(.+?)__', re.S)
+# Paired single asterisks only, so an '8 * 24' in a worked figure keeps its operator.
+_MD_ITALIC     = re.compile(r'(?<![\w*])\*(\S|\S[^*\n]*?\S)\*(?![\w*])')
+
+
+def _strip_markdown(text):
+    out = []
+    last_row = None
+    for line in (text or '').split('\n'):
+        if _MD_TABLE_RULE.match(line):
+            # The row above a |---|---| rule is the table's header, which says
+            # nothing once the rows are prose ("Topic — What You'll Understand").
+            if last_row is not None and last_row == len(out) - 1:
+                out.pop()
+            continue
+        if line.strip().startswith('|'):
+            cells = [c.strip() for c in line.strip().strip('|').split('|')]
+            line = ' — '.join(c for c in cells if c)
+            last_row = len(out)
+        line = _MD_HEADING.sub('', line)
+        line = _MD_BULLET.sub('', line)
+        line = _MD_BOLD.sub(lambda m: m.group(1) or m.group(2), line)
+        line = _MD_ITALIC.sub(r'\1', line)
+        out.append(line.replace('`', '').rstrip())
+    return '\n'.join(out).strip()
+
+# Even with the prompt above, the model often answers in one unbroken wall of
+# text, which the panel renders as a single block. Splitting after every third
+# sentence is what the prompt asked for, applied when the model didn't do it
+# itself. A reply that already has line breaks is left alone — it is either
+# paragraphed already, or it is a list the stripper flattened and re-grouping
+# would run the items together.
+_SENTENCE_END = re.compile(r'(?<=[.!?])\s+')
+
+
+def _paragraphize(text, per_para=3, min_len=320):
+    if '\n' in text or len(text) < min_len:
+        return text
+    sents = [s for s in _SENTENCE_END.split(text) if s]
+    if len(sents) <= per_para:
+        return text
+    return '\n\n'.join(' '.join(sents[i:i + per_para])
+                         for i in range(0, len(sents), per_para))
+
+
 def _ai_module_chat(messages, module_title, module_content):
     system = (
         f'You are a learning assistant for the module: "{module_title}".\n\n'
@@ -225,9 +279,15 @@ def _ai_module_chat(messages, module_title, module_content):
         'other subjects, other companies\' products, etc.), say: "That\'s outside what I '
         'can help with here — I\'m here for questions about this module\'s material." '
         'Do not answer the off-topic part even partially, even as a joke or a one-liner.\n\n'
+        'FORMAT: reply in plain conversational sentences, the way you would say it '
+        'out loud. No markdown at all — no tables, no bullet or numbered lists, no '
+        'headings, no bold or italics, no code fences. Break the answer into two '
+        'to four short paragraphs of two or three sentences each, with a blank '
+        'line between them — never one long block of text.\n\n'
         f'Module content summary:\n{module_content[:2500] if module_content else "No content available."}'
     )
-    return _text_chat(messages[-10:], system=system, max_tokens=512, temperature=0.7)
+    return _paragraphize(_strip_markdown(
+        _text_chat(messages[-10:], system=system, max_tokens=512, temperature=0.7)))
 
 
 def _module_content_text(module_id):
