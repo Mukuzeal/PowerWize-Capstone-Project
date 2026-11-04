@@ -389,9 +389,16 @@ tuned from.
 
 ## 8. Deployment
 
-For a step-by-step hosted deployment on Azure App Service — the platform this
-project is hosted on — see **[DEPLOY_AZURE.md](DEPLOY_AZURE.md)**. The rest of
-this section covers what any platform needs.
+Two step-by-step runbooks cover the hosted deployment:
+
+- **[DEPLOY_RENDER.md](DEPLOY_RENDER.md)** — Render for the app, Supabase for
+  the database. Includes importing your local database and the free-tier
+  trade-offs (spin-down, 512 MB, ephemeral disk).
+- **[DEPLOY_AZURE.md](DEPLOY_AZURE.md)** — Azure App Service with Azure
+  PostgreSQL. More headroom and a persistent `/home` mount, so uploads need no
+  code change.
+
+The rest of this section covers what any platform needs.
 
 ### Production server
 

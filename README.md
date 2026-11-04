@@ -64,6 +64,7 @@ retained as audit evidence.
 | **[User Manual](docs/USER_MANUAL.md)** | Step-by-step guide for every role, illustrated with captured screens |
 | **[Setup Guide](docs/SETUP.md)** | Installation, configuration, database bootstrap, and verification |
 | **[Azure Deployment](docs/DEPLOY_AZURE.md)** | Hosting on Azure App Service — database, persistent uploads, settings, and post-deploy steps |
+| **[Render + Supabase Deployment](docs/DEPLOY_RENDER.md)** | Hosting on Render with a Supabase database — connection modes, importing the local database, and plan trade-offs |
 | **[Screenshots](docs/screenshots/)** | 48 captured frames across the six major feature areas |
 | **[RAG Setup](docs/RAG_SETUP.md)** | Retrieval configuration, threshold tuning, and grounding internals for Solara |
 | **[CLAUDE.md](CLAUDE.md)** | Developer-facing architecture notes and repository conventions |
