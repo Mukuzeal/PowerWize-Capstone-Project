@@ -129,8 +129,20 @@ section{padding-block:var(--sp-section); border-bottom:1px solid var(--line)}
   font-family:var(--mono); font-size:var(--fs-mono-lg); font-weight:700;
   color:var(--signal); letter-spacing:.08em;
 }
-.objectives strong{display:block; font-weight:600; margin-bottom:.3rem}
+.objectives strong{display:block; font-weight:600; margin-bottom:.55rem}
 .objectives span{color:var(--fg-dim); font-size:.95rem}
+.objectives ul{list-style:none; margin:.35rem 0 0; padding:0; counter-reset:sub}
+.objectives ul li{
+  counter-increment:sub; border:0; padding:.3rem 0 .3rem 2.6rem;
+  position:relative; color:var(--fg-dim); font-size:.92rem; line-height:1.55;
+}
+.objectives ul li:last-child{border-bottom:0}
+.objectives ul li::before{
+  content:counter(obj) "." counter(sub);
+  position:absolute; left:0; top:.42rem;
+  font-family:var(--mono); font-size:var(--fs-mono); font-weight:400;
+  color:var(--fg-ghost); letter-spacing:.06em;
+}
 
 /* ── phase strip (methodology) ──────────────────────────── */
 .phases{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); border-top:1px solid var(--line-mid)}
@@ -202,6 +214,19 @@ section{padding-block:var(--sp-section); border-bottom:1px solid var(--line)}
 }
 .stack td{color:var(--fg-dim)}
 .stack tr:last-child th,.stack tr:last-child td{border-bottom:0}
+
+/* ── concerns table ─────────────────────────────────────── */
+.tablewrap{overflow-x:auto; border:1px solid var(--line-mid); background:var(--ink-050)}
+.concerns{width:100%; border-collapse:collapse; font-size:.9rem; min-width:720px}
+.concerns th{
+  text-align:left; padding:.9rem 1.1rem; border-bottom:1px solid var(--line-mid);
+  font-family:var(--mono); font-size:var(--fs-mono); font-weight:500;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--fg-mute); white-space:nowrap;
+}
+.concerns td{padding:.95rem 1.1rem; border-bottom:1px solid var(--line); vertical-align:top; color:var(--fg-dim)}
+.concerns tr:last-child td{border-bottom:0}
+.concerns td:first-child{color:var(--fg); font-weight:500}
+.concerns td.ev{font-family:var(--mono); font-size:var(--fs-mono); letter-spacing:.06em; color:var(--fg-ghost); text-transform:uppercase; white-space:nowrap}
 
 /* ── metrics ────────────────────────────────────────────── */
 .metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line-mid); border:1px solid var(--line-mid)}
@@ -385,64 +410,75 @@ footer{padding-block:clamp(3rem,5vw,4.5rem); border-bottom:0}
 <section id="problem">
   <div class="wrap">
     <div class="sec-head rv">
-      <span class="label"><span class="tick">02</span>Problem Statement</span>
+      <span class="label"><span class="tick">02</span>Project Context</span>
       <h2>What was actually broken</h2>
       <p>
-        EnergyWize's training and consultation operations were constrained by manual,
-        paper-dependent processes with no verifiable record of what had been issued.
+        EnergyWize Solutions Inc. is a DOE-accredited Recognized Training Institution. Delivering
+        consistent training, validating payments and issuing authentic certificates is therefore a
+        <strong>regulatory compliance matter, not merely an operational efficiency concern</strong>.
+        Yet these processes ran on email and manual steps.
       </p>
     </div>
 
-    <div class="two-col">
+    <div class="prose rv">
+      <p>
+        Training material, quizzes and certificates were distributed by email without any
+        integrated or automated system. Because each action — submitting a quiz, confirming a
+        payment, issuing a certificate — was performed by hand, staff time went to repetitive
+        work and the process carried a standing risk of information loss, delay and error. Given
+        that the CEM, CEA and GEMP programmes are DOE-accredited, those errors carry regulatory
+        consequences.
+      </p>
+      <p>
+        Rather than rest on general descriptions such as "time-consuming" or "inefficient," the
+        study documented each concern against the evidence that established it, gathered through
+        preliminary interviews and process observation with EnergyWize staff.
+      </p>
+    </div>
+
+    <div class="tablewrap rv" style="margin-top:clamp(1.75rem,3vw,2.5rem)">
+      <table class="concerns">
+        <thead>
+          <tr><th>Existing process</th><th>Current method</th><th>Identified problem</th><th>Evidence</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Training materials distribution</td><td>Email</td><td>Difficult to track completion</td><td class="ev">Staff interview</td></tr>
+          <tr><td>Quiz submission</td><td>Manual / email-based</td><td>Delayed monitoring of scores</td><td class="ev">Process observation</td></tr>
+          <tr><td>Payment verification</td><td>Manual reference checking</td><td>Verification delay, risk of error</td><td class="ev">Staff interview</td></tr>
+          <tr><td>Certificate issuance</td><td>Email (PDF)</td><td>Difficult third-party verification</td><td class="ev">Document review</td></tr>
+          <tr><td>Solar PV calculation</td><td>Manual computation by staff</td><td>Time-consuming; depends on staff availability</td><td class="ev">Staff interview</td></tr>
+          <tr><td>Records management</td><td>Separate spreadsheets / tools</td><td>Fragmented information across programmes</td><td class="ev">Process observation</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col" style="margin-top:clamp(2rem,3.5vw,3rem)">
       <div class="prose rv">
         <p>
-          <strong>Enrolment could not be trusted or traced.</strong> Registrations arrived as
-          paper forms and email attachments. Verifying that an applicant was who they claimed
-          meant manually comparing a photocopied ID against a submitted photograph, with no
-          record of who checked what, or when. Nothing prevented an unverified enrolment.
-        </p>
-        <p>
-          <strong>Certificates could not be authenticated.</strong> A printed certificate is only
-          as credible as the organisation vouching for it. An employer or accrediting body
-          holding one had no way to confirm it was genuine and unaltered without contacting
-          EnergyWize directly — and EnergyWize had no way to prove a record had not been
-          modified after issue.
-        </p>
-        <p>
-          <strong>Payments were reconciled by hand.</strong> Corporate enrolments covering dozens
-          of employees were tracked on spreadsheets, with no systematic link between a
-          settled invoice and the specific trainees it entitled, and no durable proof of
-          settlement.
+          Beyond these, the existing setup had <strong>no automated tool for Solar PV consultation
+          computation</strong> — system sizing, load estimation, panel configuration and cost
+          estimation all depended on manual calculation by staff, limiting both consistency and
+          the volume of clients the company could serve professionally.
         </p>
       </div>
-
       <div class="prose rv">
         <p>
-          <strong>Training delivery did not scale.</strong> Assessment was manual at every stage.
-          Writing quizzes consumed instructor hours that could have gone to instruction, and a
-          trainee's progress existed only in whatever record their instructor happened to keep.
-        </p>
-        <p>
-          <strong>Solar consultations were a bottleneck.</strong> Every technical question — even
-          a basic one about sizing, net metering, or battery necessity — required an engineer.
-          Prospects waited for callbacks, and interest decayed while they waited. Deploying a
-          general-purpose chatbot instead was not an acceptable substitute: an assistant that
-          confidently invents a system size or a payback period does measurable commercial
-          damage.
-        </p>
-        <p>
-          <strong>Nothing was auditable.</strong> Across all of the above there was no single
-          record of who approved an enrolment, who altered a price, who issued a certificate, or
-          on what basis a consultation was quoted.
+          Payment verification used <strong>no cryptographic or blockchain safeguards</strong>,
+          leaving enrolment-fee records disputable, and certificates issued under the CEM, CEA and
+          GEMP programmes carried no tamper-evident validation. As employers and government
+          agencies increasingly expect verifiable digital credentials, the absence of a secure
+          tokenized certificate system is a competitive liability and a compliance risk.
         </p>
       </div>
     </div>
 
-    <div class="note rv">
-      <strong>Note for the research team.</strong> This section and the objectives below were
-      drafted from the implemented system and should be replaced with the exact wording of
-      Chapter 1 of the manuscript once it is final, so the website and the manuscript do not
-      diverge.
+    <div class="prose rv" style="margin-top:clamp(1.5rem,2.5vw,2rem)">
+      <p>
+        All of these point to one technical hurdle: <strong>the lack of a single integrated digital
+        platform</strong> that applies AI to CEM, CEA and GEMP training and evaluation, automates
+        Solar PV consultation computation, secures payments through blockchain verification, and
+        delivers tamper-proof tokenized certificates. That gap is what PowerWize was built to close.
+      </p>
     </div>
   </div>
 </section>
@@ -454,64 +490,84 @@ footer{padding-block:clamp(3rem,5vw,4.5rem); border-bottom:0}
       <span class="label"><span class="tick">03</span>Objectives</span>
       <h2>What the system set out to achieve</h2>
       <p>
-        <strong>General objective —</strong> to design and develop an AI-enhanced training and
-        consultation system with blockchain payment verification and tokenized certificates for
-        EnergyWize Solutions Inc., addressing the manual processes, unverifiable records, and
-        consultation bottlenecks identified above.
+        <strong>General objective —</strong> to design, develop, and evaluate PowerWize — an
+        AI-Enhanced Training and Consultation System with Blockchain Payment Verification and
+        Tokenized Certificates — to improve the operational efficiency, data integrity, and service
+        quality of EnergyWize Solutions Inc. in managing its DOE-accredited energy certification
+        training programs, specifically the Certified Energy Manager (CEM), Certified Energy
+        Auditor (CEA), and Government Energy Management Program (GEMP) Training and Workshop,
+        as well as its Solar PV consultation services.
       </p>
     </div>
 
     <span class="label rv" style="display:block;margin-bottom:1.25rem">Specific objectives</span>
     <ol class="objectives rv">
       <li>
-        <strong>Digitise and secure enrolment end to end</strong>
-        <span>Replace paper registration with online programme-specific forms, screen uploaded
-        government IDs and selfies with a vision model at the point of upload, and make account
-        creation strictly invitation-only so no unverified trainee can enter the system.</span>
+        <strong>To develop an AI-supported learning assistant for the CEM, CEA, and GEMP online
+        training programs by:</strong>
+        <ul>
+          <li>Analysing trainee performance and learning patterns to generate contextual explanations of complex course materials</li>
+          <li>Providing intelligent quiz hints and personalized feedback based on individual knowledge gaps</li>
+          <li>Guiding trainees through technical concept comprehension and program evaluation</li>
+          <li>Assisting instructors in creating quiz questions aligned with learning objectives</li>
+        </ul>
       </li>
       <li>
-        <strong>Anchor payment records to a public blockchain</strong>
-        <span>Hash each settled payment and write it to the Polygon network, exposing a public
-        verification page so that proof of settlement does not depend on EnergyWize's own
-        records remaining intact.</span>
+        <strong>To develop an AI-assisted Solar PV consultation computation engine that:</strong>
+        <ul>
+          <li>Analyzes client-supplied data, including energy load requirements, site location, available roof or land area, and equipment specifications</li>
+          <li>Generates Solar PV system sizing recommendations based on predefined engineering parameters and client-supplied data</li>
+          <li>Reduces the need for manual computation by automating predefined Solar PV sizing and estimation procedures</li>
+        </ul>
       </li>
       <li>
-        <strong>Issue tokenized, independently verifiable certificates</strong>
-        <span>Anchor each issued certificate on-chain and attach a QR code resolving to a public
-        page that recomputes and compares the hash, allowing any third party to detect tampering
-        without access to the system.</span>
+        <strong>To implement a blockchain-based payment verification module that:</strong>
+        <ul>
+          <li>Records and validates payment transactions for CEM, CEA, and GEMP enrolment fees and Solar PV consultation fees</li>
+          <li>Produces a blockchain-anchored, tamper-evident payment audit trail</li>
+        </ul>
       </li>
       <li>
-        <strong>Automate assessment and reduce instructor load</strong>
-        <span>Provide quiz generation from module material, automatic grading for multiple
-        choice, identification, and enumeration, and an in-module AI assistant answering trainee
-        questions — while routing essay answers to human review.</span>
+        <strong>To design and deploy a tokenized digital certificate issuance system that:</strong>
+        <ul>
+          <li>Generates, issues, and securely stores blockchain-anchored certificates for participants who complete CEM, CEA, or GEMP training assessments</li>
+          <li>Enables third-party verification of issued certificates</li>
+          <li>Provides blockchain-based verification mechanisms intended to improve certificate integrity and traceability</li>
+        </ul>
       </li>
       <li>
-        <strong>Deliver reliable solar PV consultation without an engineer present</strong>
-        <span>Ground every answer in EnergyWize's own documentation through retrieval, compute
-        every quoted figure with a deterministic sizing engine, and discard any model-authored
-        text containing a number that does not match a computed value.</span>
+        <strong>To build an administrative dashboard that provides EnergyWize Solutions Inc.
+        personnel with tools for:</strong>
+        <ul>
+          <li>Managing user accounts and access levels</li>
+          <li>Monitoring training completion and progress across all three programs</li>
+          <li>Reviewing Solar PV consultation requests</li>
+          <li>Generating operational reports for data-driven decision-making</li>
+        </ul>
       </li>
       <li>
-        <strong>Support corporate enrolment as a first-class case</strong>
-        <span>Let a company coordinator submit an employee roster without an account, bill one
-        invoice across the cohort with database-level idempotency, and gate cohort access
-        through classes whose entitlement is re-derived on every visit.</span>
-      </li>
-      <li>
-        <strong>Make every consequential action auditable</strong>
-        <span>Record approvals, account changes, price overrides, exports, and certificate
-        issuance against the staff member responsible, and surface the record through an audit
-        log and exportable reports.</span>
-      </li>
-      <li>
-        <strong>Evaluate the system against a recognised quality standard</strong>
-        <span>Assess functional suitability, usability, reliability, security, and the remaining
-        ISO/IEC 25010 characteristics through user acceptance testing with the partner
-        organisation's staff and trainees.</span>
+        <strong>To evaluate the system's functional performance, usability, and overall quality
+        through functional testing and User Acceptance Testing (UAT), focusing on:</strong>
+        <ul>
+          <li>Functional suitability</li>
+          <li>Performance efficiency</li>
+          <li>Interaction capability</li>
+          <li>Reliability</li>
+          <li>Security</li>
+          <li>Maintainability</li>
+        </ul>
       </li>
     </ol>
+
+    <div class="prose rv" style="margin-top:clamp(1.75rem,3vw,2.5rem)">
+      <p>
+        These evaluations are guided by selected quality characteristics of the
+        <strong>ISO/IEC 25010:2023</strong> software quality standard and the
+        <strong>Technology Acceptance Model (TAM)</strong>, administered to administrators,
+        trainers, and CEM/CEA/GEMP training participants of EnergyWize Solutions Inc. Solar PV
+        consultation clients use the consultation module but are not surveyed as part of UAT.
+      </p>
+    </div>
   </div>
 </section>
 
@@ -522,47 +578,92 @@ footer{padding-block:clamp(3rem,5vw,4.5rem); border-bottom:0}
       <span class="label"><span class="tick">04</span>Methodology</span>
       <h2>How it was built and evaluated</h2>
       <p>
-        Developmental research, delivered iteratively. Each cycle put a working slice of the
-        system in front of EnergyWize staff and folded their response into the next one, rather
-        than specifying the whole system once and building to that specification.
+        The study's research design is <strong>Developmental Research</strong>, with a
+        descriptive-evaluative approach for assessing usability and effectiveness. <strong>Agile
+        is the software development methodology</strong> used to build the system iteratively —
+        not the research design. The manuscript keeps the two separate deliberately, so that a
+        way of building is not mistaken for a way of knowing.
       </p>
     </div>
 
+    <span class="label rv" style="display:block;margin-bottom:1.25rem">Seven Agile development phases</span>
     <div class="phases rv">
       <div class="phase">
-        <span class="label"><span class="tick">P1</span>Analysis</span>
-        <h3>Requirements and process capture</h3>
-        <p>Interviews and document review with EnergyWize staff to map the existing enrolment,
-        training, certification, billing, and consultation workflows — including the paper forms
-        the public registration pages had to reproduce faithfully.</p>
+        <span class="label"><span class="tick">01</span>Requirement &amp; Analysis</span>
+        <p>Stakeholder interviews with EnergyWize management and staff; definition of system
+        scope, user roles and functional requirements; technology stack selection; sprint
+        planning and product backlog creation.</p>
       </div>
       <div class="phase">
-        <span class="label"><span class="tick">P2</span>Design</span>
-        <h3>Architecture and data modelling</h3>
-        <p>Data-flow diagrams, use-case models, and the entity-relationship design. Permission
-        design was consolidated into a single capability map so that an interface control and the
-        route behind it could not disagree.</p>
+        <span class="label"><span class="tick">02</span>Design</span>
+        <p>System architecture; database schema and entity-relationship modelling; UI/UX
+        wireframing for all modules; blockchain smart-contract schema; AI integration
+        specification; design review with stakeholders.</p>
       </div>
       <div class="phase">
-        <span class="label"><span class="tick">P3</span>Development</span>
-        <h3>Iterative implementation</h3>
-        <p>Flask and PostgreSQL, built blueprint by blueprint with the partner reviewing each
-        increment. External integrations — payments, blockchain, AI providers — were isolated so
-        that a failure in any of them degrades rather than blocks.</p>
+        <span class="label"><span class="tick">03</span>Implementation</span>
+        <p>Sprint-based coding of all modules — AI learning assistant, Solar PV computation
+        engine, blockchain payment verification, tokenized certificate issuance, administrative
+        dashboard — with biweekly sprint reviews.</p>
       </div>
       <div class="phase">
-        <span class="label"><span class="tick">P4</span>Testing</span>
-        <h3>Verification and grounding checks</h3>
-        <p>Functional testing per role, plus purpose-built scripts guarding the sizing
-        mathematics, the retrieval threshold, and the check that stops the language model
-        authoring numbers. A tracing harness exposes each consultation turn stage by stage.</p>
+        <span class="label"><span class="tick">04</span>Testing</span>
+        <p>Unit and integration testing; performance testing of the blockchain layer; security
+        testing of payment and certificate modules; validation of PV outputs against engineering
+        benchmarks; Black-Box Testing by 10 IT professionals.</p>
       </div>
       <div class="phase">
-        <span class="label"><span class="tick">P5</span>Evaluation</span>
-        <h3>ISO/IEC 25010 acceptance</h3>
-        <p>User acceptance testing with the partner organisation's administrators, trainers, and
-        trainees, evaluated against ISO/IEC 25010 product-quality characteristics.</p>
+        <span class="label"><span class="tick">05</span>Development</span>
+        <p>Iterative refinement from testing findings; resolution of defects and performance
+        issues; re-development and re-testing of affected modules before reintegration; sprint
+        backlog updates.</p>
       </div>
+      <div class="phase">
+        <span class="label"><span class="tick">06</span>Maintenance</span>
+        <p>Post-deployment monitoring; fixes and optimisation from UAT findings; updates to AI
+        models and smart contracts; preparation of final system documentation, user manuals and
+        the deployment package.</p>
+      </div>
+      <div class="phase">
+        <span class="label"><span class="tick">07</span>Launch</span>
+        <p>Formal deployment; final User Acceptance Testing with all 48 respondents; structured
+        feedback via the UAT questionnaire and System Usability Scale; final revisions and system
+        handover.</p>
+      </div>
+    </div>
+
+    <div class="two-col rv" style="margin-top:clamp(2rem,3.5vw,3rem)">
+      <div class="prose">
+        <p>
+          <strong>Who evaluated it.</strong> Total enumeration of 48 EnergyWize stakeholders —
+          one super user, one administrator, one secretary, 20 trainers and 25 trainees — plus
+          10 IT professionals selected by purposive sampling as system testers, each with at
+          least two years of professional experience.
+        </p>
+      </div>
+      <div class="prose">
+        <p>
+          <strong>How it was measured.</strong> Black-Box Testing on a dichotomous pass/fail
+          scale, and a 25-item UAT questionnaire on a five-point Likert scale drawn from selected
+          ISO/IEC 25010:2023 characteristics and Technology Acceptance Model constructs, with the
+          ten-item System Usability Scale as a supplementary measure.
+        </p>
+      </div>
+    </div>
+
+    <div class="metrics rv" style="margin-top:clamp(2rem,3.5vw,3rem)">
+      <div class="metric"><div class="n">100%</div><div class="k">Black-box pass rate<br>680 of 680</div></div>
+      <div class="metric"><div class="n">3.91</div><div class="k">UAT grand mean<br>Very satisfactory</div></div>
+      <div class="metric"><div class="n">73.49</div><div class="k">Mean SUS score<br>Above the 70 threshold</div></div>
+      <div class="metric"><div class="n">48</div><div class="k">UAT respondents<br>Total enumeration</div></div>
+      <div class="metric"><div class="n">68</div><div class="k">Test steps<br>10 testing areas</div></div>
+    </div>
+
+    <div class="note rv">
+      <strong>Reported honestly.</strong> A 100% pass rate describes the documented test coverage,
+      not freedom from defects. The figures above are the recorded outcomes of the specified
+      scenarios; they do not constitute a load benchmark, an independent security audit, or
+      evidence of sustained adoption after deployment.
     </div>
   </div>
 </section>
@@ -734,6 +835,12 @@ status       Verified — the record is unchanged since issue</div>
     </div>
 
     <div class="links">
+      <a class="lnk rv" href="manuscript/PowerWize-Capstone-Manuscript.pdf">
+        <span class="label">Full manuscript</span>
+        <div class="t">Capstone manuscript (PDF) <span class="arw">→</span></div>
+        <p class="d">All five chapters — introduction, review of related literature, methodology, results and discussion, and conclusions — with references. 188 pages.</p>
+      </a>
+
       <a class="lnk rv" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project">
         <span class="label">Source code</span>
         <div class="t">GitHub repository <span class="arw">→</span></div>
@@ -782,8 +889,9 @@ status       Verified — the record is unchanged since issue</div>
         <div class="brand" style="margin-bottom:.9rem">POWER<span>WIZE</span></div>
         <p>
           Submitted in partial fulfillment of the requirements for the degree of Bachelor of
-          Science in Information Technology, College of Computer Studies, Laguna State
-          Polytechnic University. Developed in partnership with EnergyWize Solutions Inc.
+          Science in Information Technology, major in Web and Mobile Application Development,
+          College of Computer Studies, Laguna State Polytechnic University — Santa Cruz, Laguna.
+          Developed in partnership with EnergyWize Solutions Inc.
         </p>
       </div>
       <div class="seal">© 2026 · Bandao · Cosio · Esguerra</div>

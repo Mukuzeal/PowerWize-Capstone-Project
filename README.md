@@ -59,6 +59,7 @@ retained as audit evidence.
 
 | Document | Contents |
 |---|---|
+| **[Capstone Manuscript](docs/manuscript/PowerWize-Capstone-Manuscript.pdf)** | The full 188-page manuscript — all five chapters and references |
 | **[System Documentation](docs/SYSTEM_DOCUMENTATION.md)** | Architecture, context and level-1 DFDs, use-case diagram, the full 36-table ERD, and sequence diagrams — all derived from source |
 | **[User Manual](docs/USER_MANUAL.md)** | Step-by-step guide for every role, illustrated with captured screens |
 | **[Setup Guide](docs/SETUP.md)** | Installation, configuration, database bootstrap, and verification |
@@ -259,12 +260,27 @@ whether retrieval, the gate, extraction, or the model caused it.
 ## Academic context
 
 Submitted in partial fulfillment of the requirements for the degree of Bachelor
-of Science in Information Technology at the College of Computer Studies, Laguna
-State Polytechnic University. Developed in partnership with EnergyWize Solutions
-Inc., whose training programmes and consultation workflow the system models.
+of Science in Information Technology, major in Web and Mobile Application
+Development, College of Computer Studies, Laguna State Polytechnic University —
+Santa Cruz, Laguna. Developed in partnership with EnergyWize Solutions Inc., whose
+training programmes and consultation workflow the system models.
 
-System quality was evaluated against **ISO/IEC 25010** characteristics through
-user acceptance testing with the partner organization's staff and trainees.
+The study follows a **developmental research design** with a descriptive-evaluative
+approach. Agile is the *development methodology*, kept deliberately separate from
+the research design. Evaluation combined **Black-Box Testing** by 10 IT
+professionals on a dichotomous pass/fail scale with **User Acceptance Testing**
+across 48 respondents — one super user, one administrator, one secretary, 20
+trainers and 25 trainees — using selected **ISO/IEC 25010:2023** characteristics,
+the **Technology Acceptance Model**, and the **System Usability Scale**.
+
+| Measure | Result |
+|---|---|
+| Black-box functional testing | 680 of 680 tester-step evaluations passed, across 68 steps in 10 testing areas |
+| UAT grand mean (5-point scale) | **3.91** — Effective / Very Satisfactory |
+| Mean System Usability Scale score | **73.49** (SD 4.97, median 75.00); 41 of 48 respondents scored ≥ 70 |
+
+Reported as recorded: the pass rate describes documented test coverage, not freedom
+from defects, and no independent penetration test or load benchmark was conducted.
 
 ---
 
