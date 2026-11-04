@@ -313,9 +313,14 @@ async function generateWithAI() {
         </div>`;
       container.appendChild(div);
     });
-    // Show save button
-    document.getElementById('questions-form').insertAdjacentHTML('beforeend',
-      '<div class="form-actions" style="margin-top:16px"><button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save AI Questions</button></div>');
+    // Show save button. Generating twice without reloading used to append a
+    // second one (and a third, and so on) because this ran unconditionally —
+    // drop any block a previous run left behind before adding this one.
+    var qForm = document.getElementById('questions-form');
+    var staleSave = qForm.querySelector('.ai-save-actions');
+    if (staleSave) staleSave.remove();
+    qForm.insertAdjacentHTML('beforeend',
+      '<div class="form-actions ai-save-actions" style="margin-top:16px"><button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save AI Questions</button></div>');
   } catch(e) {
     loading.style.display = 'none';
     Swal.fire({icon:'error', title:'AI generation failed', text: e.message, customClass:{popup:'swal-font'}});

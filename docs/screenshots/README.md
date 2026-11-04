@@ -40,7 +40,7 @@ exception is noted under section 3.
 | `05_trainee_progress.png` | Progress across their trainees |
 | `06_module_library.png` | Full module library |
 | `07_module_manage.png` | Single-module management |
-| `08_quiz_builder.png` | Quiz Manager — 7 questions, mixed types, *Generate with AI* |
+| `08_quiz_builder.png` | Quiz Manager mid-*Generate with AI* — 10 questions drafted from the module PDF, awaiting review. The "Questions 7" badge is the saved count: generation returns drafts to the form and writes nothing until *Save AI Questions* |
 | `09_practical_exam_builder.png` | Practical exam + evaluation criteria |
 | `10_create_module_form.png` | New module form |
 | `11_grading_queue.png` | Grading queue |
@@ -58,15 +58,14 @@ exception is noted under section 3.
 | `06_my_progress.png` | Progress view |
 | `07_quiz_attempt.png` | Quiz attempt screen |
 
-> **`05_ai_assistant_reply.png` is stale and shows a bug that has since been
-> fixed.** It renders *"Sorry, I could not respond."* because, at capture time,
+> `05_ai_assistant_reply.png` was **re-shot on 2026-11-04** and now shows a live
+> answer. The original rendered *"Sorry, I could not respond."* because
 > `_ai_module_chat()` posted to `LM_STUDIO_URL` unconditionally and never
-> branched on `TEXT_PROVIDER` — so with `TEXT_PROVIDER=groq` it could not work
-> at all, and LM Studio was not running. Both that function and
-> `_ai_generate_quiz()` now dispatch through `_text_chat()`, which honours the
-> provider setting. The frame still needs re-shooting to show a live answer;
-> what it currently demonstrates is the graceful-degradation path, not the
-> assistant working.
+> branched on `TEXT_PROVIDER`, so under `TEXT_PROVIDER=groq` it could not work
+> at all. Both it and `_ai_generate_quiz()` now dispatch through `_text_chat()`,
+> which honours the provider setting, and the reply passes through
+> `_strip_markdown()` / `_paragraphize()` so the panel shows prose rather than
+> the raw `**` and `|---|` the model would otherwise emit.
 
 ## 4 · Solar PV Consultation
 `4-solar-pv-consultation/`
