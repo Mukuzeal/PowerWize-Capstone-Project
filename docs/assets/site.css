@@ -1,0 +1,390 @@
+/* ============================================================================
+   PowerWize capstone site
+   Carries the EnergyWize "Instrument" system from static/ewize.css: deep
+   green-black ground, hairline rails drawing the structure, square plates with
+   round controls, Archivo + JetBrains Mono.
+
+   Two deliberate omissions from the parent system:
+   - No gradients anywhere. Flat planes and hairlines only. Colour separates
+     surfaces; it never fades between them.
+   - No numbered section eyebrows. Section position already says what a section
+     is; labelling every one of them is scaffolding, not voice.
+   ========================================================================= */
+
+:root{
+  /* Substrate. Deep green-black, never pure black. */
+  --ink-000:#040907; --ink-050:#071009; --ink-100:#0A1710;
+  --ink-200:#0F2018; --ink-300:#152D22; --ink-400:#1D3B2D;
+
+  /* Ink on substrate. fg-ghost is decorative only: it does not clear 4.5:1
+     and must never carry text a reader needs. */
+  --fg:#E7F1EA; --fg-dim:#A5BDAF; --fg-mute:#8FA89B; --fg-ghost:#3C5449;
+
+  /* Hairlines. The whole layout is drawn with these. */
+  --line:rgba(206,236,218,.085);
+  --line-mid:rgba(206,236,218,.16);
+  --line-strong:rgba(206,236,218,.30);
+
+  --forest:#0B5E33; --signal:#35C77C; --signal-dim:#1C7A4B;
+  --amber:#E9A93B; --ember:#D8483C;
+
+  --sans:"Archivo",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;
+
+  --maxw:1560px;
+  --gut:clamp(1.25rem,3.4vw,3.75rem);
+  --cols:12;
+  --rule:1px;
+
+  --fs-hero:clamp(2.6rem,7vw,6.5rem);
+  --fs-d1:clamp(2rem,4.6vw,3.8rem);
+  --fs-d2:clamp(1.6rem,3vw,2.6rem);
+  --fs-d3:clamp(1.2rem,1.9vw,1.6rem);
+  --fs-lead:clamp(1.04rem,1.2vw,1.28rem);
+  --fs-mono:.7rem;
+  --fs-mono-lg:.78rem;
+
+  --sp-section:clamp(5rem,9vw,10rem);
+
+  --e-out:cubic-bezier(.16,1,.3,1);
+  --e-inout:cubic-bezier(.65,0,.35,1);
+  --e-snap:cubic-bezier(.22,1,.36,1);
+
+  --z-rails:1; --z-grain:60; --z-nav:50; --z-lb:100; --z-curtain:120;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--ink-000);color:var(--fg);
+  font-family:var(--sans);font-size:1rem;line-height:1.62;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:2px}
+
+.skip{position:absolute;left:-9999px;top:0;background:var(--signal);color:var(--ink-000);
+  padding:.7rem 1.1rem;font-family:var(--mono);font-size:var(--fs-mono);z-index:200}
+.skip:focus{left:0}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--gut)}
+
+/* ── Structural motifs ───────────────────────────────────────────────────── */
+/* Vertical column rails. The grid made visible, not decoration bolted on. */
+.rails{position:fixed;inset:0;z-index:var(--z-rails);pointer-events:none;display:flex;justify-content:center}
+.rails__inner{width:100%;max-width:var(--maxw);padding-inline:var(--gut);
+  display:grid;grid-template-columns:repeat(var(--cols),1fr)}
+.rails__inner span{border-left:var(--rule) solid var(--line);opacity:0;animation:railIn 1.4s var(--e-out) forwards;
+  animation-delay:calc(var(--i) * 55ms + 180ms)}
+.rails__inner span:last-child{border-right:var(--rule) solid var(--line)}
+@keyframes railIn{to{opacity:1}}
+
+.grain{position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* Page-transition curtain. Starts covered, uncovers via CSS so the raw page
+   never flashes before JS runs. */
+.curtain{position:fixed;inset:0;z-index:var(--z-curtain);background:var(--ink-000);pointer-events:none;
+  transform-origin:top;animation:curtainIn 560ms var(--e-inout) forwards}
+.curtain.is-out{animation:curtainOut 460ms var(--e-inout) forwards}
+@keyframes curtainIn{from{transform:scaleY(1)}to{transform:scaleY(0);transform-origin:top}}
+@keyframes curtainOut{from{transform:scaleY(0);transform-origin:bottom}to{transform:scaleY(1);transform-origin:bottom}}
+
+/* ── Navigation ──────────────────────────────────────────────────────────── */
+.nav{position:sticky;top:0;z-index:var(--z-nav);background:rgba(4,9,7,.82);
+  backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+  border-bottom:var(--rule) solid var(--line)}
+.nav__in{display:flex;align-items:center;gap:1.5rem;height:68px}
+.brand{font-family:var(--mono);font-size:var(--fs-mono-lg);font-weight:700;letter-spacing:.14em;text-decoration:none;white-space:nowrap}
+.brand b{color:var(--signal);font-weight:700}
+.nav__links{margin-left:auto;display:flex;gap:1.6rem}
+.nav__links a{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--fg-mute);text-decoration:none;padding:.35rem 0;border-bottom:1px solid transparent;
+  transition:color 280ms var(--e-out),border-color 280ms var(--e-out)}
+.nav__links a:hover{color:var(--fg)}
+.nav__links a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--signal)}
+.nav__toggle{display:none;margin-left:auto;background:none;border:1px solid var(--line-mid);color:var(--fg);
+  font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.14em;text-transform:uppercase;
+  padding:.5rem .9rem;border-radius:999px;cursor:pointer}
+@media(max-width:860px){
+  .nav__toggle{display:block}
+  .nav__links{position:absolute;top:68px;left:0;right:0;flex-direction:column;gap:0;
+    background:var(--ink-050);border-bottom:var(--rule) solid var(--line-mid);padding:.5rem var(--gut) 1.25rem;display:none}
+  .nav__links.is-open{display:flex}
+  .nav__links a{padding:.85rem 0;border-bottom:var(--rule) solid var(--line)}
+}
+
+/* ── Type ────────────────────────────────────────────────────────────────── */
+.mono{font-family:var(--mono);font-size:var(--fs-mono);font-weight:500;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--fg-mute)}
+.mono--lg{font-size:var(--fs-mono-lg)}
+.mono--signal{color:var(--signal)}
+
+h1,h2,h3{margin:0;text-wrap:balance}
+.hero-t{font-size:var(--fs-hero);font-weight:800;line-height:1.02;letter-spacing:-.03em}
+.d1{font-size:var(--fs-d1);font-weight:700;line-height:1.06;letter-spacing:-.025em}
+.d2{font-size:var(--fs-d2);font-weight:650;line-height:1.12;letter-spacing:-.02em}
+.d3{font-size:var(--fs-d3);font-weight:600;line-height:1.22;letter-spacing:-.012em}
+.lead{font-size:var(--fs-lead);color:var(--fg-dim);line-height:1.6;max-width:62ch}
+.prose{color:var(--fg-dim);max-width:70ch;line-height:1.72;text-wrap:pretty}
+.prose + .prose{margin-top:1.1em}
+.prose strong{color:var(--fg);font-weight:600}
+.accent{color:var(--signal)}
+
+/* ── Bands & rhythm ──────────────────────────────────────────────────────── */
+.band{padding-block:var(--sp-section);position:relative}
+.band--tight{padding-block:clamp(3.5rem,6vw,6rem)}
+/* The first band on a page sits directly under the nav. Full section padding
+   there floats the headline halfway down the viewport, which reads as a layout
+   fault rather than as breathing room. */
+main > .band:first-child{padding-top:clamp(2.5rem,5vw,5rem)}
+.band--edge{border-top:var(--rule) solid var(--line-mid)}
+.band--plate{background:var(--ink-050)}
+
+.head{margin-bottom:clamp(2rem,4vw,3.5rem);max-width:34ch}
+.head .d1,.head .d2{margin-top:.8rem}
+.head .lead{margin-top:1.15rem}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(2rem,4.5vw,5rem)}
+.split{display:grid;grid-template-columns:5fr 7fr;gap:clamp(2rem,4.5vw,5rem);align-items:start}
+.split--flip{grid-template-columns:7fr 5fr}
+@media(max-width:900px){.two,.split,.split--flip{grid-template-columns:1fr}}
+
+/* Grid and flex children default to min-width:auto, so one unbreakable child
+   (the pre-formatted proof block, a wide table) widens its whole track and
+   pushes the page sideways. Let tracks shrink; the scrollable child handles
+   its own overflow. */
+.two > *,.split > *,.plates > *,.figrow > *,.cards > *,.shots > *,.figs > *{min-width:0}
+
+/* ── Imagery. The screenshots are the evidence, so they get the room. ────── */
+.shot{position:relative;border:var(--rule) solid var(--line-mid);background:var(--ink-100);overflow:hidden}
+.shot img{width:100%;height:auto}
+.shot--tall img{aspect-ratio:16/11;object-fit:cover;object-position:top center}
+.shot figcaption{padding:.85rem 1rem;border-top:var(--rule) solid var(--line);
+  font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.08em;color:var(--fg-mute);text-transform:uppercase}
+
+/* Full-bleed plate: an image allowed to break the gutter and dominate.
+   This lives outside .wrap, so it is already the full width of <main>. Sizing
+   it with 100vw instead would include the scrollbar gutter and overflow. */
+.bleed{width:100%;border-block:var(--rule) solid var(--line-mid);
+  background:var(--ink-100);overflow:hidden}
+.bleed img{width:100%;height:clamp(300px,62vh,760px);object-fit:cover;object-position:top center}
+
+.figrow{display:grid;gap:clamp(1rem,2vw,1.75rem)}
+.figrow--2{grid-template-columns:repeat(2,1fr)}
+.figrow--3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.figrow--2,.figrow--3{grid-template-columns:1fr}}
+
+/* Gallery */
+.gal{margin-bottom:clamp(3rem,6vw,5rem)}
+.gal__head{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
+  padding-bottom:1rem;border-bottom:var(--rule) solid var(--line-mid);margin-bottom:1.5rem}
+.gal__head .count{margin-left:auto;font-family:var(--mono);font-size:var(--fs-mono);
+  letter-spacing:.14em;color:var(--fg-mute)}
+/* Each group leads with one frame at full width, then runs in pairs. Four
+   across turned the evidence into postage stamps; this gives every frame real
+   presence and gives the grid a rhythm instead of a uniform tile wall. */
+.shots{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(1rem,2vw,1.75rem)}
+.shots > :first-child{grid-column:1 / -1}
+.shots > :first-child img{aspect-ratio:16/8}
+/* With the lead frame spanning both columns, a group whose count is even ends
+   on a lone tile. Promote it rather than leave a hole in the grid. */
+.shots > :last-child:nth-child(even){grid-column:1 / -1}
+.shots > :last-child:nth-child(even) img{aspect-ratio:16/8}
+@media(max-width:860px){
+  .shots{grid-template-columns:1fr}
+  .shots > :first-child img,.shots > :last-child:nth-child(even) img{aspect-ratio:16/11}
+}
+/* Captions sit on their own line count without dragging the row ragged. */
+.shot--btn figcaption{min-height:3.4rem;display:flex;align-items:center}
+.shot--btn{cursor:zoom-in;transition:border-color 420ms var(--e-out),transform 520ms var(--e-out);
+  width:100%;padding:0;text-align:left;font:inherit;color:inherit;background:var(--ink-100)}
+.shot--btn:hover{border-color:var(--signal-dim);transform:translateY(-3px)}
+
+/* Lightbox */
+.lb{position:fixed;inset:0;z-index:var(--z-lb);display:none;background:rgba(4,9,7,.97);
+  padding:clamp(1rem,3vw,3rem);overflow:auto;align-items:center;justify-content:center}
+.lb.is-open{display:flex}
+.lb figure{margin:0;max-width:1500px;width:100%}
+.lb img{width:100%;height:auto;border:var(--rule) solid var(--line-mid)}
+.lb figcaption{padding-top:1rem;text-align:center;font-family:var(--mono);font-size:var(--fs-mono-lg);
+  letter-spacing:.1em;color:var(--fg-dim)}
+.lb__x{position:fixed;top:1.1rem;right:1.3rem;width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--line-strong);background:var(--ink-100);color:var(--fg);font-size:1.05rem;
+  cursor:pointer;display:grid;place-items:center}
+.lb__x:hover{border-color:var(--signal);color:var(--signal)}
+
+/* ── Plates, lists, tables ───────────────────────────────────────────────── */
+.plates{display:grid;gap:var(--rule);background:var(--line-mid);border:var(--rule) solid var(--line-mid)}
+.plates--2{grid-template-columns:repeat(2,1fr)}
+.plates--3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.plates--2,.plates--3{grid-template-columns:1fr}}
+.plate{background:var(--ink-050);padding:clamp(1.6rem,2.6vw,2.4rem);
+  transition:background-color 420ms var(--e-out)}
+.plate:hover{background:var(--ink-100)}
+.plate h3{margin:0 0 .7rem}
+.plate p{margin:0;color:var(--fg-dim);font-size:.95rem}
+.plate ul{margin:1rem 0 0;padding:0;list-style:none}
+.plate li{position:relative;padding-left:1.1rem;margin-bottom:.5rem;font-size:.9rem;color:var(--fg-mute);line-height:1.56}
+.plate li::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:5px;background:var(--signal-dim)}
+
+.rows{border-top:var(--rule) solid var(--line-mid)}
+.row{display:grid;grid-template-columns:auto 1fr;gap:1.5rem;padding:1.5rem 0;
+  border-bottom:var(--rule) solid var(--line)}
+.row__n{font-family:var(--mono);font-size:var(--fs-mono-lg);font-weight:700;color:var(--signal);
+  letter-spacing:.06em;padding-top:.22rem}
+.row h3{margin:0 0 .55rem;font-size:1.02rem;font-weight:600}
+.row ul{margin:.3rem 0 0;padding:0;list-style:none;counter-reset:sub}
+.row ul li{counter-increment:sub;position:relative;padding:.28rem 0 .28rem 2.5rem;
+  color:var(--fg-dim);font-size:.92rem;line-height:1.56}
+.row ul li::before{content:counter(sub);position:absolute;left:0;top:.42rem;
+  font-family:var(--mono);font-size:var(--fs-mono);color:var(--fg-mute)}
+
+.tablewrap{overflow-x:auto;border:var(--rule) solid var(--line-mid);background:var(--ink-050)}
+table.data{width:100%;border-collapse:collapse;font-size:.9rem;min-width:680px}
+table.data th{text-align:left;padding:.95rem 1.1rem;border-bottom:var(--rule) solid var(--line-mid);
+  font-family:var(--mono);font-size:var(--fs-mono);font-weight:500;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--fg-mute);white-space:nowrap}
+table.data td{padding:1rem 1.1rem;border-bottom:var(--rule) solid var(--line);vertical-align:top;color:var(--fg-dim)}
+table.data tr:last-child td{border-bottom:0}
+table.data td:first-child{color:var(--fg);font-weight:500}
+table.data td.ev{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.06em;
+  color:var(--fg-mute);text-transform:uppercase;white-space:nowrap}
+
+.spec{width:100%;border-collapse:collapse;font-size:.93rem}
+.spec th,.spec td{text-align:left;padding:.95rem 1rem .95rem 0;border-bottom:var(--rule) solid var(--line);vertical-align:top}
+.spec th{font-family:var(--mono);font-size:var(--fs-mono);font-weight:500;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--fg-mute);width:32%;white-space:nowrap}
+.spec td{color:var(--fg-dim)}
+.spec tr:last-child th,.spec tr:last-child td{border-bottom:0}
+
+/* ── Figures (metrics) ───────────────────────────────────────────────────── */
+.figs{display:grid;gap:var(--rule);background:var(--line-mid);border:var(--rule) solid var(--line-mid);
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.fig{background:var(--ink-050);padding:clamp(1.4rem,2.2vw,1.9rem)}
+.fig__n{font-family:var(--mono);font-size:clamp(1.7rem,3.2vw,2.6rem);font-weight:700;
+  color:var(--signal);line-height:1;letter-spacing:-.02em}
+.fig__k{margin-top:.65rem;font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--fg-mute);line-height:1.5}
+
+/* ── Links & controls ────────────────────────────────────────────────────── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.25rem}
+.card{display:block;text-decoration:none;padding:1.7rem;border:var(--rule) solid var(--line-mid);
+  background:var(--ink-050);transition:border-color 420ms var(--e-out),background-color 420ms var(--e-out),transform 520ms var(--e-out)}
+.card:hover{border-color:var(--signal-dim);background:var(--ink-100);transform:translateY(-3px)}
+.card .t{display:flex;align-items:center;gap:.5rem;margin:.85rem 0 .45rem;font-size:1.04rem;font-weight:600}
+.card .t i{font-style:normal;color:var(--signal);font-family:var(--mono)}
+.card .d{margin:0;font-size:.9rem;color:var(--fg-mute)}
+.card--off{opacity:.6;cursor:default}
+.card--off .t i{color:var(--fg-mute)}
+
+.btn{display:inline-flex;align-items:center;gap:.55rem;padding:.85rem 1.5rem;border-radius:999px;
+  font-family:var(--mono);font-size:var(--fs-mono-lg);letter-spacing:.1em;text-transform:uppercase;
+  text-decoration:none;border:1px solid transparent;white-space:nowrap;
+  transition:transform 300ms var(--e-snap),background-color 300ms var(--e-out),border-color 300ms var(--e-out)}
+.btn--p{background:var(--signal);color:#04120A;font-weight:700}
+.btn--p:hover{background:#49D98D}
+.btn--s{border-color:var(--line-strong);color:var(--fg)}
+.btn--s:hover{border-color:var(--signal);color:var(--signal)}
+.btn:active{transform:scale(.975)}
+.btns{display:flex;gap:.9rem;flex-wrap:wrap}
+
+/* Chain-proof block. Monospace, flat plate, one accent rule. */
+.proof{font-family:var(--mono);font-size:.76rem;line-height:1.95;color:var(--fg-dim);
+  background:var(--ink-100);border:var(--rule) solid var(--line-mid);border-left:2px solid var(--signal);
+  padding:1.35rem 1.5rem;overflow-x:auto;white-space:pre}
+.proof b{color:var(--signal);font-weight:500}
+
+.note{border-left:2px solid var(--amber);background:rgba(233,169,59,.045);
+  padding:1.1rem 1.4rem;font-size:.92rem;color:var(--fg-dim)}
+.note strong{color:var(--amber);font-weight:600}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.foot{border-top:var(--rule) solid var(--line-mid);padding-block:clamp(3rem,5vw,4.5rem)}
+.foot__g{display:flex;gap:2rem;flex-wrap:wrap;justify-content:space-between;align-items:flex-start}
+.foot p{margin:.9rem 0 0;font-size:.88rem;color:var(--fg-mute);max-width:58ch}
+.foot__nav{display:flex;gap:1.4rem;flex-wrap:wrap}
+.foot__nav a{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--fg-mute);text-decoration:none}
+.foot__nav a:hover{color:var(--signal)}
+.seal{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--fg-mute)}
+
+/* ── Scroll-driven motion ────────────────────────────────────────────────────
+   Content is visible by default. Motion is layered on top only where the
+   browser can drive it from the scroll timeline, so a headless render, a
+   hidden tab, or a browser without support still ships a complete page.
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference){
+  @supports (animation-timeline: view()){
+    /* The range closes inside `entry`, so an element is fully opaque by the
+       time it has finished entering the viewport. Ranges that run into `cover`
+       leave on-screen content sitting at partial opacity, which reads as a
+       rendering fault rather than as motion. */
+    .rev{animation:revIn linear both;animation-timeline:view();animation-range:entry 5% entry 85%}
+    .rev-l{animation:revL linear both;animation-timeline:view();animation-range:entry 5% entry 85%}
+    .rev-r{animation:revR linear both;animation-timeline:view();animation-range:entry 5% entry 85%}
+    /* Images settle: they arrive slightly oversized and come to rest. */
+    .rev-img img,.rev-img > .shot{animation:imgSettle linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
+    /* Stagger inside a group, by index. */
+    .stag > *{animation:revIn linear both;animation-timeline:view();animation-range:entry 8% entry 92%}
+    /* Hairline that draws itself as the section arrives. */
+    .draw{animation:drawX linear both;animation-timeline:view();animation-range:entry 10% cover 34%;transform-origin:left}
+
+    /* RULE: a reveal class goes on a heading, a paragraph block, or a single
+       figure. Never on a container taller than the viewport. An entry-based
+       range cannot complete for such an element, so it would sit at partial
+       opacity for as long as it is on screen. Tall groups use .stag instead,
+       which animates each short child. Enforced by the pre-flight check. */
+
+    /* A sideways reveal expresses a side-by-side composition. Below the
+       breakpoint the splits are stacked, so the lateral motion has nothing
+       left to express, and its start state would push past the viewport and
+       create horizontal scroll. Fall back to the vertical reveal. */
+    @media (max-width:900px){
+      .rev-l,.rev-r{animation-name:revIn}
+    }
+  }
+  /* Fallback for browsers without scroll-driven animations. The class is added
+     by JS only after support is ruled out, so no-JS never hides anything. */
+  .js-rev .rev,.js-rev .rev-l,.js-rev .rev-r,.js-rev .stag > *{opacity:0;will-change:transform,opacity}
+  .js-rev .rev{transform:translateY(22px)}
+  .js-rev .rev-l{transform:translateX(-26px)}
+  .js-rev .rev-r{transform:translateX(26px)}
+  .js-rev .stag > *{transform:translateY(18px)}
+  @media (max-width:900px){
+    .js-rev .rev-l,.js-rev .rev-r{transform:translateY(22px)}
+  }
+  .js-rev .is-in,.js-rev .stag.is-in > *{opacity:1;transform:none;
+    transition:opacity 720ms var(--e-out),transform 720ms var(--e-out)}
+  .js-rev .stag.is-in > *{transition-delay:calc(var(--i,0) * 70ms)}
+}
+@keyframes revIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes revL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@keyframes revR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes imgSettle{from{transform:scale(1.06)}to{transform:scale(1)}}
+@keyframes drawX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* Scroll progress bar, driven by the document timeline. No scroll listener. */
+.prog{position:fixed;top:0;left:0;height:2px;width:100%;background:var(--signal);
+  transform-origin:left;transform:scaleX(0);z-index:calc(var(--z-nav) + 1);pointer-events:none}
+@media (prefers-reduced-motion: no-preference){
+  @supports (animation-timeline: scroll()){
+    .prog{animation:progX linear;animation-timeline:scroll(root block)}
+  }
+}
+@keyframes progX{to{transform:scaleX(1)}}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .rails__inner span{opacity:1;animation:none}
+  .curtain{display:none}
+  .card:hover,.shot--btn:hover{transform:none}
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important}
+}
+
+@media (prefers-reduced-transparency: reduce){
+  .nav{background:var(--ink-000);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .grain{display:none}
+}

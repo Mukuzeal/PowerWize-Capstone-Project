@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documents | PowerWize</title>
+<meta name="description" content="The full capstone manuscript, system documentation with diagrams, user manual, setup and deployment guides, and the source repository.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="curtain" aria-hidden="true"></div>
+<div class="prog" aria-hidden="true"></div>
+<div class="rails" aria-hidden="true"><div class="rails__inner">
+  <span style="--i:0"></span><span style="--i:1"></span><span style="--i:2"></span><span style="--i:3"></span>
+  <span style="--i:4"></span><span style="--i:5"></span><span style="--i:6"></span><span style="--i:7"></span>
+  <span style="--i:8"></span><span style="--i:9"></span><span style="--i:10"></span><span style="--i:11"></span>
+</div></div>
+<div class="grain" aria-hidden="true"></div>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="index.html">POWER<b>WIZE</b></a>
+    <button class="nav__toggle" aria-expanded="false" aria-controls="navlinks">Menu</button>
+    <nav class="nav__links" id="navlinks" aria-label="Primary">
+      <a href="index.html">Overview</a>
+      <a href="research.html">Research</a>
+      <a href="system.html">System</a>
+      <a href="gallery.html">Gallery</a>
+      <a href="documents.html" aria-current="page">Documents</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="band">
+    <div class="wrap">
+      <p class="mono rev">Everything, in full</p>
+      <h1 class="d1 rev" style="margin-top:1.2rem;max-width:20ch">
+        The manuscript and the documentation behind it
+      </h1>
+      <p class="lead rev" style="margin-top:1.4rem">
+        Nothing here is a summary of a summary. The diagrams are transcribed from the running
+        source, and the manuscript is the submitted document.
+      </p>
+      <div class="btns rev" style="margin-top:2.2rem">
+        <a class="btn btn--p" href="manuscript/PowerWize-Capstone-Manuscript.pdf">Download the manuscript</a>
+        <a class="btn btn--s" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project">Source repository</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band--edge">
+    <div class="wrap">
+      <div class="cards stag">
+        <a class="card" href="manuscript/PowerWize-Capstone-Manuscript.pdf">
+          <span class="mono">Manuscript, PDF</span>
+          <div class="t">All five chapters <i>&rarr;</i></div>
+          <p class="d">Introduction, review of related literature, methodology, results and
+            discussion, conclusions and recommendations, with references. 188 pages.</p>
+        </a>
+        <a class="card" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/SYSTEM_DOCUMENTATION.md">
+          <span class="mono">Diagrams</span>
+          <div class="t">System documentation <i>&rarr;</i></div>
+          <p class="d">Architecture, context and level-1 data-flow diagrams, use-case model with a
+            capability matrix, the full 36-table ERD, and three sequence diagrams.</p>
+        </a>
+        <a class="card" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/USER_MANUAL.md">
+          <span class="mono">Usage</span>
+          <div class="t">User manual <i>&rarr;</i></div>
+          <p class="d">Step-by-step for every role: applicant, trainee, trainer, administrator,
+            company coordinator, solar prospect, and the public verifier.</p>
+        </a>
+        <a class="card" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/SETUP.md">
+          <span class="mono">Installation</span>
+          <div class="t">Setup guide <i>&rarr;</i></div>
+          <p class="d">Requirements, configuration, database bootstrap, seeding, retrieval
+            indexing, verification, and a troubleshooting table.</p>
+        </a>
+        <a class="card" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/blob/main/docs/DEPLOY_AZURE.md">
+          <span class="mono">Hosting</span>
+          <div class="t">Deployment runbook <i>&rarr;</i></div>
+          <p class="d">Azure App Service end to end: database, persistent uploads, application
+            settings, post-deploy steps, and what it actually costs.</p>
+        </a>
+        <a class="card" href="https://github.com/Mukuzeal/PowerWize-Capstone-Project/tree/main/docs/screenshots">
+          <span class="mono">Index</span>
+          <div class="t">Screenshot manifest <i>&rarr;</i></div>
+          <p class="d">All 48 frames with a per-frame description of what each demonstrates and
+            the conditions it was captured under.</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band--edge band--plate">
+    <div class="wrap">
+      <div class="split">
+        <div class="rev-l">
+          <h2 class="d2">On the live system</h2>
+          <p class="prose" style="margin-top:1.1rem">
+            PowerWize is demonstrated locally rather than from a permanent public deployment. The
+            gallery shows the running application, and the deployment runbook documents what a
+            hosted instance requires.
+          </p>
+          <p class="prose">
+            Two properties make that a deliberate choice rather than a gap. Uploaded registration
+            documents, module material and exam submissions are written to disk, so any host needs
+            persistent storage outside the deployed tree. The retrieval model is a 130 MB download
+            that needs a durable cache and roughly a gigabyte of memory.
+          </p>
+        </div>
+        <div class="rev-r">
+          <table class="spec">
+            <tr><th>Repository</th><td><a href="https://github.com/Mukuzeal/PowerWize-Capstone-Project" style="color:var(--signal)">Mukuzeal / PowerWize-Capstone-Project</a></td></tr>
+            <tr><th>Blockchain</th><td>Polygon Amoy testnet, chain ID 80002</td></tr>
+            <tr><th>Certificates</th><td>Soulbound ERC-721, on-chain metadata</td></tr>
+            <tr><th>Evaluation</th><td>ISO/IEC 25010:2023, TAM, System Usability Scale</td></tr>
+            <tr><th>Respondents</th><td>48 by total enumeration, 10 IT testers by purposive sampling</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band--tight band--edge">
+    <div class="wrap">
+      <div class="btns rev">
+        <a class="btn btn--s" href="research.html">Back to the research</a>
+        <a class="btn btn--s" href="gallery.html">Back to the gallery</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__g">
+    <div>
+      <a class="brand" href="index.html">POWER<b>WIZE</b></a>
+      <p>
+        Submitted in partial fulfilment of the requirements for the degree of Bachelor of Science
+        in Information Technology, major in Web and Mobile Application Development, College of
+        Computer Studies, Laguna State Polytechnic University, Santa Cruz, Laguna. Developed in
+        partnership with EnergyWize Solutions Inc.
+      </p>
+    </div>
+    <nav class="foot__nav" aria-label="Footer">
+      <a href="index.html">Overview</a>
+      <a href="research.html">Research</a>
+      <a href="system.html">System</a>
+      <a href="gallery.html">Gallery</a>
+    </nav>
+  </div>
+  <div class="wrap" style="margin-top:2.5rem">
+    <span class="seal">&copy; 2026 Bandao &nbsp;/&nbsp; Cosio &nbsp;/&nbsp; Esguerra</span>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>
