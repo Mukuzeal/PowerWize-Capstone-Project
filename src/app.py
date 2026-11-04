@@ -24,6 +24,13 @@ from corporate_public_bp import corporate_public_bp
 from classes_bp import classes_bp
 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Where uploaded files are written. Kept separate from base_dir because a
+# deployed tree is not a safe place to store them: on Azure App Service the
+# code lives in /home/site/wwwroot and is replaced wholesale on every
+# deployment, while /home itself is the persistent mount — so hosting sets
+# POWERWIZE_DATA_DIR=/home/data and the uploads outlive a redeploy. Defaults
+# to base_dir, so a local run behaves exactly as it always has.
+data_dir = os.getenv("POWERWIZE_DATA_DIR", base_dir)
 app = Flask(__name__, template_folder=os.path.join(base_dir, "templates"), static_folder=os.path.join(base_dir, "static"))
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['JSON_SORT_KEYS'] = False
@@ -40,7 +47,7 @@ app.secret_key = secret_key
 # world-readable no matter what the admin routes check. Served only through
 # admin.registration_document / admin_registration_selfie, both behind
 # require("review_registrations").
-app.config["UPLOAD_FOLDER"] = os.path.join(base_dir, "uploads", "registrations")
+app.config["UPLOAD_FOLDER"] = os.path.join(data_dir, "uploads", "registrations")
 # Where documents lived before Phase 0. Still read — but ONLY by the
 # permission-gated admin routes, never by Flask's static handler (see the
 # /static/uploads/ block below). Without this fallback every registration

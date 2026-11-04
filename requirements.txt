@@ -1,18 +1,37 @@
-flask
-flask-wtf
-werkzeug
-python-dotenv
-gunicorn
-psycopg2-binary
-web3
-requests
-qrcode[pil]
-Pillow
-pytesseract
-pdf2image
-pymupdf
-pypdfium2
-openpyxl
-fastembed
-numpy
-cryptography>=42.0
+# Pinned to the versions this project is actually developed and tested against
+# (Python 3.12). Azure App Service builds with Oryx, which resolves whatever is
+# unpinned to the newest release at build time -- so an unpinned file means the
+# deployed app runs a dependency set nobody has ever run locally.
+# Regenerate with: pip freeze | grep -iE '<the names below>'
+
+flask==3.1.3
+flask-wtf==1.3.0
+werkzeug==3.1.8
+python-dotenv==1.2.3
+gunicorn==26.2.0
+psycopg2-binary==2.9.12
+web3==8.0.0
+requests==2.34.2
+qrcode[pil]==8.2
+Pillow==12.3.0
+openpyxl==3.1.5
+cryptography==50.0.2
+
+# Retrieval. fastembed pulls onnxruntime and downloads ~130MB of model weights
+# on first use -- see EMBED_CACHE_DIR in src/rag/embeddings.py before deploying
+# anywhere with an ephemeral filesystem.
+fastembed==0.8.0
+numpy==2.5.3
+
+# Document rasterising, in the order upload_validation.py tries them.
+# pypdfium2 is a self-contained wheel and needs no system packages, which is
+# why it is attempted before pdf2image -- pdf2image needs a poppler binary that
+# App Service does not ship. pymupdf is the first choice where it imports.
+pymupdf==1.28.2
+pypdfium2==5.14.0
+pdf2image==1.17.0
+
+# Fallback OCR only. The primary bill reader is the vision model; pytesseract
+# additionally needs a tesseract binary, which App Service does not have, so
+# this path is inert when hosted and degrades to the vision model.
+pytesseract==0.3.13

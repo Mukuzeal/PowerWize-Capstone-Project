@@ -11,8 +11,13 @@ from db import (lms_get_files, lms_get_progress, lms_get_quiz, lms_get_exam, lms
                lms_get_modules_for_trainee, lms_get_module, class_gate)
 
 _PROJECT_ROOT    = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-LMS_UPLOAD_DIR   = os.path.join(_PROJECT_ROOT, 'uploads', 'lms')
-EXAM_UPLOAD_DIR  = os.path.join(_PROJECT_ROOT, 'uploads', 'exam_submissions')
+# Same reasoning as app.py's data_dir: module material and exam submissions
+# must survive a redeploy, so hosting points POWERWIZE_DATA_DIR at persistent
+# storage outside the deployed tree. Defaults to the project root for local
+# runs. Both files read the one variable so the two never diverge.
+_DATA_ROOT       = os.getenv("POWERWIZE_DATA_DIR", _PROJECT_ROOT)
+LMS_UPLOAD_DIR   = os.path.join(_DATA_ROOT, 'uploads', 'lms')
+EXAM_UPLOAD_DIR  = os.path.join(_DATA_ROOT, 'uploads', 'exam_submissions')
 os.makedirs(LMS_UPLOAD_DIR,  exist_ok=True)
 os.makedirs(EXAM_UPLOAD_DIR, exist_ok=True)
 

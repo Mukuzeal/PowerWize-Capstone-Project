@@ -349,6 +349,10 @@ tuned from.
 
 ## 8. Deployment
 
+For a step-by-step hosted deployment on Azure App Service — the platform this
+project is hosted on — see **[DEPLOY_AZURE.md](DEPLOY_AZURE.md)**. The rest of
+this section covers what any platform needs.
+
 ### Production server
 
 `Procfile` holds the production command:
@@ -363,16 +367,30 @@ requirement described in [section 5](#5-running-the-application).
 ### Platform checklist
 
 1. Provision a PostgreSQL instance and set `DATABASE_URL` to its connection
-   string.
+   string. Most managed providers require TLS — append `?sslmode=require`.
 2. Set every variable from [section 3](#3-configuration) in the platform's
    environment configuration. Do not upload `.env`.
-3. Deploy. `init_db()` creates the schema on first boot.
-4. Register the PayMongo webhook against
+3. **Point `POWERWIZE_DATA_DIR` at persistent storage outside the deployed
+   tree.** Uploaded registration documents, module material and exam
+   submissions are written to disk, and their database rows outlive the
+   process — if the files are wiped by a redeploy, those rows point at nothing.
+   Unset, uploads land next to the code, which is wrong anywhere the deployed
+   tree is replaced on deployment.
+4. **Point `EMBED_CACHE_DIR` at persistent storage too.** The embedding model
+   is a ~130 MB download; without a durable cache it is re-fetched on every
+   cold start, and the first visitor pays for it.
+5. Set `TEXT_PROVIDER` and `VISION_PROVIDER` to `groq`. A hosted deployment has
+   no LM Studio server to reach, so those calls would hang until they timed
+   out. `EMBED_PROVIDER=local_cpu` is correct and runs in-process.
+6. Deploy. `init_db()` creates the schema on first boot.
+7. Register the PayMongo webhook against
    `https://your-domain/payment/webhook`.
-5. Fund the Polygon wallet.
-6. Create the first administrator with `scripts/create_admin.py`, passing the
-   password by environment variable.
-7. Build the retrieval index ([section 7](#7-building-the-retrieval-index)).
+8. Fund the Polygon wallet.
+9. Create the first administrator with `scripts/create_admin.py`, passing the
+   password by environment variable and `POWERWIZE_ALLOW_REMOTE=1` to clear the
+   non-localhost guard.
+10. Build the retrieval index ([section 7](#7-building-the-retrieval-index)),
+    again with `POWERWIZE_ALLOW_REMOTE=1`.
 
 ### Exposing a local server for webhook testing
 

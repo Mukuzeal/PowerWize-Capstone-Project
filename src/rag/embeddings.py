@@ -17,6 +17,12 @@ load_dotenv()
 
 EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "local_cpu").lower()
 EMBED_MODEL    = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
+# Where fastembed keeps the downloaded ONNX weights. Unset locally, where its
+# own default cache is already warm and persistent. Hosting must point this at
+# persistent storage: the model is a ~130MB download, and on a platform with an
+# ephemeral or redeployed filesystem an unset cache means re-downloading it on
+# every cold start, paid on the first request. None = fastembed's default.
+EMBED_CACHE_DIR = os.getenv("EMBED_CACHE_DIR") or None
 
 LM_STUDIO_URL  = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
 
@@ -27,7 +33,7 @@ def _get_model():
     global _model
     if _model is None:
         from fastembed import TextEmbedding
-        _model = TextEmbedding(model_name=EMBED_MODEL)
+        _model = TextEmbedding(model_name=EMBED_MODEL, cache_dir=EMBED_CACHE_DIR)
     return _model
 
 
