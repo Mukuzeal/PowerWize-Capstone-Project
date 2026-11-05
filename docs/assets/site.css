@@ -158,18 +158,51 @@ main > .band:first-child{padding-top:clamp(2.5rem,5vw,5rem)}
 .two > *,.split > *,.plates > *,.figrow > *,.cards > *,.shots > *,.figs > *{min-width:0}
 
 /* ── Imagery. The screenshots are the evidence, so they get the room. ────── */
-.shot{position:relative;border:var(--rule) solid var(--line-mid);background:var(--ink-100);overflow:hidden}
+.shot{position:relative;border:var(--rule) solid var(--line-strong);background:var(--ink-100);overflow:hidden;
+  box-shadow:0 2px 4px rgba(0,0,0,.5),0 18px 34px -16px rgba(0,0,0,.8)}
 .shot img{width:100%;height:auto}
 .shot--tall img{aspect-ratio:16/11;object-fit:cover;object-position:top center}
 .shot figcaption{padding:.85rem 1rem;border-top:var(--rule) solid var(--line);
   font-family:var(--mono);font-size:var(--fs-mono);letter-spacing:.08em;color:var(--fg-mute);text-transform:uppercase}
 
-/* Full-bleed plate: an image allowed to break the gutter and dominate.
-   This lives outside .wrap, so it is already the full width of <main>. Sizing
-   it with 100vw instead would include the scrollbar gutter and overflow. */
-.bleed{width:100%;border-block:var(--rule) solid var(--line-mid);
-  background:var(--ink-100);overflow:hidden}
-.bleed img{width:100%;height:clamp(300px,62vh,760px);object-fit:cover;object-position:top center}
+/* Showcase frame. The previous full-bleed plate failed at exactly the job it
+   was given: a dark application screen, on a near-black ground, edge to edge,
+   separated only by a .16-alpha hairline reads as more background, not as
+   evidence. Worse, a fixed clamp() height against a 3200x2000 capture cropped
+   ~40% away and landed mid-chart.
+
+   Three flat devices fix it. The surface steps up a tone, a bright rim catches
+   the edge, and layered shadow lifts the whole plate off the page. Shadow is
+   depth, not a gradient fill -- the no-gradient rule stands. */
+.frame{position:relative;background:var(--ink-200);
+  border:var(--rule) solid var(--line-strong);
+  padding:clamp(.5rem,.85vw,.9rem);
+  box-shadow:inset 0 1px 0 rgba(206,236,218,.07),
+             0 1px 2px rgba(0,0,0,.55),
+             0 16px 30px -12px rgba(0,0,0,.75),
+             0 40px 76px -30px rgba(0,0,0,.95)}
+/* Round controls on square structure, as the parent system has it. It also
+   tells the reader at a glance that the thing below is an application. */
+.frame__bar{display:flex;align-items:center;gap:.42rem;padding:.1rem .3rem .62rem}
+.frame__bar i{width:9px;height:9px;border-radius:50%;background:var(--line-strong)}
+.frame__bar span{margin-left:auto;font-family:var(--mono);font-size:var(--fs-mono);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--fg-mute)}
+.frame img{display:block;width:100%;height:auto;background:var(--ink-000);
+  border:var(--rule) solid var(--line-mid)}
+/* Crop only where a capture is extremely tall, and only from the top, so the
+   masthead and first full band of content survive. Never a fixed pixel
+   height -- that is what cut the old plate off mid-chart. */
+.frame--crop img{aspect-ratio:16/10;object-fit:cover;object-position:top center}
+/* A dark capture on a dark mat is still camouflage -- the certificate console
+   is near-black UI, so every dark plate tone leaves it reading as background.
+   Invert the plate to paper for those. The parent system reserves exactly one
+   paper inversion; a dark screen that has to be legible is what it is for. */
+.frame--invert{background:#E7F1EA;border-color:#E7F1EA}
+.frame--invert .frame__bar i{background:rgba(4,9,7,.26)}
+.frame--invert .frame__bar span{color:rgba(4,9,7,.58)}
+.frame--invert img{border-color:rgba(4,9,7,.22)}
+.frame figcaption{padding:.8rem .3rem 0;font-family:var(--mono);font-size:var(--fs-mono);
+  letter-spacing:.08em;color:var(--fg-mute);text-transform:uppercase}
 
 .figrow{display:grid;gap:clamp(1rem,2vw,1.75rem)}
 .figrow--2{grid-template-columns:repeat(2,1fr)}
@@ -326,6 +359,7 @@ table.data td.ev{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing
     .rev-r{animation:revR linear both;animation-timeline:view();animation-range:entry 5% entry 85%}
     /* Images settle: they arrive slightly oversized and come to rest. */
     .rev-img img,.rev-img > .shot{animation:imgSettle linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
+    .rev-frame{animation:frameLift linear both;animation-timeline:view();animation-range:entry 4% cover 32%}
     /* Stagger inside a group, by index. */
     .stag > *{animation:revIn linear both;animation-timeline:view();animation-range:entry 8% entry 92%}
     /* Hairline that draws itself as the section arrives. */
@@ -347,7 +381,8 @@ table.data td.ev{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing
   }
   /* Fallback for browsers without scroll-driven animations. The class is added
      by JS only after support is ruled out, so no-JS never hides anything. */
-  .js-rev .rev,.js-rev .rev-l,.js-rev .rev-r,.js-rev .stag > *{opacity:0;will-change:transform,opacity}
+  .js-rev .rev,.js-rev .rev-l,.js-rev .rev-r,.js-rev .rev-frame,.js-rev .stag > *{opacity:0;will-change:transform,opacity}
+  .js-rev .rev-frame{transform:translateY(30px) scale(.987)}
   .js-rev .rev{transform:translateY(22px)}
   .js-rev .rev-l{transform:translateX(-26px)}
   .js-rev .rev-r{transform:translateX(26px)}
@@ -363,6 +398,7 @@ table.data td.ev{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing
 @keyframes revL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
 @keyframes revR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
 @keyframes imgSettle{from{transform:scale(1.06)}to{transform:scale(1)}}
+@keyframes frameLift{from{opacity:0;transform:translateY(30px) scale(.987)}to{opacity:1;transform:none}}
 @keyframes drawX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 /* Scroll progress bar, driven by the document timeline. No scroll listener. */

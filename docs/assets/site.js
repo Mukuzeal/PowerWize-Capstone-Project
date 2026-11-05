@@ -74,7 +74,7 @@
       { rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
     );
 
-    document.querySelectorAll(".rev, .rev-l, .rev-r, .stag").forEach(function (el) {
+    document.querySelectorAll(".rev, .rev-l, .rev-r, .rev-frame, .stag").forEach(function (el) {
       io.observe(el);
     });
   }
