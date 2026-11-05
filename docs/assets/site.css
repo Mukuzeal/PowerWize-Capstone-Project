@@ -394,6 +394,27 @@ table.data td.ev{font-family:var(--mono);font-size:var(--fs-mono);letter-spacing
     transition:opacity 720ms var(--e-out),transform 720ms var(--e-out)}
   .js-rev .stag.is-in > *{transition-delay:calc(var(--i,0) * 70ms)}
 }
+/* Visibility must never depend on a reveal actually running.
+
+   A full-page capture, a print render, or print-to-PDF resizes the viewport
+   to the whole document. A view() timeline then has no scroll range left to
+   drive: it goes inactive and every reveal is stranded at its from-state, so
+   the page exports completely blank. This is a research repository that gets
+   captured and printed, so the motion is an enhancement and nothing more --
+   where it cannot run, the content is simply there. */
+@media print{
+  .rev,.rev-l,.rev-r,.rev-frame,.stag > *,
+  .js-rev .rev,.js-rev .rev-l,.js-rev .rev-r,.js-rev .rev-frame,.js-rev .stag > *{
+    animation:none !important;opacity:1 !important;transform:none !important}
+}
+/* A viewport this tall is a full-page capture, not a display. Same reasoning:
+   there is no scroll range to animate against, so stop animating. */
+@media (min-height:1800px){
+  .rev,.rev-l,.rev-r,.rev-frame,.stag > *,
+  .js-rev .rev,.js-rev .rev-l,.js-rev .rev-r,.js-rev .rev-frame,.js-rev .stag > *{
+    animation:none !important;opacity:1 !important;transform:none !important}
+}
+
 @keyframes revIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 @keyframes revL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
 @keyframes revR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
