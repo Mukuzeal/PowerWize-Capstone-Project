@@ -60,6 +60,17 @@ def auth_login():
             session["user_role"] = user["role"]
             session["user_name"] = f"{user['fname']} {user['lname']}"
             session["user_email"] = user["email"]
+            session.pop('active_registration_id', None)
+            for key in ('pending_pi','pending_qr_pi','discount_code','last_receipt_id'):
+                session.pop(key,None)
+            if session.get('activation_claim_token'):
+                # The token stays in the signed cookie, never a return query or
+                # external redirect. Ownership is checked again on redemption.
+                pending = session['activation_claim_token']
+                return redirect(url_for('onboarding.create_account', token=pending))
+            from db import sponsored_enrolment
+            if user['role'] == 'trainee' and sponsored_enrolment(user['id']):
+                return redirect('/portal')
             if user["role"] == "trainee" and user.get("payment_status") == "unpaid":
                 return redirect("/payment")
             return redirect(home_url_for(user["role"]))

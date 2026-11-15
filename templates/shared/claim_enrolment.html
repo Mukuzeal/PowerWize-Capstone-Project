@@ -1,0 +1,15 @@
+{% extends "site/base.html" %}
+{% from "site/_ui.html" import fhead %}
+{% from "shared/macros.html" import errors_block %}
+{% block title %}Activate your enrolment — EnergyWize{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='ewize-forms.css') }}">{% endblock %}
+{% block main %}<section class="formpage"><div class="shell" style="max-width:48rem">
+{{ fhead([('Home','/')], 'Approved application', 'Activate your<br><em>new enrolment</em>', 'Use your existing account. Your previous registrations and training records will stay available.') }}
+{{ errors_block(errors) }}
+<div class="info-card"><strong>{{ tok.full_name }}</strong><p>{{ tok.email }} · Application {{ tok.reg_id }}</p></div>
+{% if session.get('user_role') == 'trainee' and session.get('user_email','')|lower == tok.email|lower %}
+<form method="post" class="form-card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="form-body"><p>Link this approved application to the account you are signed in to?</p></div><div class="form-footer"><button type="submit" class="btn-submit">Activate this enrolment</button></div></form>
+{% else %}
+<form method="post" action="{{ url_for('onboarding.sign_in_to_claim',token=request.view_args.token) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><p>Sign in to the trainee account at the invitation email, then return here to confirm. You do not need a second password.</p><button class="btn-submit" type="submit">Sign in to continue</button></form>
+{% endif %}
+</div></section>{% endblock %}

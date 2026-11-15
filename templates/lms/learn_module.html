@@ -56,8 +56,8 @@
           <span class="badge badge-gray"><i class="fa-solid fa-lock"></i> View material to unlock ({{ material_pct}}%)</span>
           {% else %}
           {% if quiz_attempt %}
-          <span class="badge {{ 'badge-green' if quiz_attempt.score >= quiz.passing_score else 'badge-red'}}">
-            <i class="fa-solid fa-check"></i> {{ quiz_attempt.score}}%
+          <span class="badge {{ 'badge-green' if progress and progress.quiz_passed else 'badge-red'}}">
+            <i class="fa-solid fa-check"></i> Last: {{ quiz_attempt.score}}%
           </span>
           {% endif %}
           <a href="/lms/learn/{{ mod.id}}/quiz" class="btn-sm btn-primary">
@@ -73,8 +73,9 @@
       </div>
       {% if quiz and quiz_attempt %}
       <div class="assessment-meta">
-        <span>Score: <strong>{{ quiz_attempt.score}}%</strong></span>
-        <span>{{ 'Passed' if quiz_attempt.score >= quiz.passing_score else 'Failed'}}</span>
+        <span>Best score: <strong>{{ progress.quiz_score if progress and progress.quiz_score is not none else quiz_attempt.score }}%</strong></span>
+        <span>Last attempt: <strong>{{ quiz_attempt.score}}%</strong></span>
+        <span>{{ 'Passed' if progress and progress.quiz_passed else 'Failed'}}</span>
         {% if quiz_attempt.tab_switches > 0 %}
         <span class="badge badge-red"><i class="fa-solid fa-eye"></i> {{ quiz_attempt.tab_switches}} tab switch{{ 'es' if quiz_attempt.tab_switches != 1}} detected</span>
         {% endif %}

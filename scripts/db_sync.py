@@ -26,6 +26,8 @@ import sys
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
+from _guard import require_local_db
+from psycopg2.extensions import parse_dsn
 
 load_dotenv()
 
@@ -70,6 +72,16 @@ def main():
 
     src, dst = (LOCAL, SUPA) if args.to_supabase else (SUPA, LOCAL)
 
+    previous_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = dst
+    try:
+        require_local_db()
+    finally:
+        if previous_url is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = previous_url
+
     # Same intent as scripts/_guard.py: a remote target is only ever written
     # on purpose. The direction flag alone is not enough -- an opt-in env var
     # keeps this consistent with every other script that can reach production.
@@ -88,7 +100,7 @@ def main():
         if input(f"\nType the target host to confirm [{urlparse(dst).hostname}]: ").strip() != urlparse(dst).hostname:
             sys.exit("Aborted.")
 
-    dump = [_tool("pg_dump"), src,
+    dump = [_tool("pg_dump"), "--no-password",
             # Supabase owns roles and extensions this dump must not touch, so
             # restrict to public and drop ownership/grants.
             "--schema=public", "--no-owner", "--no-privileges",
@@ -96,11 +108,21 @@ def main():
     if args.schema_only:
         dump.append("--schema-only")
 
-    restore = [_tool("psql"), dst, "-v", "ON_ERROR_STOP=1", "--quiet"]
+    restore = [_tool("psql"), "--no-password", "-v", "ON_ERROR_STOP=1", "--single-transaction", "--no-psqlrc", "--quiet"]
 
     print("\nTransferring...")
-    p1 = subprocess.Popen(dump, stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(restore, stdin=p1.stdout)
+    # Keep connection credentials out of argv and avoid Windows URI quoting issues.
+    def connection_env(url):
+        env = dict(os.environ)
+        for key, value in parse_dsn(url).items():
+            env["PG" + ("DATABASE" if key == "dbname" else key.upper())] = value
+        env["PGCONNECT_TIMEOUT"] = "15"
+        return env
+
+    source_env = connection_env(src)
+    target_env = connection_env(dst)
+    p1 = subprocess.Popen(dump, stdout=subprocess.PIPE, env=source_env)
+    p2 = subprocess.Popen(restore, stdin=p1.stdout, env=target_env)
     p1.stdout.close()
     rc = p2.wait()
     if p1.wait() != 0 or rc != 0:

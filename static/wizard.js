@@ -192,11 +192,25 @@
     var valBox = hasFile ? document.getElementById('val-' + f.id) : null;
     if(!valBox) return null;
     if(valBox.dataset.status === 'validating'){
-      return {msg: 'Please wait — still validating your upload.'};
+      return {msg: 'Please wait — still checking your upload.'};
     }
     if(valBox.dataset.status === 'invalid'){
       var bad = valBox.querySelector('.uv-bad .uv-msg');
       return {msg: bad && bad.textContent ? bad.textContent : 'Please re-upload a valid document.'};
+    }
+    // 'error' means the checker failed, so this upload is UNRESOLVED. Submit
+    // is blocked — passing it through would bank an unchecked document — but
+    // the wording must not accuse the applicant's file, and Retry is offered
+    // in the box itself.
+    if(valBox.dataset.status === 'error'){
+      var errEl = valBox.querySelector('.uv-error .uv-msg');
+      return {msg: (errEl && errEl.textContent ? errEl.textContent
+                    : 'Could not validate this upload yet.') +
+                   ' Use Retry on that upload before continuing.'};
+    }
+    // 'idle' with a freshly chosen file means the request never started.
+    if(valBox.dataset.status === 'idle'){
+      return {msg: 'Please re-select this file so it can be checked.'};
     }
     return null;
   }

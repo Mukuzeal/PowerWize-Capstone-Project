@@ -19,9 +19,6 @@ import base64
 import hashlib
 import os
 
-from cryptography.fernet import Fernet, InvalidToken
-
-
 class SecretUnavailable(RuntimeError):
     """No usable key, so nothing can be encrypted or read back."""
 
@@ -39,6 +36,10 @@ def _key():
 def encrypt(plaintext):
     if plaintext is None:
         return None
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError as exc:
+        raise SecretUnavailable('Install requirements.txt with this server\'s Python environment.') from exc
     return Fernet(_key()).encrypt(plaintext.encode()).decode()
 
 
@@ -52,6 +53,7 @@ def decrypt(ciphertext):
     if not ciphertext:
         return None
     try:
+        from cryptography.fernet import Fernet
         return Fernet(_key()).decrypt(ciphertext.encode()).decode()
-    except (InvalidToken, SecretUnavailable, Exception):
+    except Exception:
         return None

@@ -3,7 +3,7 @@ import os
 from datetime import date
 
 from flask import (request, redirect, flash, session, current_app,
-                   send_from_directory, abort, jsonify)
+                   send_from_directory, abort, jsonify, get_flashed_messages)
 
 from db import (get_db, dict_cur, set_registration_status, build_batch_label,
                 build_label_from_dates, expand_offsets, TYPE_OFFSETS,
@@ -16,6 +16,58 @@ from utils import base_url
 from . import admin_bp, require_admin
 
 
+def _review_done(section):
+    if request.accept_mimetypes.best == 'application/json':
+        messages = [{'kind':kind,'text':text} for kind,text in get_flashed_messages(with_categories=True)]
+        ok = not any(m['kind']=='error' for m in messages)
+        return jsonify(ok=ok,messages=messages), (200 if ok else 409)
+    return redirect('/admin#' + section)
+
+
+@admin_bp.route('/admin/registration/<reg_id>/review')
+def registration_review_panel(reg_id):
+    response = require('review_registrations')
+    if response:
+        return response
+    from db import get_registration_full, get_document_reviews, CORRECTION_FIELDS
+    from review_policy import readiness, REQUIRED_DOCS
+    reg = get_registration_full(reg_id)
+    if not reg:
+        abort(404)
+    conn = get_db(); cur = dict_cur(conn)
+    try:
+        cur.execute('SELECT action,review_version,created_at FROM registration_review_history WHERE reg_id=%s ORDER BY id DESC LIMIT 15', (reg_id,))
+        history = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT id,kind,to_email,status,attempts,last_error AS error FROM corporate_notifications WHERE dedupe_key LIKE %s ORDER BY id DESC", (f'trainee-correction:{reg_id}:%',))
+        notices = [dict(r) for r in cur.fetchall()]
+        cur.execute('SELECT COUNT(*) AS n FROM registration_retired_uploads WHERE reg_id=%s AND purged_at IS NULL',(reg_id,))
+        cleanup_pending=cur.fetchone()['n']
+        cur.execute('SELECT 1 FROM trainee_enrolments WHERE registration_id=%s UNION ALL SELECT 1 FROM users WHERE registration_id=%s LIMIT 1',(reg_id,reg_id))
+        account_linked=cur.fetchone() is not None
+    finally:
+        cur.close(); conn.close()
+    fields = set(REQUIRED_DOCS.get(reg['form_type'],())) | {'selfie_with_id'} | (set(CORRECTION_FIELDS)-set(_DOC_FIELDS))
+    result = jsonify(registration={'id':reg_id,'name':reg['full_name'],'email':reg['email'],
+        'status':reg['status'],'qualified':bool(reg['is_qualified']),'review_version':reg['review_version'],
+        'correction_note':reg['correction_note'],'readiness':readiness(reg),
+        'documents':[{'field':field,'label':CORRECTION_FIELDS.get(field,field),
+                      'url':f'/admin/registration/{reg_id}/document/{field}'} for field in _DOC_FIELDS if reg.get(field)],
+        'purged':reg['documents_purged_at'] is not None,'account_linked':account_linked},
+        correction_fields=[{'field':f,'label':CORRECTION_FIELDS[f]} for f in CORRECTION_FIELDS if f in fields],
+        history=history,notifications=notices,cleanup_pending=cleanup_pending)
+    result.headers['Cache-Control']='no-store'
+    return result
+
+
+@admin_bp.route('/admin/registration/<reg_id>/cleanup-retired',methods=['POST'])
+def cleanup_replaced_documents(reg_id):
+    response=require('review_registrations')
+    if response:return response
+    from db import purge_retired_uploads
+    purge_retired_uploads(reg_id,[current_app.config['UPLOAD_FOLDER'],current_app.config.get('LEGACY_UPLOAD_FOLDER')])
+    return jsonify(ok=True,message='Replacement-file cleanup retried. Review any remaining pending cleanup.')
+
+
 @admin_bp.route("/admin/registration/<reg_id>/status/<status>", methods=["POST"])
 def admin_registration_status(reg_id, status):
     resp = require("review_registrations")
@@ -26,11 +78,9 @@ def admin_registration_status(reg_id, status):
     # Distinct from 'rejected' because the roster shows it as actionable and
     # the company is notified about it.
     if status not in ("accepted", "rejected", "pending", "needs_correction"):
-        return redirect("/admin#registrations")
+        return _review_done('registrations')
 
     is_qualified = request.form.get("qualified", "1") == "1"
-    set_registration_status(reg_id, status, is_qualified if status == "accepted" else None)
-
     if status == "needs_correction":
         # Written FOR the applicant and shown to their company; private
         # reviewer reasoning does not belong in this field.
@@ -38,29 +88,41 @@ def admin_registration_status(reg_id, status):
         if not note:
             flash("Say what needs correcting — the applicant and their "
                   "company both see this note.", "error")
-            set_registration_status(reg_id, "pending")
-            return redirect("/admin#registrations")
+            return _review_done('registrations')
 
         # Correction + notification intent commit together. If the mail
         # transport later fails, the intent survives for an admin to retry.
-        from db import set_correction_and_queue_notice
-        result, err = set_correction_and_queue_notice(reg_id, note, session.get("user_id"))
+        from db import request_correction
+        from secretbox import SecretUnavailable
+        try:
+            result, err = request_correction(reg_id, note, request.form.getlist('correction_fields'),
+                                             session.get('user_id'), base_url(),
+                                             expected_version=request.form.get('review_version'))
+        except SecretUnavailable:
+            flash('Correction was not saved. Email storage needs the server requirements and encryption key configured.', 'error')
+            return _review_done('registrations')
         if err:
             flash(err, "error")
-            return redirect("/admin#registrations")
+            return _review_done('registrations')
 
         audit_log(session.get("user_id"), "registration_needs_correction",
                   "registration", reg_id, f"Requested correction: {note}")
         flash(f"Registration #{reg_id} marked as needing correction.", "warning")
 
-        if result.get("notification_id"):
-            ok, msg = _deliver_notification(result["notification_id"])
+        for nid in result.get('notification_ids', []):
+            ok, msg = _deliver_notification(nid)
             flash(msg, "success" if ok else "warning")
+        if result.get('duplicate'):
+            flash('This correction already has a delivery record. Use Retry if needed.', 'warning')
         elif result.get("company") is None:
             flash("Not linked to a company intake, so no company was notified.", "warning")
-        else:
-            flash("The company was already notified about this correction.", "warning")
-        return redirect("/admin#registrations")
+        return _review_done('registrations')
+
+    changed = set_registration_status(reg_id, status, is_qualified if status == 'accepted' else None,
+        expected_version=request.form.get('review_version'), actor_id=session.get('user_id'))
+    if not changed:
+        flash('The application changed. Reload it before reviewing.', 'error')
+        return _review_done('registrations')
 
     if status == "accepted":
         audit_log(session.get("user_id"), "registration_accepted", "registration", reg_id,
@@ -83,7 +145,7 @@ def admin_registration_status(reg_id, status):
     if purged:
         flash(f"Review complete — {n} uploaded document(s) deleted; "
               f"the outcome and a hash of each are retained.", "success")
-    return redirect("/admin#registrations")
+    return _review_done('registrations')
 
 
 @admin_bp.route("/admin/schedule/delete/<int:schedule_id>", methods=["POST"])
@@ -211,8 +273,7 @@ def _issue_invitation_if_ready(reg_id):
     admin_resend_invitation(), which issues a FRESH link and kills the old
     one. Any wording suggesting the same link can be re-sent would be false.
     """
-    from db import (get_registration_full, claim_account_invitation,
-                    account_exists_for_email)
+    from db import get_registration_full, claim_account_invitation
     from review_policy import may_issue_account_invitation
 
     reg = get_registration_full(reg_id)
@@ -226,8 +287,13 @@ def _issue_invitation_if_ready(reg_id):
         return False, "Approved, but there is no email on file — send the link manually."
     # No point inviting someone who already signed up: the token would be
     # dead weight and the email confusing.
-    if account_exists_for_email(reg["email"]):
-        return False, "An account already exists for this email — no invitation needed."
+    conn = get_db(); cur = dict_cur(conn)
+    try:
+        cur.execute('SELECT 1 FROM trainee_enrolments WHERE registration_id=%s', (reg_id,))
+        if cur.fetchone():
+            return False, 'This application is already linked to its trainee account.'
+    finally:
+        cur.close(); conn.close()
 
     # The admin's recorded qualification decision is carried through
     # unchanged; this path never asserts a value of its own.
@@ -241,9 +307,9 @@ def _issue_invitation_if_ready(reg_id):
                                         bool(reg.get("is_qualified", 1)), base_url())
         message = _invitation_delivery_message(outcome, reg['email'])
     except Exception as e:
-        current_app.logger.warning("Invitation email failed for %s: %s", reg_id, e)
+        current_app.logger.warning("Invitation email failed for %s (%s)", reg_id, type(e).__name__)
         audit_log(session.get("user_id"), "invitation_email_failed",
-                  "registration", reg_id, f"{type(e).__name__}: {e}")
+                  "registration", reg_id, type(e).__name__)
         # Honest wording: the invitation row exists, but only its hash is
         # stored, so Resend issues a NEW link rather than re-sending this one.
         return True, ("Invitation created, but the email could not be sent. "
@@ -252,6 +318,37 @@ def _issue_invitation_if_ready(reg_id):
     audit_log(session.get("user_id"), "invitation_issued", "registration", reg_id,
               f"Account setup invitation issued ({outcome})")
     return True, message
+
+
+def _deliver_trainee_correction(notice):
+    from db import notification_payload, correction_access, begin_attempt, finish_attempt
+    from email_utils import send_trainee_correction
+    from urllib.parse import urlsplit
+    payload, error = notification_payload(notice['id'], link_kind='correction')
+    if error or not payload:
+        return False, error or 'Correction delivery content is missing.'
+    correction = correction_access(urlsplit(payload.get('url', '')).path.rsplit('/', 1)[-1])
+    if (not correction or correction['reg_id'] != payload.get('reg_id')
+            or correction['version'] != payload.get('version')
+            or correction['email'].strip().lower() != notice['to_email'].strip().lower()):
+        return False, 'This correction was completed or replaced. Its old notice cannot be retried.'
+    if notice['status'] == 'submitted':
+        return True, 'Correction link already submitted to the trainee mail server.'
+    attempt_id, _, why = begin_attempt(notice['id'])
+    if not attempt_id:
+        return False, why
+    try:
+        outcome = send_trainee_correction(notice['to_email'], payload['name'], payload['note'], payload['url'])
+        transport = {'submitted':'smtp','preview':'preview','mock':'mock'}[outcome]
+    except Exception as exc:
+        finish_attempt(notice['id'], attempt_id, error=f'Delivery failed ({type(exc).__name__}). Use Retry.')
+        return False, 'Correction saved, but trainee email failed. Use Retry in delivery history.'
+    written = finish_attempt(notice['id'], attempt_id, transport=transport)
+    if written is None:
+        return False, 'Delivery outcome could not be recorded. Check the notice before retrying.'
+    return True, {'submitted':'Correction link submitted to the trainee mail server; inbox delivery is unconfirmed.',
+                  'previewed':'Correction email previewed only; not emailed.',
+                  'mocked':'Correction email mocked only; not emailed.'}[written]
 
 
 def _deliver_notification(notif_id):
@@ -277,6 +374,8 @@ def _deliver_notification(notif_id):
     n = get_notification(notif_id)
     if not n:
         return False, "That notification no longer exists."
+    if n['kind'] == 'trainee_correction':
+        return _deliver_trainee_correction(n)
     if n['kind'] != 'needs_correction':
         return False, 'Use the delivery controls for this notification type.'
     if n["status"] == "submitted":
@@ -293,6 +392,9 @@ def _deliver_notification(notif_id):
     if not intake or not slot:
         finish_attempt(notif_id, attempt_id, error="Intake or roster slot no longer exists")
         return False, "The intake or roster entry no longer exists."
+    if n['to_email'].strip().lower() != intake['contact_email'].strip().lower():
+        finish_attempt(notif_id,attempt_id,error='Company contact changed. Historical recipient retained; this old notice was not sent.')
+        return False,'Company contact changed. This old notice was not sent to the previous address.'
 
     try:
         send_company_correction_notice(
@@ -300,8 +402,8 @@ def _deliver_notification(notif_id):
             slot["correction_note"] or "Please contact EnergyWize.",
             program_label(intake["form_type"]), base_url())
     except Exception as e:
-        finish_attempt(notif_id, attempt_id, error=f"{type(e).__name__}: {e}")
-        current_app.logger.warning("Company notice %s failed: %s", notif_id, e)
+        finish_attempt(notif_id, attempt_id, error=f'Delivery failed ({type(e).__name__}). Use Retry.')
+        current_app.logger.warning("Company notice %s failed (%s)", notif_id, type(e).__name__)
         return False, (f"Could not send the company notice (attempt {attempts}). "
                        f"It is queued — use Retry in the intake panel.")
 
@@ -331,6 +433,12 @@ def admin_retry_notification(notif_id):
     resp = require("review_registrations")
     if resp:
         return resp
+    from db import get_notification, force_retry_uncertain
+    n = get_notification(notif_id)
+    if n and n['status']=='uncertain':
+        if request.form.get('confirm_resend') != 'yes':
+            return jsonify(ok=False,message='Confirm a possible duplicate email before retrying an uncertain send.'), 409
+        force_retry_uncertain(notif_id, f'Operator {session.get("user_id")} confirmed a possible duplicate correction email')
     ok, msg = _deliver_notification(notif_id)
     return jsonify(ok=ok, message=msg), (200 if ok else 502)
 
@@ -359,8 +467,13 @@ def admin_resend_invitation(reg_id):
     allowed, reason = may_issue_account_invitation(reg)
     if not allowed:
         return jsonify(error=f"Not ready to invite — {reason}"), 400
-    if account_exists_for_email(reg.get("email") or ""):
-        return jsonify(error="An account already exists for this email."), 400
+    conn = get_db(); cur = dict_cur(conn)
+    try:
+        cur.execute('SELECT 1 FROM trainee_enrolments WHERE registration_id=%s', (reg_id,))
+        if cur.fetchone():
+            return jsonify(error='This application is already linked to an account.'), 400
+    finally:
+        cur.close(); conn.close()
 
     token, rotated = rotate_account_invitation(
         reg_id, reg["email"], bool(reg.get("is_qualified", 1)))
@@ -373,9 +486,9 @@ def admin_resend_invitation(reg_id):
                                         bool(reg.get("is_qualified", 1)), base_url())
         message = _invitation_delivery_message(outcome, reg['email'])
     except Exception as e:
-        current_app.logger.warning("Invitation resend failed for %s: %s", reg_id, e)
+        current_app.logger.warning("Invitation resend failed for %s (%s)", reg_id, type(e).__name__)
         audit_log(session.get("user_id"), "invitation_resend_failed",
-                  "registration", reg_id, f"{type(e).__name__}: {e}")
+                  "registration", reg_id, type(e).__name__)
         # The new link is live even though this delivery attempt failed; the
         # old one is already dead. Say so rather than implying nothing changed.
         return jsonify(error="A new link was issued but the email failed to "
@@ -388,6 +501,23 @@ def admin_resend_invitation(reg_id):
 
 
 def _purge_if_review_complete(reg_id):
+    # Serialize file deletion with correction writes. Helpers below use their
+    # own connections; the session lock deliberately spans their transactions.
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute('SELECT pg_advisory_lock(hashtext(%s))', ('registration-review:'+reg_id,))
+        conn.commit()
+        from db import purge_retired_uploads
+        try:
+            purge_retired_uploads(reg_id,[current_app.config['UPLOAD_FOLDER'],current_app.config.get('LEGACY_UPLOAD_FOLDER')])
+        except Exception as exc:
+            current_app.logger.warning('Retired upload cleanup remains pending (%s)',type(exc).__name__)
+        return _purge_review_documents(reg_id)
+    finally:
+        cur.close(); conn.close()
+
+
+def _purge_review_documents(reg_id):
     """Delete a registration's uploads once BOTH review gates have closed.
 
     The gates are independent: `registrations.status` is the accept/reject on
@@ -407,9 +537,8 @@ def _purge_if_review_complete(reg_id):
         return False, 0
     if state["status"] not in ("accepted", "rejected"):
         return False, 0
-    # A registration with no selfie on file has nothing to verify, so that
-    # gate is vacuously closed; one that has a selfie must have been reviewed.
-    if state["has_selfie"] and not state["selfie_reviewed"]:
+    from review_policy import selfie_required
+    if selfie_required(state['form_type']) and not state['selfie_reviewed']:
         return False, 0
 
     folders = [current_app.config["UPLOAD_FOLDER"]]
@@ -528,9 +657,9 @@ def admin_approve_selfie(reg_id):
     # review and silently overwrote a "not qualified" decision. The two
     # reviews may still happen in either order; whichever finishes second
     # triggers the invitation through the shared gate below.
-    if not record_selfie_review(reg_id, "approved", session.get("user_id")):
-        flash(f"Registration #{reg_id} identity review was already recorded.", "warning")
-        return redirect("/admin#selfies")
+    if not record_selfie_review(reg_id, 'approved', session.get('user_id'), expected_version=request.form.get('review_version')):
+        flash('Identity approval was not recorded. The selfie is missing, a decision already exists, or the application changed. Reload the review.', 'error')
+        return _review_done('selfies')
 
     audit_log(session.get("user_id"), "selfie_verified", "registration", reg_id,
               f"Approved selfie verification for registration #{reg_id}")
@@ -544,7 +673,7 @@ def admin_approve_selfie(reg_id):
     if purged:
         flash(f"Review complete — {n} uploaded document(s) deleted; "
               f"the outcome and a hash of each are retained.", "success")
-    return redirect("/admin#selfies")
+    return _review_done('selfies')
 
 
 @admin_bp.route("/admin/selfie/<reg_id>/reject", methods=["POST"])
@@ -557,11 +686,13 @@ def admin_reject_selfie(reg_id):
     # dropped the pointer and left the image sitting in storage with nothing
     # referencing it. The file is removed by the purge below once the
     # registration's own accept/reject has also happened.
-    record_selfie_review(reg_id, "rejected", session.get("user_id"))
+    if not record_selfie_review(reg_id, 'rejected', session.get('user_id'), expected_version=request.form.get('review_version')):
+        flash('Identity review was already recorded or the application changed. Reload it before reviewing.', 'error')
+        return _review_done('selfies')
     flash(f"Registration #{reg_id} selfie rejected.", "warning")
     audit_log(session.get("user_id"), "selfie_rejected", "registration", reg_id,
               f"Rejected selfie: {reason}")
     purged, n = _purge_if_review_complete(reg_id)
     if purged:
         flash(f"Review complete — {n} uploaded document(s) deleted.", "success")
-    return redirect("/admin#selfies")
+    return _review_done('selfies')

@@ -121,7 +121,7 @@ function initQuiz(opts) {
         (unanswered.length > 1 ? 's' : '') + ': <strong>#' + unanswered.join(', #') + '</strong>.</p>' +
         '<p>Are you sure you want to submit?</p>';
     } else {
-      body.innerHTML = '<p>Submit your quiz now? <strong>This cannot be undone</strong> and you will not be able to retake it.</p>';
+      body.innerHTML = '<p>Submit your quiz now? <strong>This cannot be undone</strong>. If you retake this quiz later, your best score is kept.</p>';
     }
     modal.style.display = 'flex';
     return false;

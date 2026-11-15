@@ -1,6 +1,7 @@
 import psycopg2.extras
 
 from .core import get_db
+from .workflow import lms_registration_id
 
 
 def lms_create_module(instructor_id, title, description, training_type="training", sort_order=0):
@@ -117,10 +118,10 @@ def lms_get_modules_for_trainee(user_id, published_only=True):
     if published_only:
         cur.execute("""SELECT m.*,u.fname,u.lname FROM lms_modules m
                        JOIN users u ON m.instructor_id=u.id
-                       LEFT JOIN lms_certificates c ON c.user_id=%s
+                       LEFT JOIN LATERAL (SELECT issued_at FROM lms_certificates WHERE user_id=%s AND registration_id IS NOT DISTINCT FROM %s ORDER BY issued_at DESC LIMIT 1) c ON TRUE
                        WHERE m.is_published=1 AND m.training_type=%s
                          AND (c.issued_at IS NULL OR m.created_at <= c.issued_at)
-                       ORDER BY m.sort_order ASC, m.created_at ASC""", (user_id, training_type))
+                       ORDER BY m.sort_order ASC, m.created_at ASC""", (user_id,lms_registration_id(user_id,cur), training_type))
     else:
         cur.execute("""SELECT m.*,u.fname,u.lname FROM lms_modules m
                        JOIN users u ON m.instructor_id=u.id
@@ -169,10 +170,11 @@ def lms_update_material_pct(user_id, module_id, pct):
     """Ratchets upward only — a trainee re-opening earlier pages shouldn't
     lower the highest completion percentage already recorded."""
     conn = get_db(); cur = conn.cursor()
-    cur.execute("""INSERT INTO lms_progress (user_id,module_id) VALUES (%s,%s)
-                   ON CONFLICT (user_id,module_id) DO NOTHING""", (user_id, module_id))
+    reg_id=lms_registration_id(user_id,cur)
+    cur.execute("""INSERT INTO lms_progress (user_id,module_id,registration_id) VALUES (%s,%s,%s)
+                   ON CONFLICT DO NOTHING""", (user_id, module_id,reg_id))
     cur.execute("""UPDATE lms_progress SET material_pct=GREATEST(material_pct,%s)
-                   WHERE user_id=%s AND module_id=%s""", (pct, user_id, module_id))
+                   WHERE user_id=%s AND module_id=%s AND registration_id IS NOT DISTINCT FROM %s""", (pct, user_id, module_id,reg_id))
     conn.commit(); cur.close(); conn.close()
 
 
@@ -280,13 +282,14 @@ def lms_get_exam(module_id=None, exam_id=None):
 
 def lms_start_attempt(user_id, quiz_id):
     conn = get_db(); cur = conn.cursor()
-    cur.execute("SELECT id FROM lms_quiz_attempts WHERE user_id=%s AND quiz_id=%s AND completed=0",
-                (user_id, quiz_id))
+    reg_id=lms_registration_id(user_id,cur)
+    cur.execute("SELECT id FROM lms_quiz_attempts WHERE user_id=%s AND quiz_id=%s AND completed=0 AND registration_id IS NOT DISTINCT FROM %s",
+                (user_id, quiz_id,reg_id))
     existing = cur.fetchone()
     if existing:
         cur.close(); conn.close()
         return existing[0]
-    cur.execute("INSERT INTO lms_quiz_attempts (user_id,quiz_id) VALUES (%s,%s) RETURNING id", (user_id, quiz_id))
+    cur.execute("INSERT INTO lms_quiz_attempts (user_id,quiz_id,registration_id) VALUES (%s,%s,%s) RETURNING id", (user_id, quiz_id,reg_id))
     conn.commit(); aid = cur.fetchone()[0]; cur.close(); conn.close()
     return aid
 
@@ -307,8 +310,8 @@ def lms_get_attempt(attempt_id):
 def lms_get_user_attempt(user_id, quiz_id):
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""SELECT * FROM lms_quiz_attempts
-                   WHERE user_id=%s AND quiz_id=%s AND completed=1
-                   ORDER BY submitted_at DESC LIMIT 1""", (user_id, quiz_id))
+                   WHERE user_id=%s AND quiz_id=%s AND completed=1 AND registration_id IS NOT DISTINCT FROM %s
+                   ORDER BY submitted_at DESC LIMIT 1""", (user_id, quiz_id,lms_registration_id(user_id,cur)))
     row = cur.fetchone(); cur.close(); conn.close()
     return dict(row) if row else None
 
@@ -316,8 +319,8 @@ def lms_get_user_attempt(user_id, quiz_id):
 def lms_submit_exam(user_id, exam_id, file_path):
     conn = get_db(); cur = conn.cursor()
     cur.execute(
-        "INSERT INTO lms_exam_submissions (user_id,exam_id,file_path) VALUES (%s,%s,%s) RETURNING id",
-        (user_id, exam_id, file_path)
+        "INSERT INTO lms_exam_submissions (user_id,exam_id,file_path,registration_id) VALUES (%s,%s,%s,%s) RETURNING id",
+        (user_id, exam_id, file_path,lms_registration_id(user_id,cur))
     )
     conn.commit(); sid = cur.fetchone()[0]; cur.close(); conn.close()
     return sid
@@ -335,7 +338,7 @@ def lms_get_exam_submissions(exam_id):
 def lms_get_user_exam_submission(user_id, exam_id):
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""SELECT * FROM lms_exam_submissions
-                   WHERE user_id=%s AND exam_id=%s ORDER BY submitted_at DESC LIMIT 1""", (user_id, exam_id))
+                   WHERE user_id=%s AND exam_id=%s AND registration_id IS NOT DISTINCT FROM %s ORDER BY submitted_at DESC LIMIT 1""", (user_id, exam_id,lms_registration_id(user_id,cur)))
     row = cur.fetchone(); cur.close(); conn.close()
     return dict(row) if row else None
 
@@ -350,7 +353,7 @@ def lms_grade_submission(submission_id, grade, feedback, graded_by):
 def lms_get_submission_user_module(sub_id):
     """user_id + module_id for the exam a submission belongs to (for progress updates)."""
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""SELECT s.user_id, e.module_id FROM lms_exam_submissions s
+    cur.execute("""SELECT s.user_id, s.registration_id, e.module_id FROM lms_exam_submissions s
                    JOIN lms_practical_exams e ON s.exam_id=e.id WHERE s.id=%s""", (sub_id,))
     row = cur.fetchone(); cur.close(); conn.close()
     return dict(row) if row else None
@@ -359,51 +362,65 @@ def lms_get_submission_user_module(sub_id):
 def lms_get_all_submissions(instructor_id=None):
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     if instructor_id:
-        cur.execute("""SELECT s.*,u.fname,u.lname,e.title AS exam_title,m.title AS module_title
-                       FROM lms_exam_submissions s
-                       JOIN users u ON s.user_id=u.id
-                       JOIN lms_practical_exams e ON s.exam_id=e.id
-                       JOIN lms_modules m ON e.module_id=m.id
-                       WHERE m.instructor_id=%s ORDER BY s.submitted_at DESC""", (instructor_id,))
+        cur.execute("""SELECT DISTINCT s.*,u.fname,u.lname,e.title AS exam_title,m.title AS module_title,
+                              m.id AS module_id
+            FROM lms_exam_submissions s JOIN users u ON u.id=s.user_id
+            JOIN lms_practical_exams e ON e.id=s.exam_id JOIN lms_modules m ON m.id=e.module_id
+            WHERE m.instructor_id=%s OR EXISTS (
+                SELECT 1 FROM training_classes c JOIN training_class_members cm ON cm.class_id=c.id
+                WHERE c.instructor_id=%s AND cm.user_id=s.user_id AND c.program_code=m.training_type)
+            ORDER BY s.submitted_at DESC""", (instructor_id,instructor_id))
+        from .classes import instructor_can_assess
+        rows = [dict(r) for r in cur.fetchall()]
+        rows = [r for r in rows if instructor_can_assess(instructor_id,r['user_id'],r['module_id'],cursor=cur,registration_id=r.get('registration_id'))]
     else:
         cur.execute("""SELECT s.*,u.fname,u.lname,e.title AS exam_title,m.title AS module_title
-                       FROM lms_exam_submissions s
-                       JOIN users u ON s.user_id=u.id
-                       JOIN lms_practical_exams e ON s.exam_id=e.id
-                       JOIN lms_modules m ON e.module_id=m.id
-                       ORDER BY s.submitted_at DESC""")
-    rows = cur.fetchall(); cur.close(); conn.close()
-    return [dict(r) for r in rows]
+            FROM lms_exam_submissions s JOIN users u ON u.id=s.user_id
+            JOIN lms_practical_exams e ON e.id=s.exam_id JOIN lms_modules m ON m.id=e.module_id
+            ORDER BY s.submitted_at DESC""")
+        rows=[dict(r) for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return rows
 
 
 def lms_update_progress(user_id, module_id, **fields):
     conn = get_db(); cur = conn.cursor()
-    cur.execute("""INSERT INTO lms_progress (user_id,module_id) VALUES (%s,%s)
-                   ON CONFLICT (user_id,module_id) DO NOTHING""", (user_id, module_id))
+    reg_id=lms_registration_id(user_id,cur)
+    cur.execute("""INSERT INTO lms_progress (user_id,module_id,registration_id) VALUES (%s,%s,%s)
+                   ON CONFLICT DO NOTHING""", (user_id, module_id,reg_id))
     allowed = {"quiz_score","quiz_passed","exam_graded","exam_grade","completed","completed_at"}
     safe = {k: v for k, v in fields.items() if k in allowed}
     if safe:
         # Convert booleans to integers for Postgres SMALLINT columns
         safe_values = []
+        clauses = []
         for k, v in safe.items():
             if isinstance(v, bool):
-                safe_values.append(1 if v else 0)
+                v = 1 if v else 0
+            # A retake must never erase a better earlier result: keep the
+            # higher quiz_score and never flip quiz_passed back to 0 once it
+            # is 1. GREATEST reading the row's own current value inside the
+            # UPDATE (rather than comparing in Python first) is what keeps
+            # two concurrent submits from racing each other.
+            if k in ("quiz_score", "quiz_passed"):
+                clauses.append(f"{k}=GREATEST(COALESCE({k},0),%s)")
             else:
-                safe_values.append(v)
-        clauses = ", ".join(f"{k}=%s" for k in safe)
-        cur.execute(f"UPDATE lms_progress SET {clauses} WHERE user_id=%s AND module_id=%s",
-                    (*safe_values, user_id, module_id))
+                clauses.append(f"{k}=%s")
+            safe_values.append(v)
+        cur.execute(f"UPDATE lms_progress SET {', '.join(clauses)} WHERE user_id=%s AND module_id=%s AND registration_id IS NOT DISTINCT FROM %s",
+                    (*safe_values, user_id, module_id,reg_id))
     conn.commit(); cur.close(); conn.close()
 
 
 def lms_get_progress(user_id, module_id=None):
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    reg_id=lms_registration_id(user_id,cur)
     if module_id:
-        cur.execute("SELECT * FROM lms_progress WHERE user_id=%s AND module_id=%s", (user_id, module_id))
-        row = cur.fetchone(); cur.close(); conn.close()
+        cur.execute("SELECT * FROM lms_progress WHERE user_id=%s AND module_id=%s AND registration_id IS NOT DISTINCT FROM %s", (user_id,module_id,reg_id))
+        row=cur.fetchone();cur.close();conn.close()
         return dict(row) if row else None
-    cur.execute("SELECT * FROM lms_progress WHERE user_id=%s", (user_id,))
-    rows = cur.fetchall(); cur.close(); conn.close()
+    cur.execute("SELECT * FROM lms_progress WHERE user_id=%s AND registration_id IS NOT DISTINCT FROM %s", (user_id,reg_id))
+    rows=cur.fetchall();cur.close();conn.close()
     return [dict(r) for r in rows]
 
 
@@ -417,7 +434,7 @@ def lms_get_trainee_progress_overview():
                COALESCE(tm.total_modules, 0) AS total_modules,
                COALESCE(pr.completed_count, 0) AS completed_count,
                pr.avg_score,
-               EXISTS (SELECT 1 FROM lms_certificates c WHERE c.user_id = u.id) AS has_certificate
+               EXISTS (SELECT 1 FROM lms_certificates c WHERE c.user_id = u.id AND c.registration_id IS NOT DISTINCT FROM u.registration_id) AS has_certificate
         FROM users u
         LEFT JOIN (
             -- Same is_published/training_type match as lms_get_modules_for_trainee(),
@@ -437,6 +454,7 @@ def lms_get_trainee_progress_overview():
             FROM lms_progress p
             JOIN lms_modules m ON m.id = p.module_id
             WHERE p.user_id = u.id AND m.training_type = u.training_type
+              AND p.registration_id IS NOT DISTINCT FROM u.registration_id
         ) pr ON true
         WHERE u.role = 'trainee' AND u.archived_at IS NULL
         ORDER BY u.lname, u.fname
@@ -447,14 +465,23 @@ def lms_get_trainee_progress_overview():
 
 def lms_issue_certificate(user_id, approved_by):
     import secrets
-    from datetime import date
+    from datetime import date,datetime
     cert_id = secrets.token_hex(16)
-    issued  = date.today()
-    expires = date(issued.year + 3, issued.month, issued.day)
+    issued = datetime.now()
+    try:
+        expires = date(issued.year + 3,issued.month,issued.day)
+    except ValueError:
+        expires = date(issued.year + 3,2,28)
     conn = get_db(); cur = conn.cursor()
+    reg_id=lms_registration_id(user_id,cur)
+    cur.execute('SELECT pg_advisory_xact_lock(hashtext(%s))',(f'certificate:{user_id}:{reg_id}',))
+    cur.execute('SELECT id,cert_id FROM lms_certificates WHERE user_id=%s AND registration_id IS NOT DISTINCT FROM %s ORDER BY issued_at DESC LIMIT 1',(user_id,reg_id))
+    existing=cur.fetchone()
+    if existing:
+        conn.commit();cur.close();conn.close();return existing[0],existing[1]
     cur.execute(
-        "INSERT INTO lms_certificates (user_id,cert_id,approved_by,issued_at,expires_at) VALUES (%s,%s,%s,%s,%s) RETURNING id",
-        (user_id, cert_id, approved_by, issued, expires)
+        "INSERT INTO lms_certificates (user_id,cert_id,approved_by,issued_at,expires_at,registration_id) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+        (user_id, cert_id, approved_by, issued, expires,reg_id)
     )
     conn.commit(); cid = cur.fetchone()[0]; cur.close(); conn.close()
     return cid, cert_id
@@ -481,7 +508,7 @@ def lms_get_certificate(user_id=None, cert_id=None):
                               a.fname AS approver_fname, a.lname AS approver_lname
                        FROM lms_certificates c JOIN users u ON c.user_id=u.id
                        LEFT JOIN users a ON c.approved_by=a.id
-                       WHERE c.user_id=%s""", (user_id,))
+                       WHERE c.user_id=%s AND c.registration_id IS NOT DISTINCT FROM %s ORDER BY c.issued_at DESC LIMIT 1""", (user_id,lms_registration_id(user_id,cur)))
     row = cur.fetchone(); cur.close(); conn.close()
     return dict(row) if row else None
 
@@ -518,31 +545,31 @@ def lms_get_wrong_questions(attempt_id):
 
 
 def lms_get_eligible_for_cert():
-    """Trainees who've finished their own syllabus and don't hold a certificate yet.
-
-    Used to count against the trainee's own training-type module set (the same
-    one lms_get_modules_for_trainee / the trainee's progress bar use), not the
-    total number of published modules across every training type — a trainee
-    with a handful of stale completions could otherwise clear a global count
-    without actually finishing the modules that are currently theirs to do.
-    """
-    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT id, fname, lname, email FROM users
-        WHERE role='trainee' AND id NOT IN (SELECT user_id FROM lms_certificates)
-    """)
-    trainees = cur.fetchall(); cur.close(); conn.close()
-
-    eligible = []
-    for t in trainees:
-        mods = lms_get_modules_for_trainee(t["id"], published_only=True)
-        total = len(mods)
-        if not total:
-            continue
-        prog_map = {p["module_id"]: p for p in lms_get_progress(t["id"])}
-        completed = sum(1 for m in mods if prog_map.get(m["id"], {}).get("completed"))
-        if completed >= total:
-            eligible.append({**dict(t), "completed_count": completed, "total_modules": total})
+    """Eligibility is per owned enrolment, including returning trainees."""
+    from .workflow import enrolments_for_user,enrolment_scope
+    from .registrations import get_registration_full
+    from .payments import get_user_payment_status
+    from .classes import class_gate
+    from review_policy import readiness
+    from pricing import program_label
+    conn=get_db();cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id,fname,lname,email FROM users WHERE role='trainee' AND archived_at IS NULL")
+    trainees=[dict(r) for r in cur.fetchall()];cur.close();conn.close()
+    eligible=[]
+    for trainee in trainees:
+        for enrolment in enrolments_for_user(trainee['id']):
+            with enrolment_scope(trainee['id'],enrolment['id']):
+                reg=get_registration_full(enrolment['id'])
+                if not readiness(reg)['ready'] or get_user_payment_status(trainee['id'])!='paid' or not class_gate(trainee['id'])[0]:
+                    continue
+                if lms_get_certificate(user_id=trainee['id']):
+                    continue
+                mods=lms_get_modules_for_trainee(trainee['id'],published_only=True)
+                progress={p['module_id']:p for p in lms_get_progress(trainee['id'])}
+                if mods and all(progress.get(m['id'],{}).get('completed') for m in mods):
+                    eligible.append({**trainee,'registration_id':enrolment['id'],
+                        'program_label':program_label(enrolment['form_type']),
+                        'completed_count':len(mods),'total_modules':len(mods)})
     return eligible
 
 

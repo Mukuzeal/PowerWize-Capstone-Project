@@ -113,6 +113,7 @@ port = _free_port()
 srv = make_server("127.0.0.1", port, app, threaded=True)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{port}"
+os.environ["APP_BASE_URL"]=BASE
 print(f"serving on {BASE}")
 
 page_errors, console_errors = [], []
@@ -143,6 +144,14 @@ def local_context(browser):
                       'text/css' if route.request.resource_type == 'stylesheet' else 'application/javascript')))
     return context
 
+def compatibility_code_post(page,code):
+    # Exercise old code-entry clients while the normal UI uses assigned Join.
+    with page.expect_navigation(wait_until='networkidle'):
+        page.evaluate("""code=>{const form=document.createElement('form');form.method='POST';form.action='/portal/join-class';
+            for(const [name,value] of Object.entries({join_code:code,csrf_token:document.querySelector('meta[name="csrf-token"]').content})){
+                const input=document.createElement('input');input.name=name;input.value=value;input.type='hidden';form.appendChild(input);}
+            document.body.appendChild(form);form.submit();}""",code)
+
 try:
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
@@ -162,15 +171,19 @@ try:
         page.goto("/admin", wait_until="networkidle")
         page.evaluate("showSection('intake', document.querySelector('.nav-item'))")
         page.evaluate(f"openIntake({IID})")
+        page.get_by_role("tab",name="Training",exact=True).click()
         page.wait_for_selector("#ik-classes", timeout=8000)
         page.wait_for_selector("#ik-classes .corp-note", timeout=8000)
         check("the classes section loads",
               "class" in page.locator("#ik-classes").inner_text().lower())
         check("manual class creation is no longer needed",
               page.get_by_role("button", name="Create a class").count() == 0)
+        page.get_by_role('tab',name='Overview',exact=True).click()
+        page.locator('#ik-section-overview details').first.evaluate('(el)=>el.open=true')
         page.get_by_role("button", name="Generate shared registration link", exact=True).click()
         page.wait_for_selector('#ik-upload-link-out input', timeout=8000)
         REGISTRATION_URL = page.locator('#ik-upload-link-out input').input_value()
+        page.get_by_role('tab',name='Training',exact=True).click()
         page.wait_for_selector("#ik-classes code", timeout=8000)
         CODE = page.locator("#ik-classes code").first.inner_text().strip()
         check("a readable join code is shown", 5 <= len(CODE) <= 12, CODE)
@@ -182,6 +195,7 @@ try:
         check("the registration link displays its class code immediately",
               CODE in page.locator('#ik-upload-link-out').inner_text())
         before_mail = len(email_utils.SENT_MESSAGES)
+        page.get_by_role('tab',name='Overview',exact=True).click()
         page.get_by_role('button', name='Send registration link to company', exact=True).click()
         page.wait_for_function("() => document.querySelector('#ik-registration-send-out')?.textContent.includes('Mocked only')")
         check("the email button reports mock delivery honestly",
@@ -191,15 +205,18 @@ try:
               and email_utils.SENT_MESSAGES[-1]['to'] == 'hr@cohort.test'
               and REGISTRATION_URL in email_utils.SENT_MESSAGES[-1]['html']
               and CODE in email_utils.SENT_MESSAGES[-1]['html'])
+        page.get_by_role('tab',name='Overview',exact=True).click()
         page.get_by_role('button', name='Send registration link to company', exact=True).click()
         page.wait_for_function("() => document.querySelector('#ik-registration-send-out')?.textContent.includes('already have a delivery record')")
         check("duplicate send is refused visibly", len(email_utils.SENT_MESSAGES) == before_mail + 1)
         page.reload(wait_until='networkidle')
         page.evaluate("showSection('intake', document.querySelector('.nav-item'))")
         page.evaluate(f"openIntake({IID})")
+        page.get_by_role("tab",name="Training",exact=True).click()
+        page.get_by_role('tab',name='Overview',exact=True).click()
         notice_row = page.locator('#intake-body tr').filter(has_text='Registration link and class code')
         notice_row.wait_for()
-        check("email history survives refresh", 'Mocked only - NOT emailed' in notice_row.inner_text())
+        check("email history survives refresh", 'NOT emailed' in notice_row.inner_text())
         notice_row.get_by_role('button', name='Retry', exact=True).click()
         page.wait_for_function("() => document.querySelector('#ik-registration-send-out')?.textContent.includes('Mocked only')")
         check("retry after refresh uses the stored link", len(email_utils.SENT_MESSAGES) == before_mail + 2
@@ -222,6 +239,7 @@ try:
         entry_ctx.close()
 
         print("\n2. The class panel names who has not joined, and why")
+        page.get_by_role('tab',name='Training',exact=True).click()
         page.get_by_role("button", name="Members & progress").first.click()
         page.wait_for_selector("text=Batch progress", timeout=8000)
         det = page.locator("#ik-classes").inner_text()
@@ -245,17 +263,12 @@ try:
         tpage = tctx.new_page()
         tpage.on("pageerror", lambda e: page_errors.append(str(e)))
         tpage.goto("/portal", wait_until="networkidle")
-        check("the portal offers a class code field",
-              tpage.locator("#join_code").count() == 1)
-        check("and explains the code is not an entitlement",
-              "paid you into" in tpage.locator("#join-code-help").inner_text(),
-              tpage.locator("#join-code-help").inner_text()[:70])
-
-        # Typed the way a person would: lowercase, with a stray space.
-        tpage.fill("#join_code", f" {CODE.lower()} ")
-        tpage.get_by_role("button", name="Join class").click()
+        check("the portal offers the assigned class without code re-entry",
+              tpage.get_by_role('button',name='Join your assigned class',exact=True).count()==1)
+        check("the batch is named before joining", 'Cohort Co' in tpage.locator('body').inner_text())
+        tpage.get_by_role('button',name='Join your assigned class',exact=True).click()
         tpage.wait_for_load_state("networkidle")
-        check("the join succeeds despite case and spacing",
+        check("assigned class join succeeds without code re-entry",
               U_ANN in {m["user_id"] for m in class_members(
                   get_class(join_code=CODE)["id"])})
         body = tpage.locator("body").inner_text()
@@ -265,8 +278,7 @@ try:
               "My class" in body and "Online" in body)
 
         print("\n4. A wrong code and an ineligible account fail DIFFERENTLY")
-        tpage.fill("#join_code", "ZZZZZZZ")
-        tpage.get_by_role("button", name="Join class").click()
+        compatibility_code_post(tpage,'ZZZZZZZ')
         tpage.wait_for_load_state("networkidle")
         wrong = tpage.locator("body").inner_text()
         check("a wrong code says the code is wrong",
@@ -304,7 +316,9 @@ try:
         page.reload(wait_until="networkidle")
         page.evaluate("showSection('intake', document.querySelector('.nav-item'))")
         page.evaluate(f"openIntake({IID})")
+        page.get_by_role("tab",name="Training",exact=True).click()
         page.wait_for_selector("#ik-classes code", timeout=8000)
+        page.get_by_role('tab',name='Training',exact=True).click()
         page.get_by_role("button", name="Members & progress").first.click()
         page.wait_for_selector("[id^='ik-cls-'] table", timeout=8000)
         det = page.locator("#ik-classes").inner_text()
@@ -339,13 +353,11 @@ try:
         bpage = bctx.new_page()
         bpage.on("pageerror", lambda e: page_errors.append(str(e)))
         bpage.goto("/portal", wait_until="networkidle")
-        bpage.fill("#join_code", CODE)
-        bpage.get_by_role("button", name="Join class").click()
+        compatibility_code_post(bpage,CODE)
         bpage.wait_for_load_state("networkidle")
         check("the rotated-away code no longer works",
               "No class has that code" in bpage.locator("body").inner_text())
-        bpage.fill("#join_code", rotated)
-        bpage.get_by_role("button", name="Join class").click()
+        compatibility_code_post(bpage,rotated)
         bpage.wait_for_load_state("networkidle")
         check("and the current code is refused while joining is closed",
               "no longer accepting" in bpage.locator("body").inner_text(),

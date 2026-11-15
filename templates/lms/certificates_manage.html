@@ -74,7 +74,7 @@
         <div class="elig-avatar">{{ initials}}</div>
         <div>
           <div class="elig-name">{{ u.fname}} {{ u.lname}}</div>
-          <div class="elig-email">{{ u.email}}</div>
+          <div class="elig-email">{{ u.email}} ? {{ u.program_label }} ? {{ u.registration_id }}</div>
         </div>
         <div class="elig-right">
           <div class="modules-done">
@@ -82,6 +82,7 @@
             {{ u.completed_count}}/{{ u.total_modules}} modules
           </div>
           <form action="/lms/certificates/issue/{{ u.id}}" method="post" style="display:inline">
+            <input type="hidden" name="registration_id" value="{{ u.registration_id }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
             <button class="btn-sm btn-primary" type="submit">
               <i class="fa-solid fa-certificate"></i> Issue Certificate

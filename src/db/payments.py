@@ -10,12 +10,14 @@ def log_payment(user_id, amount_php, method, paymongo_id,
     reached PayMongo can always be explained afterwards."""
     conn = get_db()
     cur  = conn.cursor()
+    from .workflow import lms_registration_id
+    reg_id=lms_registration_id(user_id,cur)
     cur.execute(
         "INSERT INTO payments (user_id, amount_php, method, paymongo_id, status, "
-        "discount_code_id, discount_percent, discount_amount_php) "
-        "VALUES (%s,%s,%s,%s,'pending',%s,%s,%s) RETURNING id",
+        "discount_code_id, discount_percent, discount_amount_php, registration_id) "
+        "VALUES (%s,%s,%s,%s,'pending',%s,%s,%s,%s) RETURNING id",
         (user_id, amount_php, method, paymongo_id,
-         discount_code_id, discount_percent, discount_amount_php),
+         discount_code_id, discount_percent, discount_amount_php,reg_id),
     )
     conn.commit()
     row_id = cur.fetchone()[0]
@@ -65,18 +67,27 @@ def mark_payment_failed(paymongo_id):
     cur.close(); conn.close()
 
 
-def mark_user_paid(user_id):
+def mark_user_paid(user_id, registration_id=None):
     conn = get_db()
     cur  = conn.cursor()
-    cur.execute("UPDATE users SET payment_status='paid' WHERE id=%s", (user_id,))
+    cur.execute("UPDATE users SET payment_status='paid' WHERE id=%s AND (%s IS NULL OR registration_id=%s)",
+                (user_id,registration_id,registration_id))
     conn.commit()
     cur.close(); conn.close()
 
 
 def get_user_payment_status(user_id):
+    from .workflow import sponsored_enrolment
+    sponsor = sponsored_enrolment(user_id)
+    if sponsor:
+        return 'paid' if sponsor['paid'] else 'unpaid'
     conn = get_db()
     cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT payment_status FROM users WHERE id=%s", (user_id,))
+    from .workflow import lms_registration_id
+    reg_id=lms_registration_id(user_id,cur)
+    cur.execute("""SELECT CASE WHEN registration_id IS NOT DISTINCT FROM %s THEN payment_status
+        WHEN EXISTS(SELECT 1 FROM payments p WHERE p.user_id=users.id AND p.registration_id=%s AND p.status='paid')
+        THEN 'paid' ELSE 'unpaid' END AS payment_status FROM users WHERE id=%s""", (reg_id,reg_id,user_id))
     row = cur.fetchone()
     cur.close(); conn.close()
     return row["payment_status"] if row else None
@@ -122,11 +133,13 @@ def get_receipt_by_id(receipt_id):
 def get_receipt_by_user(user_id):
     conn = get_db()
     cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    from .workflow import lms_registration_id
+    reg_id=lms_registration_id(user_id,cur)
     cur.execute("""
         SELECT * FROM payments
-        WHERE user_id = %s AND status = 'paid'
+        WHERE user_id = %s AND status = 'paid' AND registration_id IS NOT DISTINCT FROM %s
         ORDER BY paid_at DESC LIMIT 1
-    """, (user_id,))
+    """, (user_id,reg_id))
     row = cur.fetchone()
     cur.close(); conn.close()
     return dict(row) if row else None

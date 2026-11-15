@@ -67,6 +67,11 @@ def exam_manage(module_id):
     return render_template('lms/exam_manage.html', mod=mod, exam=exam, exam_questions=exam_questions)
 
 
+def _can_assess(row):
+    from db import instructor_can_assess
+    return current_can('manage_any_module') or instructor_can_assess(_uid(),row['user_id'],row['module_id'],registration_id=row.get('registration_id'))
+
+
 # Submissions (instructor)
 
 @lms_bp.route('/lms/submissions')
@@ -83,7 +88,7 @@ def get_submission_answers(sub_id):
     if not _uid() or not _is_instructor():
         abort(403)
     row = lms_get_submission_user_module(sub_id)
-    if not row or not _owns_module(lms_get_module(row['module_id'])):
+    if not row or not _can_assess(row):
         abort(403)
     submission = lms_get_exam_submission_detail(sub_id)
     if not submission:
@@ -96,15 +101,17 @@ def grade_submission(sub_id):
     if not _uid() or not _is_instructor():
         abort(403)
     row = lms_get_submission_user_module(sub_id)
-    if not row or not _owns_module(lms_get_module(row['module_id'])):
+    if not row or not _can_assess(row):
         abort(403)
     grade    = int(request.form.get('grade', 0))
     feedback = request.form.get('feedback', '').strip()
     lms_grade_submission(sub_id, grade, feedback, _uid())
 
     if row:
-        lms_update_progress(row['user_id'], row['module_id'], exam_graded=True, exam_grade=grade)
-        _check_completion(row['user_id'], row['module_id'])
+        from db import enrolment_scope
+        with enrolment_scope(row['user_id'],row.get('registration_id')):
+            lms_update_progress(row['user_id'], row['module_id'], exam_graded=True, exam_grade=grade)
+            _check_completion(row['user_id'], row['module_id'])
     return redirect(url_for('lms.submissions'))
 
 

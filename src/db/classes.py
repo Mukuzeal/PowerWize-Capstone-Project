@@ -248,6 +248,98 @@ def instructor_classes(user_id):
         cur.close(); conn.close()
 
 
+def instructor_can_assess(instructor_id, trainee_id, module_id, cursor=None, registration_id=None):
+    """Teaching a batch never grants ownership of its shared course material."""
+    conn = None
+    cur = cursor
+    if cur is None:
+        conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        from permissions import TRAINER, can
+        cur.execute('SELECT role FROM users WHERE id=%s AND archived_at IS NULL',(instructor_id,))
+        account=cur.fetchone()
+        if not account or (account['role']==TRAINER and not _instructor_enabled(cur,instructor_id)) or not can(account['role'],'manage_modules'):
+            return False
+        cur.execute('SELECT instructor_id,training_type FROM lms_modules WHERE id=%s AND archived_at IS NULL', (module_id,))
+        mod = cur.fetchone()
+        if not mod:
+            return False
+        if account['role']!=TRAINER and mod['instructor_id']==instructor_id:
+            return True
+        cur.execute("""SELECT c.* FROM training_classes c JOIN training_class_members m ON m.class_id=c.id
+            WHERE m.user_id=%s AND c.instructor_id=%s AND c.program_code=%s""",
+            (trainee_id,instructor_id,mod['training_type']))
+        for cls in list(cur.fetchall()):
+            if registration_id:
+                cur.execute("""SELECT 1 FROM corporate_intake_slots WHERE intake_id=%s AND registration_id=%s
+                    UNION ALL SELECT 1 FROM corporate_payment_items WHERE corporate_payment_id=%s AND registration_id=%s LIMIT 1""",
+                    (cls['intake_id'],registration_id,cls['corporate_payment_id'],registration_id))
+                if not cur.fetchone():
+                    continue
+            allowed, _ = _authorise(cur,dict(cls),trainee_id)
+            if allowed:
+                return True
+        # Module owners retain their individual teaching work. Owning a shared
+        # module does not reveal students booked into someone else's company.
+        if mod['instructor_id'] == instructor_id:
+            cur.execute("""SELECT 1 FROM corporate_payment_items WHERE user_id=%s
+                UNION ALL SELECT 1 FROM corporate_intake_slots s JOIN trainee_enrolments e ON e.registration_id=s.registration_id
+                WHERE e.user_id=%s LIMIT 1""", (trainee_id,trainee_id))
+            return cur.fetchone() is None
+        return False
+    finally:
+        if conn:
+            cur.close(); conn.close()
+
+
+def registration_for_class_user(class_id,user_id):
+    conn=get_db();cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""SELECT r.id FROM registrations r WHERE (
+            EXISTS(SELECT 1 FROM trainee_enrolments en WHERE en.user_id=%s AND en.registration_id=r.id)
+            OR EXISTS(SELECT 1 FROM users u WHERE u.id=%s AND u.registration_id=r.id))
+            AND (EXISTS(SELECT 1 FROM training_classes c JOIN corporate_intake_slots s ON s.intake_id=c.intake_id
+                        WHERE c.id=%s AND s.registration_id=r.id)
+                 OR EXISTS(SELECT 1 FROM training_classes c JOIN corporate_payment_items it ON it.corporate_payment_id=c.corporate_payment_id
+                        WHERE c.id=%s AND it.registration_id=r.id))""",(user_id,user_id,class_id,class_id))
+        rows=cur.fetchall()
+        return rows[0]['id'] if len(rows)==1 else None
+    finally:cur.close();conn.close()
+
+
+def instructor_can_teach_enrolment(instructor_id,trainee_id,registration_id):
+    conn=get_db();cur=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        if not _instructor_enabled(cur,instructor_id):
+            return False
+        cur.execute("""SELECT c.* FROM training_classes c WHERE c.instructor_id=%s AND (
+            EXISTS(SELECT 1 FROM corporate_intake_slots s WHERE s.intake_id=c.intake_id AND s.registration_id=%s)
+            OR EXISTS(SELECT 1 FROM corporate_payment_items it WHERE it.corporate_payment_id=c.corporate_payment_id AND it.registration_id=%s))""",
+            (instructor_id,registration_id,registration_id))
+        for cls in list(cur.fetchall()):
+            if _authorise(cur,dict(cls),trainee_id)[0]:
+                return True
+        return False
+    finally:cur.close();conn.close()
+
+
+def instructor_trainee_ids(instructor_id):
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        if not _instructor_enabled(cur,instructor_id):
+            return set()
+        cur.execute("""SELECT DISTINCT e.user_id FROM training_classes c
+            JOIN corporate_intake_slots s ON s.intake_id=c.intake_id
+            JOIN trainee_enrolments e ON e.registration_id=s.registration_id
+            WHERE c.instructor_id=%s AND s.invite_revoked_at IS NULL
+            UNION SELECT DISTINCT it.user_id FROM training_classes c
+            JOIN corporate_payment_items it ON it.corporate_payment_id=c.corporate_payment_id
+            WHERE c.instructor_id=%s AND it.user_id IS NOT NULL""", (instructor_id,instructor_id))
+        return {r['user_id'] for r in cur.fetchall()}
+    finally:
+        cur.close(); conn.close()
+
+
 def repair_replacement_class_invoice(class_id, replacement_id, actor_id=None):
     """Repair an existing closed-invoice binding using a paid replacement.
 
@@ -362,7 +454,7 @@ def rotate_join_code(class_id):
 # wait until this transaction ends, so a rejection or a roster revocation is
 # either fully visible to us or applied after our decision — never half-way
 # through it.
-LOCK_ORDER = ("training_classes", "registrations", "corporate_payments",
+LOCK_ORDER = ("corporate_intakes", "training_classes", "registrations", "corporate_payments",
               "corporate_payment_items", "corporate_intake_slots")
 
 
@@ -381,25 +473,37 @@ def _authorise(cur, cls, user_id, lock=False):
     # so the registration is read on its own after the user row.
     cur.execute("""
         SELECT id, role, payment_status, registration_id
-          FROM users WHERE id = %s
+          FROM users WHERE id = %s AND archived_at IS NULL
     """, (user_id,))
     row = cur.fetchone()
     if not row:
         return False, "No such account."
     user = dict(row)
-    user["reg_id"] = None          # set below only if the row really exists
-    if user["registration_id"]:
-        cur.execute(
-            "SELECT * FROM registrations WHERE id = %s"
-            + (" FOR SHARE" if lock else ""), (user["registration_id"],))
+    user["reg_id"] = None
+    # Resolve an explicitly owned application belonging to THIS batch. An
+    # account's first registration is preserved when it enrols again.
+    cur.execute("""SELECT r.* FROM registrations r WHERE (
+        EXISTS (SELECT 1 FROM trainee_enrolments en WHERE en.user_id=%s AND en.registration_id=r.id)
+        OR r.id=%s) AND (
+        EXISTS (SELECT 1 FROM corporate_intake_slots sl WHERE sl.intake_id=%s AND sl.registration_id=r.id)
+        OR EXISTS (SELECT 1 FROM corporate_payment_items it WHERE it.corporate_payment_id=%s
+            AND (it.registration_id=r.id OR (it.registration_id IS NULL AND it.user_id=%s))))
+        ORDER BY r.id""" + (" FOR SHARE OF r" if lock else ""),
+        (user_id,user['registration_id'],cls.get('intake_id'),cls.get('corporate_payment_id'),user_id))
+    registrations = cur.fetchall()
+    if len(registrations) == 1:
+        reg = registrations[0]
+        user.update(dict(reg))
+        user['reg_id'] = reg['id']
+        user['registration_id'] = reg['id']
+    elif len(registrations) > 1:
+        return False, 'More than one application for this account is on the batch. Ask staff to reconcile the roster.'
+    # Preserve programme-specific refusal for a code naming another batch.
+    elif user['registration_id']:
+        cur.execute('SELECT * FROM registrations WHERE id=%s' + (' FOR SHARE' if lock else ''), (user['registration_id'],))
         reg = cur.fetchone()
         if reg:
-            # r.* so review_policy.readiness() sees EVERY field it reads.
-            # Hand-listing them dropped selfie_outcome and
-            # documents_purged_at, which made a finished, approved review read
-            # back as "still pending".
-            user.update(dict(reg))
-            user["reg_id"] = reg["id"]
+            user.update(dict(reg)); user['reg_id'] = reg['id']
 
     # 1. A trainee with a registration that passed the SHARED readiness rule.
     #    Not a local re-reading of `status`: review_policy.readiness() is the
@@ -434,9 +538,9 @@ def _authorise(cur, cls, user_id, lock=False):
         inv = dict(inv)
         cur.execute(
             "SELECT training_type, form_type FROM corporate_payment_items "
-            "WHERE corporate_payment_id = %s AND user_id = %s"
+            "WHERE corporate_payment_id = %s AND (registration_id = %s OR (registration_id IS NULL AND user_id = %s))"
             + (" FOR SHARE" if lock else ""),
-            (cls["corporate_payment_id"], user_id))
+            (cls["corporate_payment_id"], user["registration_id"], user_id))
         item = cur.fetchone()
         if not item:
             return False, ("This account is not on the invoice that paid for "
@@ -470,6 +574,15 @@ def _authorise(cur, cls, user_id, lock=False):
     else:
         return False, ("This class has no company roster, so nobody can join "
                        "it with a code. Staff add members directly.")
+
+    if cls.get('intake_id') is not None:
+        cur.execute("""SELECT s.invite_revoked_at,i.status FROM corporate_intake_slots s
+            JOIN corporate_intakes i ON i.id=s.intake_id
+            WHERE s.intake_id=%s AND s.registration_id=%s""" + (' FOR SHARE OF s,i' if lock else ''),
+            (cls['intake_id'],user['registration_id']))
+        slot = cur.fetchone()
+        if not slot or slot['invite_revoked_at'] or slot['status'] == 'cancelled':
+            return False, 'Your company roster access is no longer active. Contact the coordinator.'
 
     # 3. The same PROGRAM, as canonical codes, across all THREE records that
     #    carry a programme: the class, the registration, and what was actually
@@ -518,7 +631,7 @@ def membership_authority(class_id, user_id):
         cur.close(); conn.close()
 
 
-def join_class(user_id, raw_code):
+def join_class(user_id, raw_code=None, assigned_class_id=None):
     """(class_dict, error) — the self-join path a trainee drives.
 
     Resolve, decide and insert in ONE transaction, with the class row locked
@@ -526,16 +639,23 @@ def join_class(user_id, raw_code):
     between the decision and the insert was simply ignored.
     """
     code = normalize_code(raw_code)
-    if not code:
+    if not code and not assigned_class_id:
         return None, "Enter the class code your trainer gave you."
 
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
+        cur.execute('SELECT intake_id FROM training_classes WHERE '+('id=%s' if assigned_class_id else 'join_code=%s'),
+                    (assigned_class_id if assigned_class_id else code,))
+        initial=cur.fetchone()
+        parent=initial['intake_id'] if initial else None
+        if parent:
+            cur.execute('SELECT id FROM corporate_intakes WHERE id=%s FOR SHARE',(parent,))
         # The lock is taken on the code lookup itself, so the row cannot be
         # rotated or closed from under the rest of this transaction.
-        cur.execute("SELECT * FROM training_classes WHERE join_code = %s "
-                    "FOR UPDATE", (code,))
+        cur.execute('SELECT * FROM training_classes WHERE ' +
+                    ('id=%s' if assigned_class_id else 'join_code=%s') + ' FOR UPDATE',
+                    (assigned_class_id if assigned_class_id else code,))
         row = cur.fetchone()
         if not row:
             conn.rollback()
@@ -543,6 +663,8 @@ def join_class(user_id, raw_code):
             # nothing worth revealing: the code alone opens nothing.
             return None, "No class has that code. Check it with your trainer."
         cls = dict(row)
+        if cls['intake_id']!=parent:
+            conn.rollback();return None,'The batch changed while joining. Try again.'
         if not cls["join_open"]:
             conn.rollback()
             return None, ("That class is no longer accepting new members. Ask "
@@ -583,12 +705,17 @@ def add_member_as_staff(class_id, user_id, added_by):
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
+        cur.execute('SELECT intake_id FROM training_classes WHERE id=%s',(class_id,))
+        initial=cur.fetchone();parent=initial['intake_id'] if initial else None
+        if parent:cur.execute('SELECT id FROM corporate_intakes WHERE id=%s FOR SHARE',(parent,))
         cur.execute("SELECT * FROM training_classes WHERE id = %s FOR UPDATE",
                     (class_id,))
         row = cur.fetchone()
         if not row:
             conn.rollback()
             return False, "No such class."
+        if row['intake_id']!=parent:
+            conn.rollback();return False,'The batch changed. Reload it before adding a member.'
         ok, reason = _authorise(cur, dict(row), user_id, lock=True)
         if not ok:
             conn.rollback()
@@ -681,7 +808,8 @@ def class_roster_candidates(class_id):
                  UNION
                 SELECT u.id AS user_id, u.fname, u.lname, u.email, s.full_name
                   FROM corporate_intake_slots s
-                  JOIN users u ON u.registration_id = s.registration_id
+                  LEFT JOIN trainee_enrolments en ON en.registration_id=s.registration_id
+                  JOIN users u ON (u.id=en.user_id OR (en.user_id IS NULL AND u.registration_id=s.registration_id))
                  WHERE s.intake_id = %s
                    AND s.registration_id IS NOT NULL
                    AND s.invite_revoked_at IS NULL
@@ -692,7 +820,8 @@ def class_roster_candidates(class_id):
                 SELECT u.id AS user_id, u.fname, u.lname, u.email,
                        s.full_name
                   FROM corporate_intake_slots s
-                  JOIN users u ON u.registration_id = s.registration_id
+                  LEFT JOIN trainee_enrolments en ON en.registration_id=s.registration_id
+                  JOIN users u ON (u.id=en.user_id OR (en.user_id IS NULL AND u.registration_id=s.registration_id))
                  WHERE s.intake_id = %s
                    AND s.registration_id IS NOT NULL
                    AND s.invite_revoked_at IS NULL
@@ -749,81 +878,89 @@ def class_gate(user_id, program_code=None):
         real hole in "a corporate trainee must enter a code" and is accepted
         knowingly — the alternative denies service for a staff omission.
     """
-    program_code = program_code or get_user_training_type(user_id)
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    from .workflow import sponsored_enrolment
+    from .registrations import get_registration_for_user
+    current = get_registration_for_user(user_id)
+    current_program = normalize_training_type(current['form_type'],current['training_type']) if current else None
+    program_code = program_code or current_program or get_user_training_type(user_id)
+    sponsor = sponsored_enrolment(user_id)
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        # Which company invoices name this person? Deliberately NOT filtered
-        # to status='paid'. Filtering here meant cancelling an invoice made
-        # its trainees look like individual enrolments and OPENED the gate —
-        # the one case where it most needs to close. A cancelled booking is
-        # still a corporate booking; whether it entitles anyone is
-        # _authorise()'s decision, not this query's.
-        cur.execute("""
-            SELECT p.id, p.intake_id, p.company_name
-              FROM corporate_payment_items it
-              JOIN corporate_payments p ON p.id = it.corporate_payment_id
-             WHERE it.user_id = %s
-        """, (user_id,))
-        invoices = [dict(r) for r in cur.fetchall()]
-
-        # Membership alone also makes the gate apply: someone added by staff
-        # to an intake-only class is on no invoice at all, and must still be
-        # revalidated rather than treated as an individual.
-        cur.execute("""
-            SELECT c.* FROM training_class_members m
-              JOIN training_classes c ON c.id = m.class_id
-             WHERE m.user_id = %s AND c.program_code = %s
-        """, (user_id, program_code))
-        joined_any = [dict(r) for r in cur.fetchall()]
-
-        if not invoices and not joined_any:
-            return True, None                      # individual enrolment
-
-        inv_ids = [i["id"] for i in invoices] or [-1]
-        intake_ids = [i["intake_id"] for i in invoices if i["intake_id"]] or [-1]
-
-        # Classes that could gate THIS programme. A class with no recorded
-        # programme is excluded: it cannot be matched, and _authorise() would
-        # refuse it anyway, so it must not create a gate nobody can pass.
-        cur.execute("""
-            SELECT * FROM training_classes
-             WHERE program_code = %s
-               AND (corporate_payment_id = ANY(%s)
-                    OR (intake_id = ANY(%s) AND corporate_payment_id IS NULL))
-        """, (program_code, inv_ids, intake_ids))
-        candidates = [dict(r) for r in cur.fetchall()]
-        if not candidates and not joined_any:
-            # No class for this programme yet — the documented exception.
-            return True, None
-
-        cur.execute("""
-            SELECT class_id FROM training_class_members WHERE user_id = %s
-        """, (user_id,))
-        member_of = {r["class_id"] for r in cur.fetchall()}
-
-        joined = [c for c in candidates if c["id"] in member_of]
-        # A class they are in that is NOT a candidate (its invoice was
-        # re-pointed, say) still counts for revalidation, so losing
-        # candidacy cannot quietly become "no gate".
-        seen = {c["id"] for c in joined}
-        joined += [c for c in joined_any if c["id"] not in seen]
-        if not joined:
-            company = (invoices[0]["company_name"] if invoices
-                       else None) or "your company"
-            return False, (f"Your training was booked by {company} as a "
-                           f"class. Enter the class code your trainer gave "
-                           f"you to open your modules — it is on your portal "
-                           f"page.")
-
-        # Re-derive entitlement for each class they are actually in. One still
-        # valid is enough; it is the same rule that let them in.
+        cur.execute("SELECT role FROM users WHERE id=%s AND archived_at IS NULL",(user_id,))
+        account=cur.fetchone()
+        if not account or account['role']!='trainee':
+            return False,'This trainee account is no longer active.'
+        if not sponsor:
+            from .registrations import get_registration_full
+            from .payments import get_user_payment_status
+            reg=get_registration_full(current['id']) if current else None
+            if not reg or not readiness(reg)['ready']:
+                return False,'Your registration needs review before training can open.'
+            if get_user_payment_status(user_id)!='paid':
+                return False,'Complete payment for this enrolment before opening training.'
+        if sponsor:
+            if not sponsor['review']['ready']:
+                return False, 'Your application is not cleared for training: ' + ' '.join(sponsor['review']['blockers'])
+            if sponsor['invite_revoked_at'] or sponsor['intake_status'] == 'cancelled':
+                return False, 'Your company roster access is no longer active.'
+            if not sponsor['paid']:
+                # Paid individuals can have an intake-only class, preserving
+                # the existing policy without using a different enrolment's flag.
+                cur.execute('SELECT payment_status,registration_id FROM users WHERE id=%s', (user_id,))
+                user = cur.fetchone()
+                if sponsor['invoice'] or not user or user['registration_id'] != sponsor['registration_id'] or user['payment_status'] != 'paid':
+                    return False, 'Your company payment is pending. Contact your coordinator; do not pay an individual fee.'
+            invoice_id = sponsor['invoice']['id'] if sponsor['invoice'] else None
+            cur.execute("""SELECT c.* FROM training_classes c WHERE c.program_code=%s
+                AND ((c.intake_id=%s AND c.intake_id IS NOT NULL) OR c.corporate_payment_id=%s)
+                ORDER BY c.id""", (program_code,sponsor['intake_id'],invoice_id))
+            candidates = [dict(r) for r in cur.fetchall()]
+        else:
+            # Legacy invoice-only accounts and staff-added members still have
+            # their historical authority checked; absence of a slot is no bypass.
+            cur.execute("""SELECT DISTINCT c.* FROM training_classes c
+                LEFT JOIN training_class_members m ON m.class_id=c.id AND m.user_id=%s
+                WHERE c.program_code=%s AND (m.user_id IS NOT NULL OR EXISTS (
+                    SELECT 1 FROM corporate_payment_items it WHERE it.corporate_payment_id=c.corporate_payment_id AND it.user_id=%s))""",
+                (user_id,program_code,user_id))
+            candidates = [dict(r) for r in cur.fetchall()]
+        if not candidates:
+            return True, None  # existing policy: paid enrolments need no absent class
+        cur.execute('SELECT class_id FROM training_class_members WHERE user_id=%s', (user_id,))
+        joined = {r['class_id'] for r in cur.fetchall()}
         last = None
-        for cls in joined:
-            ok, reason = _authorise(cur, cls, user_id)
-            if ok:
-                return True, None
-            last = reason
-        return False, (f"Your place in that class is no longer valid: {last}")
+        for cls in candidates:
+            if cls['id'] in joined:
+                ok, reason = _authorise(cur,cls,user_id)
+                if ok:
+                    return True, None
+                last = reason
+        if last:
+            return False, 'Your place in that class is no longer valid: ' + last
+        return False, 'Join your assigned class from your trainee portal to open the training.'
+    finally:
+        cur.close(); conn.close()
+
+
+def assigned_classes_for_user(user_id):
+    """Names and current join verdicts, derived from the selected enrolment."""
+    from .workflow import sponsored_enrolment
+    sponsor = sponsored_enrolment(user_id)
+    if not sponsor:
+        return []
+    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute("""SELECT c.*, EXISTS(SELECT 1 FROM training_class_members m WHERE m.class_id=c.id AND m.user_id=%s) AS joined
+            FROM training_classes c WHERE (c.intake_id=%s AND c.intake_id IS NOT NULL)
+                OR c.corporate_payment_id=%s ORDER BY c.id""",
+            (user_id,sponsor['intake_id'],sponsor['invoice']['id'] if sponsor['invoice'] else None))
+        result=[]
+        for row in cur.fetchall():
+            item=dict(row)
+            ok, reason = _authorise(cur,item,user_id)
+            result.append({'id':item['id'],'name':item['name'],'joined':item['joined'],
+                           'can_join':ok and item['join_open'],
+                           'reason':reason or (None if item['join_open'] else 'Joining is closed. Contact your instructor.')})
+        return result
     finally:
         cur.close(); conn.close()

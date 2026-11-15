@@ -99,12 +99,10 @@ def begin_attempt(notif_id, lease_seconds=ATTEMPT_LEASE_SECONDS):
                attempt_started_at = NOW(),
                attempt_expires_at = NOW() + make_interval(secs => %s)
          WHERE id = %s
-           AND (status = ANY(%s)
-                OR (status = %s AND attempt_expires_at IS NOT NULL
-                    AND attempt_expires_at <= NOW()))
+           AND status = ANY(%s)
         RETURNING attempts
     """, (IN_FLIGHT, attempt_id, lease_seconds, notif_id,
-          list(CLAIMABLE), IN_FLIGHT))
+          list(CLAIMABLE)))
     row = cur.fetchone()
     conn.commit(); cur.close(); conn.close()
     if row is None:
@@ -138,7 +136,7 @@ def finish_attempt(notif_id, attempt_id, transport=None, error=None):
     return row[0] if row else None
 
 
-def recover_stale_attempts():
+def recover_stale_attempts(intake_id=None):
     """Move expired in-flight leases to `uncertain`. Returns the ids touched.
 
     Explicit and non-destructive: it does not resend. An attempt whose lease
@@ -153,8 +151,9 @@ def recover_stale_attempts():
                                                 'terminal outcome was recorded.')
          WHERE status = %s AND attempt_expires_at IS NOT NULL
            AND attempt_expires_at <= NOW()
+           AND (%s IS NULL OR intake_id=%s)
         RETURNING id
-    """, (UNCERTAIN, IN_FLIGHT))
+    """, (UNCERTAIN, IN_FLIGHT,intake_id,intake_id))
     ids = [r[0] for r in cur.fetchall()]
     conn.commit(); cur.close(); conn.close()
     return ids
@@ -248,7 +247,7 @@ def unresolved_notifications():
     cur.execute("""
         SELECT n.*, i.company_name
           FROM corporate_notifications n
-          JOIN corporate_intakes i ON i.id = n.intake_id
+          LEFT JOIN corporate_intakes i ON i.id = n.intake_id
          WHERE n.status <> %s
          ORDER BY n.created_at
     """, (SUBMITTED,))

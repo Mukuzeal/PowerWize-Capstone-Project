@@ -189,6 +189,7 @@ try:
         page.goto('/admin',wait_until='networkidle')
         page.evaluate("showSection('intake',document.querySelector('.nav-item'))")
         page.evaluate(f'openIntake({IA})')
+        page.get_by_role('tab',name='Training',exact=True).click()
         selector=f'#ik-instructor-{A["id"]}'
         page.wait_for_selector(selector)
         check('browser offers active instructors',page.locator(selector+' option').count()==3)
@@ -198,6 +199,7 @@ try:
         check('browser confirms saved instructor',get_class(class_id=A['id'])['instructor_id']==T1)
         page.reload(wait_until='networkidle')
         page.evaluate(f'openIntake({IA})')
+        page.get_by_role('tab',name='Training',exact=True).click()
         page.wait_for_selector(selector)
         check('assignment survives browser refresh',page.locator(selector).input_value()==str(T1))
         # Another operator assigns T2 after this browser loaded T1.

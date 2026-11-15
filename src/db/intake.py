@@ -45,7 +45,7 @@ def _new_token():
 # ── Intake ───────────────────────────────────────────────────────────────────
 
 def create_intake(company_name, contact_person, contact_email, contact_number,
-                  form_type, training_type, created_by):
+                  form_type, training_type, created_by, roster=None, instructor_id=None):
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute("""
@@ -56,6 +56,29 @@ def create_intake(company_name, contact_person, contact_email, contact_number,
         """, (company_name, contact_person, contact_email.strip().lower(),
               contact_number or None, form_type, training_type or None, created_by))
         iid = cur.fetchone()[0]
+        for name,email in (roster or []):
+            cur.execute("""INSERT INTO corporate_intake_slots(intake_id,full_name,email,email_key,
+                invite_token_hash,invite_expires_at) VALUES(%s,%s,%s,%s,%s,NOW()+INTERVAL '14 days')""",
+                (iid,name,email,email.lower(),hash_token(_new_token())))
+        if instructor_id:
+            from .classes import _instructor_enabled,_new_code
+            from .lms import normalize_training_type
+            from pricing import program_label
+            # Validation uses the same cursor. An invalid instructor rolls back
+            # the intake and whole roster instead of leaving a partial batch.
+            typed=conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            try:
+                if not _instructor_enabled(typed,instructor_id):
+                    raise ValueError('Choose an active instructor with training access.')
+            finally:typed.close()
+            for _ in range(8):
+                cur.execute("""INSERT INTO training_classes(name,training_type,program_code,intake_id,
+                    join_code,instructor_id,created_by) VALUES(%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT(join_code) DO NOTHING RETURNING id""",
+                    (company_name+' — '+program_label(form_type),training_type or program_label(form_type),
+                     normalize_training_type(form_type,training_type),iid,_new_code(),instructor_id,created_by))
+                if cur.fetchone():break
+            else:raise RuntimeError('Could not allocate a class code. Try again.')
         conn.commit()
         return iid
     except Exception:
@@ -85,8 +108,19 @@ def get_intakes(status=None, archived=None):
                (SELECT COUNT(*) FROM corporate_intake_slots s
                  WHERE s.intake_id = i.id) AS slot_count,
                (SELECT COUNT(*) FROM corporate_intake_slots s
-                 WHERE s.intake_id = i.id AND s.registration_id IS NOT NULL) AS submitted_count
+                 WHERE s.intake_id = i.id AND s.registration_id IS NOT NULL) AS submitted_count,
+               invoice.status AS invoice_status,
+               ARRAY(SELECT COALESCE(it.registration_id, u.registration_id)
+                       FROM corporate_payment_items it
+                       LEFT JOIN users u ON u.id=it.user_id
+                      WHERE it.corporate_payment_id=invoice.id) AS invoice_registrations,
+               ARRAY(SELECT s.registration_id FROM corporate_intake_slots s
+                      WHERE s.intake_id=i.id) AS roster_registrations
         FROM corporate_intakes i
+        LEFT JOIN LATERAL (
+            SELECT p.id,p.status FROM corporate_payments p WHERE p.intake_id=i.id
+            ORDER BY (p.status='paid') DESC,(p.status='pending') DESC,p.id DESC LIMIT 1
+        ) invoice ON TRUE
     """
     params = []
     conditions = []
@@ -185,6 +219,9 @@ def add_slot(intake_id, full_name, email, invite_days=DEFAULT_INVITE_DAYS):
     token = _new_token()
     conn = get_db(); cur = conn.cursor()
     try:
+        cur.execute("SELECT id FROM corporate_intakes WHERE id=%s AND status IN ('open','ready') FOR UPDATE",(intake_id,))
+        if not cur.fetchone():
+            conn.rollback();return None,None
         cur.execute("""
             INSERT INTO corporate_intake_slots
                 (intake_id, full_name, email, email_key,
@@ -216,9 +253,15 @@ def get_slots(intake_id):
                r.correction_note, r.correction_set_at, r.form_type,
                r.selfie_with_id, r.selfie_reviewed_at, r.selfie_outcome,
                r.documents_purged_at, r.photo_id, r.resume, r.expired_doe,
-               r.valid_id
+               r.valid_id, r.review_version, r.training_type,
+               u.id AS user_id,en.user_id AS linked_user_id,u.role AS user_role,
+               CASE WHEN u.registration_id=s.registration_id THEN u.payment_status ELSE 'unpaid' END AS payment_status,
+               ARRAY(SELECT DISTINCT field FROM registration_document_reviews d WHERE d.reg_id=r.id
+                   AND d.outcome='accepted' AND d.sha256 IS NOT NULL AND d.note='deleted') AS reviewed_document_fields
         FROM corporate_intake_slots s
         LEFT JOIN registrations r ON r.id = s.registration_id
+        LEFT JOIN trainee_enrolments en ON en.registration_id=r.id
+        LEFT JOIN users u ON (u.id=en.user_id OR (en.user_id IS NULL AND u.registration_id=s.registration_id)) AND u.archived_at IS NULL
         WHERE s.intake_id = %s
         ORDER BY s.full_name
     """, (intake_id,))
@@ -254,6 +297,7 @@ def _slot_readiness(slot):
         "resume":              slot.get("resume"),
         "expired_doe":         slot.get("expired_doe"),
         "valid_id":            slot.get("valid_id"),
+        'reviewed_document_fields': slot.get('reviewed_document_fields'),
     })
 
 
@@ -461,17 +505,17 @@ def claim_slot_with_registration(invite_token, reg_id, insert_registration_sql, 
 
 # ── Eligibility for the company payment link ─────────────────────────────────
 
-def payment_link_eligibility(intake_id):
+def payment_link_eligibility(intake_id, intake=None, slots=None):
     """(eligible: bool, reason: str, detail: dict) — recomputed from current
     rows every time it is asked.
 
     Never cached and never trusted from the client: the admin button is only a
     hint, and the send path calls this again server-side.
     """
-    intake = get_intake(intake_id=intake_id)
+    intake = intake if intake is not None else get_intake(intake_id=intake_id)
     if not intake:
         return False, "No such intake.", {}
-    slots = get_slots(intake_id)
+    slots = slots if slots is not None else get_slots(intake_id)
     if not slots:
         return False, "The roster is empty.", {}
 
@@ -594,6 +638,9 @@ def authorize_payment_link_send(intake_id, corporate_payment_id, link_version,
             conn.rollback()
             return None, "This intake is cancelled."
 
+        cur.execute("""SELECT r.id FROM registrations r JOIN corporate_intake_slots s ON s.registration_id=r.id
+            WHERE s.intake_id=%s ORDER BY r.id FOR SHARE OF r""", (intake_id,))
+        cur.fetchall()
         # Re-derive approval from the rows as they stand right now, holding
         # the lock. `payment_link_eligibility` is the read-only view of the
         # same rule used by the UI.
@@ -630,17 +677,12 @@ def authorize_payment_link_send(intake_id, corporate_payment_id, link_version,
         # invoice was raised passes the check above while being absent from
         # the invoice — so the company would be asked to pay an amount that
         # does not cover its own roster. Compare account identities directly.
-        cur.execute("""
-            SELECT u.id
-              FROM corporate_intake_slots s
-              JOIN users u ON u.registration_id = s.registration_id
-                          AND u.archived_at IS NULL
-             WHERE s.intake_id = %s
-        """, (intake_id,))
-        roster_users = {r["id"] for r in cur.fetchall()}
-        cur.execute("SELECT user_id FROM corporate_payment_items "
-                    "WHERE corporate_payment_id = %s", (corporate_payment_id,))
-        invoiced_users = {r["user_id"] for r in cur.fetchall()}
+        cur.execute("SELECT registration_id FROM corporate_intake_slots WHERE intake_id=%s", (intake_id,))
+        roster_users = {r["registration_id"] for r in cur.fetchall()}
+        cur.execute("""SELECT COALESCE(it.registration_id,u.registration_id) AS registration_id
+            FROM corporate_payment_items it LEFT JOIN users u ON u.id=it.user_id
+            WHERE it.corporate_payment_id=%s""", (corporate_payment_id,))
+        invoiced_users = {r["registration_id"] for r in cur.fetchall()}
 
         missing = roster_users - invoiced_users
         extra   = invoiced_users - roster_users
@@ -731,56 +773,45 @@ def note_payment_link_submitted(intake_id):
     conn.commit(); cur.close(); conn.close()
 
 
-def invoiceable_roster(intake_id):
+def invoiceable_roster(intake_id, rows=None):
     """Who on this roster can be billed, and who cannot — with the reason.
 
-    A corporate invoice line needs a `users.id`, because that is what
-    settlement flips to paid. An approved applicant who has not yet created
-    their account therefore cannot be invoiced yet, and saying so plainly
-    beats silently dropping them from the total.
+    Invoice lines cover approved applications; an account may be activated
+    later. Explicit enrolment ownership resolves any existing account.
 
     The account is found through `users.registration_id`, the authoritative
     link — not by matching email strings, which are neither unique in
     `registrations` nor case-consistent.
     """
-    conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT s.id AS slot_id, s.full_name, s.email, s.registration_id,
-               r.status AS reg_status, r.form_type, r.training_type,
-               r.selfie_with_id, r.selfie_reviewed_at, r.selfie_outcome,
-               r.documents_purged_at, r.is_qualified,
-               r.photo_id, r.resume, r.expired_doe, r.valid_id,
-               u.id AS user_id, u.payment_status
-          FROM corporate_intake_slots s
-          LEFT JOIN registrations r ON r.id = s.registration_id
-          LEFT JOIN users u ON u.registration_id = s.registration_id
-                           AND u.archived_at IS NULL
-         WHERE s.intake_id = %s
-         ORDER BY s.full_name
-    """, (intake_id,))
-    rows = [dict(r) for r in cur.fetchall()]
-    cur.close(); conn.close()
+    rows=get_slots(intake_id) if rows is None else rows
+    billable,blocked=[],[]
+    from pricing import calculate_fee
+    for slot in rows:
+        reason=_billability_reason(slot,calculate_fee)
+        if reason:blocked.append({**slot,'reason':reason})
+        else:billable.append(slot)
+    return billable,blocked
 
+
+def _billability_reason(slot,price_fn):
     from review_policy import readiness
-    billable, blocked = [], []
-    for s in rows:
-        if not s["registration_id"]:
-            blocked.append({**s, "reason": "Has not submitted a registration yet."})
-            continue
-        r = readiness({**s, "status": s["reg_status"]})
-        if not r["ready"]:
-            blocked.append({**s, "reason": " ".join(r["blockers"])})
-            continue
-        if not s["user_id"]:
-            blocked.append({**s, "reason": (
-                "Approved, but has not created their account yet — an invoice "
-                "line needs the account it will mark paid.")})
-            continue
-        if s["payment_status"] == "paid":
-            blocked.append({**s, "reason": "Already paid."})
-            continue
-        billable.append(s)
-    return billable, blocked
+    if not slot.get('registration_id'):
+        return 'Has not submitted a registration yet.'
+    if slot.get('invite_revoked_at'):
+        return 'Roster access was revoked.'
+    verdict=readiness({**slot,'status':slot['reg_status']})
+    if not verdict['ready']:
+        return ' '.join(verdict['blockers'])
+    if slot.get('linked_user_id') is not None and slot.get('user_id') is None:
+        return 'The linked account is archived. Restore it before billing.'
+    if slot.get('user_role') and slot['user_role']!='trainee':
+        return 'The linked account is no longer a trainee.'
+    if slot.get('payment_status')=='paid':
+        return 'Already paid.'
+    if not price_fn(slot['form_type'],slot.get('training_type')):
+        return 'No published price for this delivery mode.'
+    return None
+
 
 
 def create_invoice_for_intake(intake_id, expiry_at, created_by, price_fn):
@@ -809,17 +840,25 @@ def create_invoice_for_intake(intake_id, expiry_at, created_by, price_fn):
             conn.rollback()
             return None, "This intake is cancelled."
 
+        cur.execute("SELECT id,reference FROM corporate_payments WHERE intake_id=%s AND status IN ('pending','paid') LIMIT 1", (intake_id,))
+        existing = cur.fetchone()
+        if existing:
+            conn.rollback()
+            return None, 'This intake already has a pending or paid invoice: ' + existing['reference'] + '. Open it instead.'
+        cur.execute("""SELECT r.id FROM registrations r JOIN corporate_intake_slots s ON s.registration_id=r.id
+            WHERE s.intake_id=%s ORDER BY r.id FOR SHARE OF r""", (intake_id,))
+        cur.fetchall()
         cur.execute("""
             SELECT s.id AS slot_id, s.full_name, s.email, s.registration_id,
                    r.status AS reg_status, r.form_type, r.training_type,
                    r.selfie_with_id, r.selfie_reviewed_at, r.selfie_outcome,
                    r.documents_purged_at, r.is_qualified,
                    r.photo_id, r.resume, r.expired_doe, r.valid_id,
-                   u.id AS user_id, u.payment_status
+                   u.id AS user_id,en.user_id AS linked_user_id,u.role AS user_role,s.invite_revoked_at, CASE WHEN u.registration_id=s.registration_id THEN u.payment_status ELSE 'unpaid' END AS payment_status
               FROM corporate_intake_slots s
               LEFT JOIN registrations r ON r.id = s.registration_id
-              LEFT JOIN users u ON u.registration_id = s.registration_id
-                               AND u.archived_at IS NULL
+              LEFT JOIN trainee_enrolments en ON en.registration_id=s.registration_id
+              LEFT JOIN users u ON (u.id=en.user_id OR (en.user_id IS NULL AND u.registration_id=s.registration_id)) AND u.archived_at IS NULL
              WHERE s.intake_id = %s
              ORDER BY s.full_name
         """, (intake_id,))
@@ -831,25 +870,14 @@ def create_invoice_for_intake(intake_id, expiry_at, created_by, price_fn):
         from review_policy import readiness
         items, total, blocked = [], 0.0, []
         for s in slots:
-            if not s["registration_id"]:
-                blocked.append((s["full_name"], "has not submitted a registration"))
+            reason=_billability_reason(s,price_fn)
+            if reason:
+                blocked.append((s['full_name'],reason))
                 continue
-            rd = readiness({**s, "status": s["reg_status"]})
-            if not rd["ready"]:
-                blocked.append((s["full_name"], " ".join(rd["blockers"])))
-                continue
-            if not s["user_id"]:
-                blocked.append((s["full_name"], "has not created their account yet"))
-                continue
-            if s["payment_status"] == "paid":
-                blocked.append((s["full_name"], "is already paid"))
-                continue
-            fee = price_fn(s["form_type"], s["training_type"])
-            if not fee:
-                blocked.append((s["full_name"], "has no published price"))
-                continue
+            fee=price_fn(s['form_type'],s['training_type'])
             total += fee["total"]
-            items.append({"user_id": s["user_id"],
+            items.append({"user_id": s["user_id"], "registration_id": s["registration_id"],
+                          "trainee_name": s["full_name"], "trainee_email": s["email"],
                           "training_type": s["training_type"] or s["form_type"],
                           "form_type": s["form_type"], "price_php": fee["total"],
                           "price_label": fee.get("label", "")})
@@ -876,10 +904,10 @@ def create_invoice_for_intake(intake_id, expiry_at, created_by, price_fn):
             cur.execute("""
                 INSERT INTO corporate_payment_items
                   (corporate_payment_id, user_id, training_type, form_type,
-                   price_php, price_label)
-                VALUES (%s,%s,%s,%s,%s,%s)
+                   price_php, price_label, registration_id, trainee_name, trainee_email)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (cid, it["user_id"], it["training_type"], it["form_type"],
-                  it["price_php"], it["price_label"]))
+                  it["price_php"], it["price_label"], it["registration_id"], it["trainee_name"], it["trainee_email"]))
         # Registration creates the class before accounts and payment exist.
         # Bind that class to this invoice in the same transaction. A closed,
         # unpaid invoice may be replaced; leaving its old foreign key here
@@ -919,9 +947,11 @@ def intake_invoices(intake_id):
     """
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""SELECT * FROM corporate_payments
-                    WHERE intake_id = %s
-                    ORDER BY (status = 'paid') DESC, created_at DESC""",
+    cur.execute("""SELECT p.*, ARRAY(SELECT COALESCE(it.registration_id,u.registration_id)
+                         FROM corporate_payment_items it LEFT JOIN users u ON u.id=it.user_id
+                         WHERE it.corporate_payment_id=p.id) AS covered_registrations
+                    FROM corporate_payments p WHERE p.intake_id = %s
+                    ORDER BY (p.status = 'paid') DESC, p.created_at DESC""",
                 (intake_id,))
     rows = [dict(r) for r in cur.fetchall()]
     cur.close(); conn.close()

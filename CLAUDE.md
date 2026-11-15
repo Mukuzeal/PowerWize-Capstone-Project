@@ -88,9 +88,77 @@ Flask, blueprints, **raw psycopg2 — no ORM**. `templates/` and `static/` live 
 
 ### Schema lives in code, applied at import time
 
-[src/db/core.py](src/db/core.py) `init_db()` is the entire schema: `CREATE TABLE IF NOT EXISTS` plus `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` plus inline backfill `UPDATE`s. It runs on every app start. **There are no migration files** — to add a column, append an idempotent `ALTER` (and its backfill) to `init_db()`.
+[src/db/core.py](src/db/core.py) `init_db()` is the entire schema: `CREATE TABLE IF NOT EXISTS` plus `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` plus inline backfill `UPDATE`s. It runs on every app start. **There are no migration files** — to add a column, append an idempotent `ALTER` (and its backfill) to `init_db()`. When you change `init_db()`, update the "Database schema" section below in the same change.
 
-[src/db/](src/db/) is a package whose `__init__.py` star-exports every submodule (`core`, `users`, `registrations`, `payments`, `lms`, `solar`, `misc`), so callers always write `from db import <anything>`. `get_db()` → connection, `dict_cur(conn)` → `RealDictCursor`; callers close both by hand.
+[src/db/](src/db/) is a package whose `__init__.py` star-exports every submodule (`core`, `solar`, `registrations`, `users`, `payments`, `lms`, `misc`, `corporate`, `discounts`, `intake`, `checkout`, `shared_registration`, `notifications`, `classes`, `rag`, `workflow`), so callers always write `from db import <anything>`. `get_db()` → connection, `dict_cur(conn)` → `RealDictCursor`; callers close both by hand.
+
+## Database schema
+
+40 tables (not 28 — that count is stale), all defined in [src/db/core.py](src/db/core.py) `init_db()`. Short types; `[a|b|c]` after a column lists the values actually written in code (CHECK constraint, constant, or literal), not a guess.
+
+**Intake** — the public application and its review/correction lifecycle.
+
+- `batches` (training-batch date groups registrations pick from): id serial PK, name varchar(100) NOT NULL, type varchar(30) NOT NULL, start_date date NOT NULL, dates date[], created_at timestamp
+- `registrations` (a public form submission): id varchar(8) PK, form_type varchar(30) NOT NULL, form_label varchar(50) NOT NULL, submitted_at timestamp NOT NULL, full_name varchar(200), email varchar(150), training_type varchar(250), batch_id int FK->batches.id, status varchar(20) NOT NULL DEFAULT 'pending' [pending|accepted|rejected|needs_correction], is_qualified smallint NOT NULL DEFAULT 1, selfie_reviewed_at timestamp, selfie_outcome varchar(20) [approved|rejected], documents_purged_at timestamp, correction_note text, correction_version int NOT NULL DEFAULT 0, review_version int NOT NULL DEFAULT 1, gemp_designation varchar(200), plus upload-path columns (photo_id, resume, expired_doe, valid_id, selfie_with_id) varchar(255)
+- `account_tokens` (invitation to claim an account): token varchar(64) PK, reg_id varchar(8) NOT NULL FK->registrations.id, email varchar(150) NOT NULL, is_qualified smallint NOT NULL DEFAULT 1, expires_at timestamp NOT NULL (7 days from issue), used_at timestamp, created_at timestamp — unique partial index: at most one unused token per reg_id
+- `registration_document_reviews` (evidence kept after an upload is purged): id serial PK, reg_id varchar(8) NOT NULL FK->registrations.id, field varchar(30) NOT NULL, sha256 varchar(64), byte_size bigint, file_ext varchar(10), outcome varchar(20) [approved|rejected|superseded], note varchar(40) [deleted|missing], reviewed_by int FK->users.id, review_version int NOT NULL DEFAULT 1, purged_at timestamp — UNIQUE(reg_id, field, review_version)
+- `registration_corrections` (correction requests — src/db/workflow.py): id serial PK, reg_id varchar(8) NOT NULL FK->registrations.id, version int NOT NULL, token_hash varchar(64) NOT NULL UNIQUE, fields text[] NOT NULL, note text NOT NULL, requested_by int FK->users.id, prior_status varchar(20) NOT NULL DEFAULT 'pending', expires_at timestamp NOT NULL DEFAULT now()+7days, used_at timestamp — UNIQUE(reg_id, version)
+- `registration_retired_uploads` (superseded upload files awaiting disk cleanup): id serial PK, reg_id varchar(8) NOT NULL FK->registrations.id, field varchar(30) NOT NULL, filename varchar(255) NOT NULL, review_version int NOT NULL, purged_at timestamp, last_error varchar(120) — UNIQUE(reg_id, field, filename)
+- `registration_review_history` (append-only per-application audit trail): id serial PK, reg_id varchar(8) NOT NULL FK->registrations.id, review_version int NOT NULL, action varchar(40) NOT NULL, snapshot text NOT NULL, actor_id int FK->users.id, created_at timestamp NOT NULL
+
+**Identity** — accounts and who owns which application.
+
+- `users`: id serial PK, role varchar(20) NOT NULL [admin|super_user|secretary|employee|trainee], fname varchar(100) NOT NULL, lname varchar(100) NOT NULL, email varchar(150) NOT NULL UNIQUE, password_hash varchar(255) NOT NULL, payment_status varchar(10) NOT NULL DEFAULT 'unpaid' [unpaid|paid], training_type varchar(250), failed_login_attempts smallint NOT NULL DEFAULT 0, locked_until timestamp, registration_id varchar(8) FK->registrations.id, created_at timestamp, archived_at timestamp
+- `trainee_enrolments` (explicit account↔application link): registration_id varchar(8) PK FK->registrations.id, user_id int NOT NULL FK->users.id, verified_at timestamp NOT NULL
+- `user_capabilities` (per-account capability overrides): id serial PK, user_id int NOT NULL FK->users.id, capability varchar(40) NOT NULL, granted smallint NOT NULL, set_by int FK->users.id, set_at timestamp — UNIQUE(user_id, capability)
+- `password_reset_tokens`: token varchar(64) PK, email varchar(150) NOT NULL, expires_at timestamp NOT NULL (1 hour from issue), used_at timestamp, created_at timestamp
+- `audit_logs` (generic admin/system action log): id serial PK, user_id int FK->users.id, action varchar(150) NOT NULL, entity_type varchar(50), entity_id varchar(50), details text, created_at timestamp
+
+**Billing** — money movement, individual and corporate.
+
+- `payments` (individual PayMongo payment): id serial PK, user_id int NOT NULL FK->users.id, registration_id varchar(8) FK->registrations.id, amount_php numeric(10,2) NOT NULL, method varchar(10) NOT NULL, paymongo_id varchar(120) NOT NULL, status varchar(10) NOT NULL DEFAULT 'pending' [pending|paid|failed], receipt_id varchar(30), receipt_hash varchar(66), tx_hash varchar(66), anchor_version smallint DEFAULT 1, discount_code_id int FK->discount_codes.id, discount_percent smallint, discount_amount_php numeric(10,2), qr_code_path varchar(255), created_at timestamp, paid_at timestamp
+- `discount_codes`: id serial PK, code varchar(40) NOT NULL, code_key varchar(40) NOT NULL UNIQUE, percent_off smallint NOT NULL (CHECK 1–100), expires_on date NOT NULL, max_uses int NOT NULL, used int NOT NULL DEFAULT 0, training_type varchar(250), is_active smallint NOT NULL DEFAULT 1, created_by int FK->users.id, created_at timestamp
+- `corporate_payments` (one invoice covering several trainees): id serial PK, reference varchar(40) NOT NULL UNIQUE, company_name varchar(200) NOT NULL, list_total_php numeric(12,2) NOT NULL, custom_total_php numeric(12,2), override_by int FK->users.id, amount_centavos bigint NOT NULL, status varchar(20) NOT NULL DEFAULT 'pending' [pending|paid|cancelled|expired], method varchar(10), paymongo_id varchar(120), intake_id int, pay_token_hash varchar(64), link_version int NOT NULL DEFAULT 0, needs_attention_at timestamp, receipt_hash varchar(66), tx_hash varchar(66), anchor_version smallint DEFAULT 2, expires_at timestamp NOT NULL, paid_at timestamp, cancelled_at timestamp, created_by int FK->users.id, created_at timestamp
+- `corporate_payment_items` (per-trainee invoice line): id serial PK, corporate_payment_id int NOT NULL FK->corporate_payments.id, user_id int FK->users.id, registration_id varchar(8) FK->registrations.id, training_type varchar(250) NOT NULL, form_type varchar(30), price_php numeric(10,2) NOT NULL, price_label varchar(150), trainee_name varchar(200), trainee_email varchar(150) — UNIQUE(corporate_payment_id, user_id); unique partial index on (corporate_payment_id, registration_id) where set
+- `corporate_payment_attempts` (one hosted-checkout attempt): id serial PK, corporate_payment_id int NOT NULL FK->corporate_payments.id, attempt_ref varchar(36) NOT NULL UNIQUE, idempotency_key varchar(255) NOT NULL UNIQUE, request_amount_centavos bigint NOT NULL, environment varchar(10) NOT NULL, status varchar(20) NOT NULL DEFAULT 'creating' [creating|active|expired|paid|failed|unknown], checkout_session_id varchar(120), payment_intent_id varchar(120), idempotency_expires_at timestamp, settlement_confirmed_at timestamp, creation_lease_until timestamp, created_by int FK->users.id, created_at timestamp
+- `corporate_payment_events` (per-invoice inline audit trail): id serial PK, corporate_payment_id int NOT NULL FK->corporate_payments.id, actor_id int FK->users.id, action varchar(60) NOT NULL, details text, created_at timestamp
+- `unresolved_payment_events` (webhooks that could not be matched/validated): id serial PK, source varchar(20) NOT NULL, event_type varchar(60), checkout_session_id varchar(120), payment_id varchar(120), amount_centavos bigint, reason text NOT NULL, raw_event text NOT NULL, resolved_at timestamp, resolved_by int FK->users.id, resolution_note text, received_at timestamp
+
+**Courseware** — module/quiz/exam definitions a trainer authors.
+
+- `lms_modules`: id serial PK, title varchar(200) NOT NULL, instructor_id int NOT NULL FK->users.id, training_type varchar(250) NOT NULL DEFAULT 'training', is_published smallint NOT NULL DEFAULT 0, sort_order int NOT NULL DEFAULT 0, is_locked smallint NOT NULL DEFAULT 0, created_at timestamp, archived_at timestamp
+- `lms_module_files`: id serial PK, module_id int NOT NULL FK->lms_modules.id, filename varchar(255) NOT NULL, original_name varchar(255) NOT NULL, file_type varchar(50), file_size int, uploaded_at timestamp
+- `lms_quizzes`: id serial PK, module_id int NOT NULL UNIQUE FK->lms_modules.id, title varchar(200) NOT NULL, time_limit_mins int NOT NULL DEFAULT 30, passing_score int NOT NULL DEFAULT 70, is_ai_generated smallint NOT NULL DEFAULT 0, is_published smallint NOT NULL DEFAULT 0, is_locked smallint NOT NULL DEFAULT 0, created_at timestamp
+- `lms_quiz_questions`: id serial PK, quiz_id int NOT NULL FK->lms_quizzes.id, question_text text NOT NULL, question_type varchar(20) NOT NULL DEFAULT 'multiple_choice', correct_answer text, order_num int NOT NULL DEFAULT 0, points int NOT NULL DEFAULT 1
+- `lms_quiz_choices`: id serial PK, question_id int NOT NULL FK->lms_quiz_questions.id, choice_text text NOT NULL, is_correct smallint NOT NULL DEFAULT 0
+- `lms_practical_exams`: id serial PK, module_id int NOT NULL UNIQUE FK->lms_modules.id, title varchar(200) NOT NULL, instructions text NOT NULL, evaluation_criteria text, requires_camera smallint NOT NULL DEFAULT 0, is_locked smallint NOT NULL DEFAULT 0, created_at timestamp
+- `lms_exam_questions`: id serial PK, exam_id int NOT NULL FK->lms_practical_exams.id, question_text text NOT NULL, question_type varchar(20) NOT NULL DEFAULT 'essay', correct_answer text, order_num int NOT NULL DEFAULT 0, points int NOT NULL DEFAULT 1
+
+**Assessments** — a trainee's quiz/progress/certificate records.
+
+- `lms_quiz_attempts`: id serial PK, user_id int NOT NULL FK->users.id, quiz_id int NOT NULL FK->lms_quizzes.id, registration_id varchar(8) FK->registrations.id, started_at timestamp, submitted_at timestamp, score numeric(5,2), tab_switches int NOT NULL DEFAULT 0, completed smallint NOT NULL DEFAULT 0
+- `lms_quiz_answers`: id serial PK, attempt_id int NOT NULL FK->lms_quiz_attempts.id, question_id int NOT NULL FK->lms_quiz_questions.id, selected_choice_id int FK->lms_quiz_choices.id, answer_text text
+- `lms_progress`: id serial PK, user_id int NOT NULL FK->users.id, module_id int NOT NULL FK->lms_modules.id, registration_id varchar(8) FK->registrations.id, quiz_score numeric(5,2), quiz_passed smallint NOT NULL DEFAULT 0, exam_graded smallint NOT NULL DEFAULT 0, exam_grade int, material_pct smallint NOT NULL DEFAULT 0, completed smallint NOT NULL DEFAULT 0, completed_at timestamp — unique partial indexes on (user_id, module_id, registration_id) and legacy (user_id, module_id) where registration_id IS NULL
+- `lms_certificates`: id serial PK, user_id int NOT NULL FK->users.id, registration_id varchar(8) FK->registrations.id, cert_id varchar(32) NOT NULL UNIQUE, issued_at timestamp, expires_at date, approved_by int FK->users.id, tx_hash varchar(66), blockchain_token varchar(255), anchor_version smallint DEFAULT 1
+- `feedback`: id serial PK, user_id int NOT NULL FK->users.id, module_id int NOT NULL FK->lms_modules.id, rating smallint NOT NULL, comment text, created_at timestamp — UNIQUE(user_id, module_id)
+
+**Submissions** — practical-exam file submissions and grading.
+
+- `lms_exam_submissions`: id serial PK, user_id int NOT NULL FK->users.id, exam_id int NOT NULL FK->lms_practical_exams.id, registration_id varchar(8) FK->registrations.id, file_path varchar(255), submitted_at timestamp, grade int, feedback text, graded_at timestamp, graded_by int FK->users.id, auto_score numeric(5,2), needs_review smallint NOT NULL DEFAULT 0
+- `lms_exam_answers`: id serial PK, submission_id int NOT NULL FK->lms_exam_submissions.id, question_id int NOT NULL FK->lms_exam_questions.id, answer_text text
+
+**Solar/RAG** — Solara consultations and the retrieval corpus behind them.
+
+- `solar_requests`: id serial PK, user_id int FK->users.id, name varchar(200) NOT NULL, email varchar(150) NOT NULL, establishment_type varchar(20) NOT NULL, ownership varchar(10) NOT NULL, electrical_phase varchar(10) NOT NULL, grid_connection varchar(10) NOT NULL DEFAULT 'grid_tie', target_savings varchar(5) NOT NULL DEFAULT '100', monthly_bill_php numeric(10,2), feasibility varchar(20) [feasible|limited|unfeasible|unknown], status varchar(30) NOT NULL DEFAULT 'submitted' [submitted|ai_processed|pending_review|reviewed|completed|quotation_sent], out_of_scope smallint NOT NULL DEFAULT 0, out_of_scope_reason text, created_at timestamp, plus sizing/cost columns (system_size_kw, panel_count, cost_min/max, monthly_savings, roi_years, battery_kwh_capacity and their `final_*` staff-overridden counterparts)
+- `rag_chunks`: id serial PK, source_type varchar(30) NOT NULL, source_ref varchar(255) NOT NULL, title varchar(200) NOT NULL, content text NOT NULL, visibility varchar(10) NOT NULL DEFAULT 'public' [public|admin], topic varchar(40), embedding real[] NOT NULL, embed_model varchar(100) NOT NULL, content_hash varchar(64) NOT NULL, updated_at timestamp
+
+**Corporate intake & class workflow** — company roster, notifications, and class join codes.
+
+- `corporate_intakes` (the company intake — src/admin/intake.py): id serial PK, company_name varchar(200) NOT NULL, contact_email varchar(150) NOT NULL, form_type varchar(30) NOT NULL, training_type varchar(250), coord_token_hash varchar(64) UNIQUE, coord_expires_at timestamp, coord_revoked_at timestamp, status varchar(20) NOT NULL DEFAULT 'open' [open|ready|closed|cancelled], payment_link_sent_at timestamp, registration_token_hash varchar(64), registration_expires_at timestamp, registration_revoked_at timestamp, archived_at timestamp, archived_by int FK->users.id, created_by int FK->users.id, created_at timestamp, closed_at timestamp
+- `corporate_intake_slots` (one expected trainee, created before they submit): id serial PK, intake_id int NOT NULL FK->corporate_intakes.id, full_name varchar(200) NOT NULL, email varchar(150) NOT NULL, email_key varchar(150) NOT NULL, invite_token_hash varchar(64) UNIQUE, invite_expires_at timestamp, invite_used_at timestamp, invite_revoked_at timestamp, registration_id varchar(8) FK->registrations.id (unique when set), entry_class_id int FK->training_classes.id, entry_code_hash varchar(64), entry_code_expires_at timestamp, entry_code_attempts int NOT NULL DEFAULT 0, created_at timestamp — UNIQUE(intake_id, email_key)
+- `corporate_notifications` (company notifications — src/db/notifications.py; durable send intents, leased by `attempt_id`): id serial PK, intake_id int FK->corporate_intakes.id, kind varchar(40) NOT NULL [needs_correction|payment_link|registration_link|trainee_correction], slot_id int FK->corporate_intake_slots.id, to_email varchar(150) NOT NULL, subject varchar(300), status varchar(20) NOT NULL DEFAULT 'queued' [queued|in_flight|previewed|mocked|submitted|failed|uncertain], attempts int NOT NULL DEFAULT 0, last_error text, dedupe_key varchar(120) NOT NULL UNIQUE, attempt_id varchar(36), attempt_started_at timestamp, attempt_expires_at timestamp, transport varchar(20), corporate_payment_id int, link_version int NOT NULL DEFAULT 0, payload text, created_by int FK->users.id, created_at timestamp, sent_at timestamp
+- `training_classes` (a cohort and its join code — used by `class_gate()` in src/db/classes.py): id serial PK, name varchar(200) NOT NULL, training_type varchar(250) NOT NULL, program_code varchar(30), intake_id int FK->corporate_intakes.id, corporate_payment_id int FK->corporate_payments.id, join_code varchar(12) NOT NULL UNIQUE, join_open boolean NOT NULL DEFAULT true, instructor_id int FK->users.id, created_by int FK->users.id, created_at timestamp, closed_at timestamp
+- `training_class_members` (used by `class_gate()` in src/db/classes.py): id serial PK, class_id int NOT NULL FK->training_classes.id, user_id int NOT NULL FK->users.id, authorised varchar(20) NOT NULL DEFAULT 'roster' [roster|staff], added_by int FK->users.id, joined_at timestamp — UNIQUE(class_id, user_id)
 
 ### Blueprints
 
@@ -107,6 +175,9 @@ Registered in [src/app.py](src/app.py). `lms_bp/` and `admin/` are packages that
 | `lms` | modules, quizzes, practical exams, certificates, trainee learning |
 | `solar` | AI solar consultation + admin review |
 | `upload_validation` | `/api/validate-upload`, `/api/face-match` |
+| `company` | token-scoped coordinator roster view + shared class registration (`/company/roster/<token>`, `/company/register/<token>`) — no staff auth |
+| `corporate_public` | token-scoped corporate invoice payment page — no staff auth |
+| `classes` | trainee self-join by class code, cohort progress view |
 
 ### The trainee lifecycle (spans most of the codebase)
 
@@ -139,6 +210,44 @@ Two invariants that explain a lot of otherwise-odd code:
 
 - **Account creation is invitation-only.** There is deliberately no email+password signup; a plain one would mint trainees that skipped ID upload, selfie liveness, and admin verification. The token carries the approved `training_type` and `payment_status`. See the comment block in [src/auth.py:74-79](src/auth.py#L74-L79).
 - **A trainee's syllabus is decided by `training_type`, not by identity.** `normalize_training_type()` maps registration free text to program codes; `lms_get_modules_for_trainee()` resolves the module list. Trainer-facing and trainee-facing progress both fold through `_progress_steps()` in [src/lms_bp/_shared.py](src/lms_bp/_shared.py) so the two views can never disagree.
+
+### Corporate intake & company workspace
+
+A second lifecycle runs alongside the individual one, for an employer enrolling several trainees at once:
+
+```
+admin creates intake (admin/intake.py) → coordinator link (/company/roster/<token>)
+  + shared registration link & class code (/company/register/<token>)
+  → trainees self-register with the code, or admin adds slots directly
+  → ordinary per-trainee admin review (admin/registrations.py — unchanged)
+  → corporate invoice covering several accepted trainees (db/corporate.py)
+  → /payment/corporate/<token> (corporate_public_bp, PayMongo) → class join code unlocks LMS (db/classes.py)
+```
+
+`company_bp` and `corporate_public_bp` are deliberately separate from every
+staff blueprint and never import `permissions.require` — their routes are
+reached by an unauthenticated coordinator or trainee holding a token, so "is
+this route public?" is a structural, module-level fact rather than a
+per-function capability check a future edit could get wrong.
+
+Ownership is explicit, never inferred from email: `trainee_enrolments`
+([src/db/workflow.py](src/db/workflow.py)) links one account to one
+registration, and every read re-checks that link instead of trusting a
+session hint as authority. The same module owns correction requests
+(`request_correction`/`submit_correction`) — reopening an application for
+specific fields without discarding an already-approved identity check.
+
+Company notifications ([src/db/notifications.py](src/db/notifications.py))
+are durable intent: a row is inserted before any send is attempted, leased by
+a unique `attempt_id` during delivery, and only marked
+`submitted`/`previewed`/`mocked` once the transport actually accepted it — a
+crash mid-send leaves a retryable row instead of a silently lost email.
+
+The Company Intake / Training tabs in [templates/admin/_corporate_panel.html](templates/admin/_corporate_panel.html)
+poll every five seconds and patch in place rather than reload. See
+[docs/INTAKE_LIVE_UPDATES.md](docs/INTAKE_LIVE_UPDATES.md) for exactly what
+those GET endpoints are (and are not) allowed to do — they never contact
+PayMongo, send mail, or settle a payment; only a verified webhook can do that.
 
 ### Auth model
 
@@ -179,6 +288,16 @@ Payments and certificates are valid whether or not the Polygon write lands. Fail
 ### The marketing site exists twice
 
 [ewize-2026/](ewize-2026/) is a standalone static build (`python build.py` regenerates 15 HTML pages from `content.py`). The **live** version is the Flask one: [src/site_bp.py](src/site_bp.py) + [src/site_content.py](src/site_content.py) + [templates/site/](templates/site/) + `static/ewize.css` + `static/ewize.js`. Edit the Flask side for anything shipping; the static build only matters as a detached deliverable. The two content models must be kept in sync — see [ewize-2026/README.md](ewize-2026/README.md) for the design system ("Instrument": square structure, round controls, dark green-black ground, one paper inversion for schedules).
+
+## Behaviour facts
+
+- **Login lockout:** 5 failed attempts (`MAX_LOGIN_ATTEMPTS` in [src/db/users.py](src/db/users.py)) locks the account for 5 minutes (`LOCKOUT_MINUTES`), tracked on `users.failed_login_attempts` / `users.locked_until`.
+- **Token expiry:** `account_tokens.expires_at` is 7 days from issue; `password_reset_tokens.expires_at` is 1 hour from issue (both in [src/db/users.py](src/db/users.py)).
+- **Certificates are minted as soulbound ERC-721 tokens**, not just a hash anchor — see [contracts/EnergyWizeCertificate.sol](contracts/EnergyWizeCertificate.sol) (`_update()` reverts any transfer/burn; only `mint()`, called by the contract owner, succeeds) and [src/blockchain_utils.py](src/blockchain_utils.py) `store_certificate_hash()`. `lms_certificates.blockchain_token` stores the minted token id (falls back to a plain hash-on-chain anchor, storing `cert_id` instead of a token id, only if `store_certificate_hash()` cannot mint — e.g. `NFT_CONTRACT_ADDRESS` unset or the mint call fails). The deployed contract address is read from env var `NFT_CONTRACT_ADDRESS` — not hardcoded, and not checked into the repo (`.env` is gitignored), but the local `.env` currently sets it to `0xf78d8F66E84Ee66aef446B91E300bF8c47BE32AD` on Polygon Amoy.
+- **Certificate issuance is staff-triggered, not automatic.** Finishing a module only makes a trainee *eligible* (`lms_get_eligible_for_cert()`); an instructor/admin with the right capability must POST `/lms/certificates/issue/<user_id>` ([src/lms_bp/certificates.py](src/lms_bp/certificates.py)), which stamps `approved_by` with that staff member's `user_id`.
+- **Solara chat does not require sign-in.** `/solar/chat` and `/solar/chat/msg` ([src/solar_bp.py](src/solar_bp.py)) carry no session/login check; a signed-in user's name/email are only used to prefill the form if present.
+- **Admin Export Reports produces `.xlsx`** (via `openpyxl`) for every report — registrations, users, payments, LMS progress, solar requests. See [src/admin/exports.py](src/admin/exports.py). No CSV or PDF export path exists for these.
+- **No production host is configured in the repo.** [Procfile](Procfile) runs `gunicorn --chdir src app:app`, deployable to Render, Azure, or similar, but there is no committed `render.yaml`/`fly.toml`/live URL. [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) and `docs/DEPLOY_AZURE.md` are setup guides, not records of a live deployment; `base_url()` ([src/utils.py](src/utils.py)) falls back to the incoming request's host unless `APP_BASE_URL` is set at deploy time.
 
 ## Frontend conventions
 

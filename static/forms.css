@@ -215,6 +215,10 @@ input[type=file]{display:none}
 .upload-validation[data-status="validating"] .uv-spinner{display:flex;background:#F1F5F9;color:#475569}
 .upload-validation[data-status="valid"]      .uv-ok{display:flex;background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0}
 .upload-validation[data-status="invalid"]    .uv-bad{display:flex;background:#FEF2F2;color:#B91C1C;border:1px solid #FECACA}
+/* Service failure, not a rejection: amber + Retry, never red. */
+.upload-validation[data-status="error"]      .uv-error{display:flex;flex-wrap:wrap;align-items:center;background:#FFFBEB;color:#92400E;border:1px solid #FDE68A}
+.uv-retry{margin-left:auto;cursor:pointer;font:inherit;font-weight:600;padding:3px 10px;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit}
+.uv-retry:hover{background:rgba(146,64,14,.08)}
 
 /* ── Radio options ── */
 .radio-group{display:flex;flex-direction:column;gap:7px;margin-top:4px}

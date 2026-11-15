@@ -35,7 +35,16 @@ def portal_join_class():
     """
     uid = _require_trainee()
     code = (request.form.get("join_code") or "").strip()
-    cls, err = join_class(uid, code)
+    assigned = request.form.get('class_id')
+    if assigned:
+        try:
+            assigned = int(assigned)
+        except ValueError:
+            abort(400)
+        from db import assigned_classes_for_user
+        if assigned not in {c['id'] for c in assigned_classes_for_user(uid)}:
+            abort(403)
+    cls, err = join_class(uid, code, assigned_class_id=assigned)
     if err:
         flash(err, "error")
         return redirect(url_for("registration.portal"))
@@ -73,9 +82,12 @@ def _class_progress(class_id):
         # the syllabus also depends on their own certificate dates. Caching on
         # the type handed the first member's module list to everyone who
         # happened to share their label, so totals were silently wrong.
-        mods = lms_get_modules_for_trainee(m["user_id"], published_only=True)
-        reqs = lms_get_module_requirements([x["id"] for x in mods])
-        prog_map = {p["module_id"]: p for p in lms_get_progress(m["user_id"])}
+        from db import enrolment_scope, registration_for_class_user
+        reg_id=registration_for_class_user(class_id,m['user_id'])
+        with enrolment_scope(m['user_id'],reg_id):
+            mods = lms_get_modules_for_trainee(m['user_id'], published_only=True)
+            reqs = lms_get_module_requirements([x['id'] for x in mods])
+            prog_map = {p['module_id']: p for p in lms_get_progress(m['user_id'])}
         total = len(mods)
         completed = sum(1 for x in mods
                         if prog_map.get(x["id"], {}).get("completed"))

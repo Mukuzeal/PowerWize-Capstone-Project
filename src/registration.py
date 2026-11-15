@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime
-from flask import Blueprint, request, render_template, session, redirect
+from flask import Blueprint, request, render_template, session, redirect, current_app, make_response, abort, flash
 from db import (get_schedules, insert_registration, get_registration_for_user,
                 get_user_basic_info, lms_get_modules_for_trainee, lms_get_progress,
                 lms_get_module_requirements, lms_get_certificate,
@@ -31,6 +31,19 @@ def private_company_registration(response):
         response.headers['Referrer-Policy'] = 'same-origin'
         response.headers['X-Robots-Tag'] = 'noindex, nofollow'
     return response
+
+
+@registration_bp.before_app_request
+def validate_selected_enrolment():
+    if request.endpoint=='static':
+        return
+    selected=session.get('active_registration_id')
+    if selected and session.get('user_role')=='trainee':
+        if not get_registration_for_user(session.get('user_id'),registration_id=selected):
+            session.pop('active_registration_id',None)
+            for key in ('discount_code','pending_pi','pending_qr_pi','last_receipt_id'):
+                session.pop(key,None)
+            flash('That enrolment is no longer available. Your account is showing its original registration.', 'warning')
 
 
 def _invite_token():
@@ -78,6 +91,8 @@ def save_registration(entry, invite_token=None):
     from db import get_intake
     intake = get_intake(intake_id=slot['intake_id'])
     entry['company_name'] = intake['company_name']
+    if intake.get('training_type'):
+        entry['training_type'] = intake['training_type']
 
     reg_id, err = claim_slot_with_registration(
         invite_token, entry["id"], REGISTRATION_INSERT_SQL,
@@ -154,10 +169,18 @@ def portal():
     if not user:
         return redirect("/auth/logout")
 
-    if not is_staff() and user["payment_status"] == "unpaid":
+    from db import sponsored_enrolment, enrolments_for_user, get_user_payment_status, assigned_classes_for_user
+    sponsor = sponsored_enrolment(session['user_id'])
+    if sponsor and (not sponsor['paid'] or not sponsor['review']['ready']
+                    or sponsor['invite_revoked_at'] or sponsor['intake_status'] == 'cancelled'):
+        return render_template('company/waiting.html', user=user, sponsor=sponsor,
+                               enrolments=enrolments_for_user(session['user_id']))
+    if not sponsor and get_user_payment_status(session['user_id']) == 'unpaid':
         return redirect("/payment")
 
     reg = get_registration_for_user(session['user_id'])
+    from db import class_gate
+    learning_allowed,learning_reason=class_gate(session['user_id'])
     lms = _portal_learning(session["user_id"])
 
     # A certificate is valid for three years (lms_issue_certificate). Flagging
@@ -167,9 +190,70 @@ def portal():
         cert_days = (lms["cert"]["expires_at"] - date.today()).days
 
     return render_template("shared/portal.html", user=user, reg=reg,
+                           learning_allowed=learning_allowed,learning_reason=learning_reason,
+                           enrolments=enrolments_for_user(session['user_id']),
+                           assigned_classes=assigned_classes_for_user(session['user_id']),
                            cert_days=cert_days,
                            my_classes=classes_for_user(session["user_id"]),
                            **lms)
+
+
+@registration_bp.route('/portal/enrolment', methods=['POST'])
+def select_enrolment():
+    from db import get_registration_for_user
+    uid = session.get('user_id')
+    if not uid or session.get('user_role') != 'trainee':
+        abort(403)
+    reg_id = request.form.get('registration_id', '')
+    if not get_registration_for_user(uid, registration_id=reg_id):
+        abort(403)
+    session['active_registration_id'] = reg_id
+    for key in ('discount_code','pending_pi','pending_qr_pi','last_receipt_id'):
+        session.pop(key, None)
+    return redirect('/portal')
+
+
+@registration_bp.route('/registration/correct/<token>', methods=['GET','POST'])
+def correct_requirements(token):
+    from db import correction_access, submit_correction, CORRECTION_FIELDS, CORRECTION_LIMITS, UPLOAD_FIELDS, purge_retired_uploads
+    correction = correction_access(token)
+    errors, values, uploads = [], {}, {}
+    if not correction:
+        response = make_response(render_template('company/correction.html', correction=None), 404)
+    else:
+        if request.method == 'POST':
+            for field in correction['fields']:
+                if field in UPLOAD_FIELDS:
+                    if field == 'selfie_with_id':
+                        name = request.form.get(field, '')
+                        value = name if owns_upload(name, field) else None
+                    else:
+                        value = save_file(field, pdf_only=field == 'resume')
+                    if value:
+                        uploads[field] = value
+                else:
+                    value = request.form.get(field, '').strip()
+                if not value:
+                    errors.append('Please provide: ' + CORRECTION_FIELDS[field])
+                values[field] = value
+            if not errors:
+                result, error = submit_correction(token, values)
+                if error:
+                    errors.append(error)
+                else:
+                    # Committed replacements are journaled for retry if deletion
+                    # fails. No filesystem failure undoes a submitted correction.
+                    try:
+                        purge_retired_uploads(result['reg_id'], [current_app.config['UPLOAD_FOLDER'], current_app.config.get('LEGACY_UPLOAD_FOLDER')])
+                    except Exception as exc:
+                        current_app.logger.warning('Retired upload cleanup pending (%s)', type(exc).__name__)
+                    response = make_response(render_template('company/correction.html', correction=correction, completed=True))
+                    response.headers.update({'Cache-Control':'no-store','Referrer-Policy':'same-origin','X-Robots-Tag':'noindex, nofollow'})
+                    return response
+        response = make_response(render_template('company/correction.html', correction=correction,
+                    errors=errors, values=values, uploads=uploads, field_labels=CORRECTION_FIELDS,field_limits=CORRECTION_LIMITS))
+    response.headers.update({'Cache-Control':'no-store','Referrer-Policy':'same-origin','X-Robots-Tag':'noindex, nofollow'})
+    return response
 
 
 # ── CEA Renewal ──────────────────────────────────────────────────────────────

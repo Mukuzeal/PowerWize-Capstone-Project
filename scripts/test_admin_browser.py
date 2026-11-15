@@ -151,6 +151,7 @@ srv = make_server("127.0.0.1", port, app, threaded=True)
 t = threading.Thread(target=srv.serve_forever, daemon=True)
 t.start()
 BASE = f"http://127.0.0.1:{port}"
+os.environ["APP_BASE_URL"]=BASE
 print(f"serving on {BASE}")
 
 page_errors = []       # uncaught exceptions
@@ -212,9 +213,10 @@ try:
         print("\n2. Intake roster opens and prices the invoice")
         page.evaluate("showSection('intake', document.querySelector('.nav-item'))")
         page.evaluate(f"openIntake({iid})")
-        page.wait_for_selector("#intake-body table", timeout=5000)
+        page.get_by_role("tab",name="Billing",exact=True).click()
+        page.wait_for_selector("#ik-section-billing", timeout=5000)
         check("roster table rendered",
-              page.locator("#intake-body table tbody tr").count() >= 2)
+              page.locator("#ik-section-trainees table tbody tr").count() >= 2)
         check("Create corporate invoice offered for an eligible roster",
               page.get_by_role("button", name="Create corporate invoice").count() == 1)
 
@@ -229,6 +231,7 @@ try:
         print("\n3. Blocked roster explains itself and refuses")
         page.evaluate("closeIntake()")
         page.evaluate(f"openIntake({iid_bad})")
+        page.get_by_role("tab",name="Billing",exact=True).click()
         page.wait_for_selector("#intake-body", timeout=5000)
         body_bad = page.locator("#intake-body").inner_text()
         check("ineligible intake hides the invoice action",
@@ -238,14 +241,15 @@ try:
         print("\n4. Create the invoice and land in Corporate Payments")
         page.evaluate("closeIntake()")
         page.evaluate(f"openIntake({iid})")
-        page.wait_for_selector("#intake-body table", timeout=5000)
+        page.get_by_role("tab",name="Billing",exact=True).click()
+        page.wait_for_selector("#ik-section-billing", timeout=5000)
         page.get_by_role("button", name="Create corporate invoice").click()
         page.wait_for_selector("#ik-link-out table", timeout=5000)
         page.get_by_role("button", name="Create this invoice").click()
-        page.wait_for_selector("text=Open in Corporate Payments", timeout=8000)
+        page.wait_for_selector("text=Open invoice", timeout=8000)
         check("creation confirmed before the view changes",
               "created" in page.locator("#ik-link-out").inner_text().lower())
-        page.get_by_role("button", name="Open in Corporate Payments").click()
+        page.locator("#ik-link-out").get_by_role("button", name="Open invoice").click()
         page.wait_for_timeout(1500)
 
         page.wait_for_selector("#corp-hp", timeout=8000)
@@ -275,11 +279,11 @@ try:
         page.fill('#corp-override-note', 'Company discount agreed for this intake')
         page.get_by_role('button', name='Save invoice total', exact=True).click()
         page.wait_for_function("() => document.querySelector('#corp-price-result')?.textContent.includes('Invoice total updated')")
-        check('modal shows the new charged total', '12,345.67' in page.locator('#corp-body .stats-grid').inner_text())
-        check('published trainee price is preserved', '12,345.67' not in page.locator('#corp-body .table-card').first.inner_text())
-        check('saved reason appears in the invoice', 'Company discount agreed' in page.locator('#corp-body').inner_text())
+        check('modal shows the new charged total', '12,345.67' in page.locator('#ik-billing-detail .stats-grid').inner_text())
+        check('published trainee price is preserved', '12,345.67' not in page.locator('#ik-billing-detail .table-card').first.inner_text())
+        check('saved reason appears in the invoice', 'Company discount agreed' in page.locator('#ik-billing-detail').inner_text())
         check('saved override prefills the refreshed panel', page.locator('#corp-custom-total').input_value() == '12345.67')
-        page.locator('#corp-overlay .docs-box').screenshot(path=os.path.join(os.environ['TEMP'], 'powerwize-price-override.png'))
+        page.locator('#intake-overlay .docs-box').screenshot(path=os.path.join(os.environ['TEMP'], 'powerwize-price-override.png'))
 
         print("\n5. Issue a payment link (real fetch, real JS)")
         modal.get_by_role("button", name="Generate payment link").click()
@@ -335,7 +339,7 @@ try:
         page.evaluate('openCorpDetail(CORP_DETAIL_ID)')
         page.wait_for_selector('#corp-hp .corp-sub', timeout=8000)
         check('price form is locked after checkout creation', page.locator('#corp-custom-total').count() == 0
-              and 'amount is fixed' in page.locator('#corp-body').inner_text())
+              and 'amount is fixed' in page.locator('#ik-billing-detail').inner_text())
         check("environment shown", "test" in att)
         check("Resolve offered for an open attempt",
               page.get_by_role("button", name="Resolve").count() >= 1)
@@ -465,13 +469,19 @@ try:
         print("\n13. An event matching no invoice is still reachable")
         page.evaluate("closeCorpDetail && closeCorpDetail()")
         page.wait_for_timeout(300)
-        page.evaluate("hpQueueLoad()")
+        page.evaluate('ikCorporateOverview()')
         page.wait_for_selector("#hp-queue .corp-note", timeout=8000)
         q = page.locator("#hp-queue").inner_text()
         check("the orphan event appears in the section queue",
               "unmatched_session" in q, q[:110].replace("\n", " "))
         check("it is not silently attributed to an invoice",
               "no session" not in q.lower() or "cs_browser_orphan2" in q)
+        # Resolving event 1 in section 12 fires a fire-and-forget hpQueueLoad()
+        # refresh (admin.html hpEventResolve, ~6449) that its caller never
+        # awaits. If it is still in flight here, landing right as we click
+        # Inspect replaces #hp-queue and wipes the <pre> this click is about
+        # to render, so let it settle before interacting with the queue.
+        page.wait_for_timeout(500)
         page.locator("#hp-queue").get_by_role(
             "button", name="Inspect payload").first.click()
         page.wait_for_selector("#hp-queue pre", timeout=8000)

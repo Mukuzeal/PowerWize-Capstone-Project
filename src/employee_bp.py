@@ -27,10 +27,11 @@ def _trainee_progress(trainees):
     rows = []
     for t in trainees:
         ttype = get_user_training_type(t["id"])
-        if ttype not in by_type:
-            mods = lms_get_modules_for_trainee(t["id"], published_only=True)
-            by_type[ttype] = (mods, lms_get_module_requirements([m["id"] for m in mods]))
-        mods, reqs = by_type[ttype]
+        mods = lms_get_modules_for_trainee(t['id'], published_only=True)
+        key = tuple(m['id'] for m in mods)
+        if key not in by_type:
+            by_type[key] = lms_get_module_requirements(list(key))
+        reqs = by_type[key]
 
         prog_map = {p["module_id"]: p for p in lms_get_progress(t["id"])}
         total     = len(mods)
@@ -66,7 +67,9 @@ def employee():
         return redirect("/auth")
 
     # Get all users (trainees and other employees)
-    users = get_users()
+    from db import instructor_trainee_ids, enrolments_for_user
+    visible_ids = instructor_trainee_ids(session['user_id'])
+    users = [u for u in get_users() if u['id'] in visible_ids or u['id'] == session['user_id']]
 
     # Count trainees (employees manage trainees)
     trainees = [u for u in users if u["role"] == "trainee" and u["archived_at"] is None]
@@ -96,11 +99,20 @@ def employee():
 
     # An employee has no progress of their own — they are the instructor. What
     # this section reports is their trainees' progress.
-    progress_list = _trainee_progress(trainees) if does_modules else []
+    assigned=instructor_classes(emp_id) if does_modules else []
+    progress_list=[]
+    if does_modules:
+        from classes_bp import _class_progress
+        for batch in assigned:
+            for member in _class_progress(batch['id'])['members']:
+                progress_list.append({'trainee_id':member['user_id'],
+                    'trainee_name':member['name']+' · '+batch['name'], 'email':member['email'],
+                    'training_type':batch['program_code'],'completed':member['completed'],
+                    'total':member['total'],'pct':member['pct'],'next':member['next']})
     prog_map = {}
 
     return render_template("admin/employee.html",
-                           registrations=get_registrations(),
+                           registrations=[],
                            schedules=upcoming,
                            past_schedules=past,
                            users=users,
@@ -110,6 +122,6 @@ def employee():
                            archived_modules=archived_modules,
                            submissions=submissions,
                            progress_list=progress_list,
-                           assigned_classes=instructor_classes(emp_id) if does_modules else [],
+                           assigned_classes=assigned,
                            prog_map=prog_map)
 

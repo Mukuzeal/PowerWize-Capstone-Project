@@ -113,7 +113,7 @@ cid,_=create_corporate_payment('Pricing Co','HR','hr@pricing.test','',
     [{'user_id':uid,'training_type':'Online','form_type':'training','price_php':18000,'price_label':'Online'}],
     18000,10000,'Agreed meeting',1000000,datetime.now()+timedelta(days=1),None)
 invoice_before=get_corporate_payment(cid=cid)
-check('viewing individual payment leaves company override unchanged',c.get('/payment').status_code==200 and get_corporate_payment(cid=cid)==invoice_before)
+check('corporate-sponsored trainee avoids personal checkout without changing override',c.get('/payment').status_code==302 and get_corporate_payment(cid=cid)==invoice_before)
 check('company charge remains 10000 rather than individual list fee',invoice_before['amount_centavos']==1000000)
 
 sql("UPDATE users SET payment_status='paid' WHERE id=%s",(uid,))

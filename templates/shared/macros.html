@@ -34,9 +34,19 @@
   <input type="file" id="{{ id }}" name="{{ name }}" accept="{{ accept }}" data-doc-type="{{ _doc_type }}" onchange="fileChosen(this,'zone-{{ id }}','name-{{ id }}')">
   {% if _doc_type %}
   <div class="upload-validation" id="val-{{ id }}" data-status="idle">
-    <div class="uv-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Validating with AI…</div>
+    <div class="uv-spinner"><i class="fa-solid fa-circle-notch fa-spin"></i> Checking your upload…</div>
     <div class="uv-ok"><i class="fa-solid fa-circle-check"></i> <span class="uv-msg"></span></div>
     <div class="uv-bad"><i class="fa-solid fa-triangle-exclamation"></i> <span class="uv-msg"></span></div>
+    {# A THIRD state, deliberately separate from uv-bad. "The checker was
+       busy" is not a verdict on the document, so it gets its own wording and
+       a Retry button, and it never clears the chosen file. #}
+    <div class="uv-error">
+      <i class="fa-solid fa-plug-circle-exclamation"></i>
+      <span class="uv-msg"></span>
+      <button type="button" class="uv-retry" onclick="retryValidation('{{ id }}')">
+        <i class="fa-solid fa-rotate-right"></i> Retry
+      </button>
+    </div>
   </div>
   {% endif %}
   {% if existing %}<input type="hidden" name="{{ name }}_existing" value="{{ existing }}">{% endif %}
@@ -321,54 +331,129 @@ function _showAlertErr(title, text){
   }
 }
 
+/* Outcomes that are an answer ABOUT THE DOCUMENT. Anything else came from the
+   service and must not be shown as a verdict. Mirrors DECISIVE_OUTCOMES in
+   src/upload_validation.py. */
+var UV_DECISIVE = {valid:1, rejected:1, invalid_file:1};
+
+/* Monotonic token per field. A slow reply for file A must not land on top of
+   file B's verdict, which it could before: the user re-picked, the first
+   request finished last, and the box showed the wrong file's result. */
+var _uvSeq = Object.create(null);
+
+function _uvLabel(input){
+  var field = input.closest('.field');
+  var lab = field && field.querySelector('label');
+  return lab ? lab.textContent.replace(/\s*\*\s*/g,'').replace(/\(.*\)/g,'').trim()
+             : 'Upload';
+}
+
+function retryValidation(inputId){
+  var input = document.getElementById(inputId);
+  if(!input) return;
+  var zone = document.getElementById('zone-' + inputId);
+  var nameEl = document.getElementById('name-' + inputId);
+  if(!(input.files && input.files[0])){
+    // Nothing to retry: the browser kept no file (e.g. page was reloaded).
+    var vb = document.getElementById('val-' + inputId);
+    if(vb){
+      vb.dataset.status = 'idle';
+      _showAlertErr('Choose the file again',
+        'Your browser no longer has that file. Please select it again.');
+    }
+    return;
+  }
+  _validateChosenFile(input, zone, nameEl);
+}
+
 function fileChosen(input,zoneId,nameId){
   const zone=document.getElementById(zoneId),nameEl=document.getElementById(nameId);
   if(!(input.files && input.files[0])) return;
-  const filename = input.files[0].name;
   zone.classList.remove('has-bad-file');
   zone.classList.add('has-file');
-  nameEl.innerHTML='<i class="fa-solid fa-check"></i> '+filename;
+  // textContent, not innerHTML: a filename is user-controlled text and was
+  // being interpolated into markup.
+  nameEl.textContent = '';
+  var tick = document.createElement('i');
+  tick.className = 'fa-solid fa-check';
+  nameEl.appendChild(tick);
+  nameEl.appendChild(document.createTextNode(' ' + input.files[0].name));
   zone.querySelector('.upload-icon').innerHTML='<i class="fa-solid fa-circle-check" style="color:#16A34A"></i>';
+  _validateChosenFile(input, zone, nameEl);
+}
 
-  // AI validation if this field has a doc-type
+function _validateChosenFile(input, zone, nameEl){
   const docType = input.dataset.docType;
   if(!docType) return;
-  const valId = 'val-' + input.id;
-  const valBox = document.getElementById(valId);
+  const valBox = document.getElementById('val-' + input.id);
   if(!valBox) return;
-  valBox.dataset.status = 'validating';
 
-  // friendly label for alerts
-  const label = (input.closest('.field') && input.closest('.field').querySelector('label'))
-    ? input.closest('.field').querySelector('label').textContent.replace(/\s*\*\s*/g,'').replace(/\(.*\)/g,'').trim()
-    : 'Upload';
+  const seq = (_uvSeq[input.id] = (_uvSeq[input.id] || 0) + 1);
+  const stale = function(){ return _uvSeq[input.id] !== seq; };
+  const label = _uvLabel(input);
+
+  valBox.dataset.status = 'validating';
 
   const fd = new FormData();
   fd.append('file', input.files[0]);
   fd.append('type', docType);
-  fetch('/api/validate-upload', { method:'POST', headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content}, body: fd })
-    .then(r => r.json())
-    .then(j => {
-      if(j && j.valid){
+
+  let httpStatus = 0;
+  fetch('/api/validate-upload', {
+    method:'POST',
+    headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+    body: fd
+  })
+    .then(function(r){
+      httpStatus = r.status;
+      // A non-2xx still carries a JSON body; read it, but never let a parse
+      // failure become "your document is invalid".
+      return r.json().catch(function(){ return null; });
+    })
+    .then(function(j){
+      if(stale()) return;                 // a newer file is being checked
+      const outcome = (j && j.outcome) ? j.outcome
+                      : (httpStatus >= 200 && httpStatus < 300 ? null : 'service_unavailable');
+
+      if(outcome === 'valid' || (outcome === null && j && j.valid === true)){
         valBox.dataset.status = 'valid';
         valBox.querySelector('.uv-ok .uv-msg').textContent = j.reason || 'Looks good.';
         _showAlertOk(label + ' verified', j.reason || 'Upload looks good.');
-      } else {
+        return;
+      }
+
+      if(UV_DECISIVE[outcome]){
+        // A real verdict about the document. Clearing the input here is
+        // intentional: they must choose a different file.
         valBox.dataset.status = 'invalid';
-        const reason = (j && j.reason) ? j.reason : 'This file does not look like the expected document. Please upload a clearer or correct one.';
+        const reason = (j && j.reason) ? j.reason
+          : 'This file does not look like the expected document. Please upload a clearer or correct one.';
         valBox.querySelector('.uv-bad .uv-msg').textContent = reason;
         zone.classList.remove('has-file');
         zone.classList.add('has-bad-file');
         _showAlertErr('Invalid ' + label, reason);
-        // clear the file input so user must re-select
         try { input.value = ''; } catch(e){}
+        return;
       }
+
+      // Service failure. Keep the file, keep the form, offer Retry. The old
+      // code reported this as "Invalid <label>" and wiped input.value, so a
+      // rate limit looked like a forged ID and cost the user their selection.
+      valBox.dataset.status = 'error';
+      let msg = (j && j.reason) ? j.reason
+        : 'Could not validate right now. Your file is still selected — please try again.';
+      if(j && j.retry_after){
+        msg += ' (about ' + Math.ceil(j.retry_after) + 's)';
+      }
+      valBox.querySelector('.uv-error .uv-msg').textContent = msg;
+      _showAlertErr('Could not validate right now', msg);
     })
-    .catch(() => {
-      valBox.dataset.status = 'invalid';
-      const msg = 'Could not reach validation service. Please try again.';
-      valBox.querySelector('.uv-bad .uv-msg').textContent = msg;
-      _showAlertErr('Validation failed', msg);
+    .catch(function(){
+      if(stale()) return;
+      valBox.dataset.status = 'error';
+      const msg = 'Could not reach the document checker. Your file is still selected — please try again.';
+      valBox.querySelector('.uv-error .uv-msg').textContent = msg;
+      _showAlertErr('Could not validate right now', msg);
     });
 }
 </script>

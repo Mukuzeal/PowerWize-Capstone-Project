@@ -97,7 +97,8 @@ def documents_complete(reg):
     if reg.get("documents_purged_at") is not None:
         return True
     required = REQUIRED_DOCS.get(reg.get("form_type"), ())
-    return all((reg.get(col) or "").strip() for col in required)
+    reviewed = set(reg.get('reviewed_document_fields') or [])
+    return all((reg.get(col) or '').strip() or col in reviewed for col in required)
 
 
 def readiness(reg):
