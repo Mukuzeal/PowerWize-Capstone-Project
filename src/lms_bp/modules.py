@@ -244,7 +244,16 @@ def serve_file(filename):
 def serve_exam_file(filename):
     if not _uid() or not _is_instructor():
         abort(403)
-    return send_from_directory(EXAM_UPLOAD_DIR, filename)
-    if not safe or not os.path.exists(safe):
+    from db import get_db,dict_cur,instructor_can_assess
+    from permissions import current_can
+    conn=get_db();cur=dict_cur(conn)
+    try:
+        cur.execute('''SELECT s.user_id,s.registration_id,e.module_id FROM lms_exam_submissions s
+            JOIN lms_practical_exams e ON e.id=s.exam_id WHERE s.file_path=%s''',(filename,))
+        submission=cur.fetchone()
+    finally:cur.close();conn.close()
+    if not submission:
         abort(404)
-    return send_file(safe)
+    if not current_can('manage_any_module') and not instructor_can_assess(_uid(),submission['user_id'],submission['module_id'],registration_id=submission['registration_id']):
+        abort(403)
+    return send_from_directory(EXAM_UPLOAD_DIR, filename)

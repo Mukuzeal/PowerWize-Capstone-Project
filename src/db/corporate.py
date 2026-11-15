@@ -62,6 +62,10 @@ def create_corporate_payment(company_name, contact_person, contact_email, contac
     """
     conn = get_db(); cur = conn.cursor()
     try:
+        owners={}
+        for uid in sorted({it['user_id'] for it in items}):
+            cur.execute('SELECT registration_id,trim(fname || %s || lname),email FROM users WHERE id=%s FOR SHARE',(' ',uid))
+            owners[uid]=cur.fetchone()
         reference = _ref()
         overridden = custom_total is not None
         cur.execute("""
@@ -79,10 +83,12 @@ def create_corporate_payment(company_name, contact_person, contact_email, contac
         for it in items:
             cur.execute("""
                 INSERT INTO corporate_payment_items
-                  (corporate_payment_id, user_id, training_type, form_type, price_php, price_label)
-                VALUES (%s,%s,%s,%s,%s,%s)
+                  (corporate_payment_id, user_id, training_type, form_type, price_php, price_label,
+                   registration_id,trainee_name,trainee_email)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (cid, it["user_id"], it["training_type"], it.get("form_type"),
-                  it["price_php"], it.get("price_label")))
+                  it["price_php"], it.get("price_label"),
+                  *(owners[it['user_id']] or (None,None,None))))
         conn.commit()
         return cid, reference
     except Exception:
@@ -296,11 +302,15 @@ def get_corporate_payment(cid=None, reference=None, paymongo_id=None):
 def get_corporate_items(cid):
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
-        SELECT i.*, u.fname, u.lname, u.email, u.payment_status
+        SELECT i.*, COALESCE(u.fname,i.trainee_name,r.full_name) AS fname,
+               COALESCE(u.lname,'') AS lname, COALESCE(i.trainee_email,u.email,r.email) AS email,
+               CASE WHEN p.status='paid' THEN 'paid' ELSE 'unpaid' END AS payment_status
         FROM corporate_payment_items i
-        JOIN users u ON i.user_id = u.id
+        LEFT JOIN users u ON i.user_id = u.id
+        LEFT JOIN registrations r ON r.id=i.registration_id
+        JOIN corporate_payments p ON p.id=i.corporate_payment_id
         WHERE i.corporate_payment_id = %s
-        ORDER BY u.lname, u.fname
+        ORDER BY COALESCE(i.trainee_name,u.lname,r.full_name),i.id
     """, (cid,))
     rows = [dict(r) for r in cur.fetchall()]
     cur.close(); conn.close()
@@ -378,8 +388,9 @@ def mark_corporate_paid(reference=None, paymongo_id=None, cid=None,
             return None
         cur.execute("""
             UPDATE users SET payment_status='paid'
-            WHERE id IN (SELECT user_id FROM corporate_payment_items
-                          WHERE corporate_payment_id = %s)
+            WHERE id IN (SELECT it.user_id FROM corporate_payment_items it
+                          WHERE it.corporate_payment_id = %s
+                            AND (it.registration_id IS NULL OR it.registration_id=users.registration_id))
         """, (row["id"],))
         unlocked = cur.rowcount
         cur.execute(

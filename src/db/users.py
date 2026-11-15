@@ -165,6 +165,13 @@ def redeem_invitation_and_create_account(token, password_hash, fname, lname,
             conn.rollback()
             return None, "This link is invalid, expired, or already used."
 
+        from review_policy import readiness
+        cur.execute('SELECT * FROM registrations WHERE id=%s FOR SHARE', (tok['reg_id'],))
+        reg = cur.fetchone()
+        if not reg or not readiness(dict(reg))['ready']:
+            conn.rollback()
+            return None, 'This application is no longer approved for account activation.'
+
         cur.execute("SELECT id FROM users WHERE lower(email) = lower(%s)", (tok["email"],))
         if cur.fetchone():
             conn.rollback()
@@ -182,6 +189,8 @@ def redeem_invitation_and_create_account(token, password_hash, fname, lname,
         """, (fname, lname, tok["email"], password_hash, contact_number or "",
               company_name or "", training_type, tok["reg_id"]))
         uid = cur.fetchone()["id"]
+        from .workflow import attach_enrolment
+        attach_enrolment(cur, uid, tok['reg_id'])
         conn.commit()
         return uid, None
     except Exception:
@@ -268,7 +277,7 @@ def get_user_basic_info(user_id):
     """fname/lname/email/payment_status for the trainee portal page."""
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
-        "SELECT fname, lname, email, payment_status FROM users WHERE id=%s",
+        "SELECT fname, lname, email, payment_status, registration_id FROM users WHERE id=%s AND archived_at IS NULL",
         (user_id,)
     )
     row = cur.fetchone()

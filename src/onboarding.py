@@ -1,10 +1,16 @@
 from datetime import datetime
-from flask import Blueprint, request, render_template, redirect, flash, session
+from flask import Blueprint, request, render_template, redirect, flash, session, make_response
 from werkzeug.security import generate_password_hash
 from db import (get_account_token, normalize_training_type,
                 redeem_invitation_and_create_account)
 
 onboarding_bp = Blueprint("onboarding", __name__)
+
+
+@onboarding_bp.after_request
+def private_activation(response):
+    response.headers.update({'Cache-Control':'no-store','Referrer-Policy':'same-origin','X-Robots-Tag':'noindex, nofollow'})
+    return response
 
 
 @onboarding_bp.route("/create-account/<token>", methods=["GET", "POST"])
@@ -19,6 +25,20 @@ def create_account(token):
         return render_template("auth/token_invalid.html", reason="This link has expired.")
 
     errors = []
+    from db import account_exists_for_email, claim_existing_enrolment
+    if account_exists_for_email(tok['email']):
+        if request.method == 'POST':
+            reg_id, error = claim_existing_enrolment(token, session.get('user_id'))
+            if error:
+                errors.append(error)
+            else:
+                session['active_registration_id'] = reg_id
+                for key in ('pending_pi','pending_qr_pi','discount_code','last_receipt_id'):
+                    session.pop(key,None)
+                session.pop('activation_claim_token', None)
+                flash('Your approved enrolment is now linked to your existing account.', 'success')
+                return redirect('/portal')
+        return render_template('shared/claim_enrolment.html', tok=tok, errors=errors)
     if request.method == "POST":
         password = request.form.get("password", "").strip()
         confirm  = request.form.get("confirm_password", "").strip()
@@ -46,8 +66,23 @@ def create_account(token):
             if err:
                 errors.append(err)
             else:
-                flash("Account created successfully! Please log in.", "success")
-                return redirect("/auth")
+                # Redeeming the private invitation and choosing a password
+                # already established this new account's identity. Avoid a
+                # second password form, and discard the previous session.
+                session.clear()
+                session.update(user_id=uid,user_role='trainee',user_email=tok['email'],
+                               user_name=tok['full_name'],active_registration_id=tok['reg_id'])
+                flash('Account activated. Here is your enrolment and its next step.', 'success')
+                return redirect('/portal')
 
     return render_template("shared/create_account.html", tok=tok, errors=errors)
+
+
+@onboarding_bp.route('/create-account/<token>/sign-in', methods=['POST'])
+def sign_in_to_claim(token):
+    tok = get_account_token(token)
+    if not tok or tok['used_at'] or tok['expires_at'] < datetime.now():
+        return render_template('auth/token_invalid.html', reason='This invitation is no longer available.'), 404
+    session['activation_claim_token'] = token
+    return redirect('/auth')
 

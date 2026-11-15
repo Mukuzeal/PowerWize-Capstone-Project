@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import render_template, redirect, url_for, abort, current_app, flash
+from flask import render_template, redirect, url_for, abort, current_app, flash, request
 
 from db import (lms_get_certificates, lms_get_eligible_for_cert, lms_get_certificate,
                 lms_issue_certificate, lms_update_cert_blockchain, audit_log)
@@ -10,14 +10,20 @@ from . import lms_bp
 from ._shared import _uid, _is_instructor
 
 
+def _may_certify(user_id,registration_id):
+    from permissions import current_can
+    from db import instructor_can_teach_enrolment
+    return current_can('corporate_payments') or instructor_can_teach_enrolment(_uid(),user_id,registration_id)
+
+
 # Certificates (instructor/admin)
 
 @lms_bp.route('/lms/certificates/manage')
 def certificates_manage():
     if not _uid() or not _is_instructor():
         abort(403)
-    certs    = lms_get_certificates()
-    eligible = lms_get_eligible_for_cert()
+    certs = [c for c in lms_get_certificates() if _may_certify(c['user_id'],c.get('registration_id'))]
+    eligible = [e for e in lms_get_eligible_for_cert() if _may_certify(e['id'],e['registration_id'])]
     return render_template('lms/certificates_manage.html', certs=certs, eligible=eligible)
 
 
@@ -25,37 +31,47 @@ def certificates_manage():
 def certificate_issue(user_id):
     if not _uid() or not _is_instructor():
         abort(403)
-    existing = lms_get_certificate(user_id=user_id)
-    if not existing:
-        cid, cert_id = lms_issue_certificate(user_id, _uid())
-        # The certificate is valid whether or not the chain write lands, so a
-        # blockchain failure must not block issuance. It must not be silent
-        # either: an un-anchored certificate looks identical in the UI, so the
-        # only way anyone learns the write failed is this log line.
-        anchored = False
-        try:
-            from blockchain_utils import store_certificate_hash
-            result = store_certificate_hash(cert_id, user_id)
-            if result:
-                lms_update_cert_blockchain(cert_id, result["tx_hash"], result["token_id"],
-                                           anchor_version=result.get("anchor_version", 1))
-                anchored = True
-            else:
+    from db import enrolment_scope,get_registration_for_user
+    reg_id=request.form.get('registration_id')
+    reg=get_registration_for_user(user_id,registration_id=reg_id) if reg_id else get_registration_for_user(user_id)
+    if not reg or not _may_certify(user_id,reg['id']):
+        abort(403)
+    with enrolment_scope(user_id,reg['id']):
+        eligible=lms_get_eligible_for_cert()
+        if not any(e['id']==user_id and e['registration_id']==reg['id'] for e in eligible):
+            flash('This enrolment has not completed all training requirements or already has a certificate.', 'warning')
+            return redirect(url_for('lms.certificates_manage'))
+        existing = lms_get_certificate(user_id=user_id)
+        if not existing:
+            cid, cert_id = lms_issue_certificate(user_id, _uid())
+            # The certificate is valid whether or not the chain write lands, so a
+            # blockchain failure must not block issuance. It must not be silent
+            # either: an un-anchored certificate looks identical in the UI, so the
+            # only way anyone learns the write failed is this log line.
+            anchored = False
+            try:
+                from blockchain_utils import store_certificate_hash
+                result = store_certificate_hash(cert_id, user_id)
+                if result:
+                    lms_update_cert_blockchain(cert_id, result["tx_hash"], result["token_id"],
+                                               anchor_version=result.get("anchor_version", 1))
+                    anchored = True
+                else:
+                    current_app.logger.warning(
+                        "Certificate %s issued but NOT anchored on-chain "
+                        "(store_certificate_hash returned None)", cert_id)
+            except Exception as e:
                 current_app.logger.warning(
-                    "Certificate %s issued but NOT anchored on-chain "
-                    "(store_certificate_hash returned None)", cert_id)
-        except Exception as e:
-            current_app.logger.warning(
-                "Certificate %s issued but chain write failed: %s: %s",
-                cert_id, type(e).__name__, e)
-        audit_log(_uid(), "issue_certificate", "certificate", cert_id,
-                  f"Issued certificate {cert_id} to user {user_id} "
-                  f"(on-chain: {'yes' if anchored else 'NO'})")
-        if anchored:
-            flash("Certificate issued and anchored on-chain.", "success")
-        else:
-            flash("Certificate issued, but the blockchain anchor failed. "
-                  "It's marked Off-chain below — use Re-anchor to retry.", "warning")
+                    "Certificate %s issued but chain write failed: %s: %s",
+                    cert_id, type(e).__name__, e)
+            audit_log(_uid(), "issue_certificate", "certificate", cert_id,
+                      f"Issued certificate {cert_id} to user {user_id} "
+                      f"(on-chain: {'yes' if anchored else 'NO'})")
+            if anchored:
+                flash("Certificate issued and anchored on-chain.", "success")
+            else:
+                flash("Certificate issued, but the blockchain anchor failed. "
+                      "It's marked Off-chain below — use Re-anchor to retry.", "warning")
     return redirect(url_for('lms.certificates_manage'))
 
 
@@ -66,6 +82,8 @@ def certificate_reanchor(cert_id):
     cert = lms_get_certificate(cert_id=cert_id)
     if not cert:
         abort(404)
+    if not _may_certify(cert['user_id'],cert.get('registration_id')):
+        abort(403)
     if cert.get('tx_hash'):
         flash("This certificate is already anchored on-chain.", "success")
         return redirect(url_for('lms.certificates_manage'))

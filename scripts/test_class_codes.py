@@ -86,6 +86,23 @@ def _enrol(intake_id, name, email, ttype="Online", accept=True):
     return rid, sid
 
 
+def _solo_registration(name, email, ttype="Online"):
+    """An individual application: no intake, no roster slot, reviewed and
+    accepted. class_gate() re-derives review state from the registration, so
+    an account with no application at all is not a stand-in for one."""
+    e = {"id": str(uuid.uuid4())[:8].upper(), "form_type": "training",
+         "form_label": "Training", "submitted_at": datetime.now(),
+         "full_name": name, "email": email, "training_type": ttype,
+         "photo_id": "p.png", "resume": "r.pdf", "valid_id": "v.png",
+         "selfie_with_id": "s.png"}
+    c = get_db(); cur = c.cursor()
+    cur.execute(REGISTRATION_INSERT_SQL, registration_insert_params(e))
+    cur.execute("UPDATE registrations SET status='accepted' WHERE id=%s", (e["id"],))
+    c.commit(); cur.close(); c.close()
+    record_selfie_review(e["id"], "approved", ADMIN)
+    return e["id"]
+
+
 def _invoice_for(intake_id, pairs, company):
     cid, ref = create_corporate_payment(
         company, "C", f"hr@{company.lower()}.test", "0900",
@@ -485,15 +502,16 @@ print("\n17. The LMS gate: corporate trainees need their class")
 ok, why = class_gate(U_GUS)
 check("a corporate trainee with a class but no membership is gated",
       not ok, (why or "")[:70])
-check("the message tells them to use the code",
-      "class code" in (why or "").lower(), (why or "")[:80])
+check("the message points at their assigned class",
+      "assigned class" in (why or "").lower(), (why or "")[:80])
 cls, err = join_class(U_GUS, CLS_C["join_code"])
 check("joining opens the gate", cls is not None, err or "")
 ok, why = class_gate(U_GUS)
 check("and training is now reachable", ok, (why or "")[:60])
 
 # Individual enrolment must be untouched.
-U_SOLO = _mkuser("trainee", "solo@nobody.test", None, paid=True)
+U_SOLO = _mkuser("trainee", "solo@nobody.test",
+                 _solo_registration("Solo Nobody", "solo@nobody.test"), paid=True)
 ok, why = class_gate(U_SOLO)
 check("an individual trainee on no company invoice is NOT gated", ok,
       (why or "")[:60])
@@ -581,8 +599,8 @@ c.commit(); cur.close(); c.close()
 ok, why = class_gate(U_GUS)
 check("cancelling the invoice closes access for an existing member",
       not ok, (why or "")[:70])
-check("and says the place is no longer valid",
-      "no longer valid" in (why or ""), (why or "")[:80])
+check("and explains the company payment state",
+      "company payment" in (why or ""), (why or "")[:80])
 check("the membership row itself is still there, not silently deleted",
       U_GUS in {m["user_id"] for m in class_members(CLS_C["id"])})
 c = get_db(); cur = c.cursor()

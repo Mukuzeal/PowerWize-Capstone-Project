@@ -106,13 +106,12 @@ add_slot(iid, "Dee Tan", "dee@acme.com")                              # not subm
 r = adm.get(f"/admin/intake/{iid}/invoice/preview")
 d = r.get_json()
 check("preview loads", r.status_code == 200, f"HTTP {r.status_code}")
-check("bills only the two with accounts", len(d["lines"]) == 2,
+check("bills all three approved applications without waiting for account activation", len(d["lines"]) == 3,
       str([l["name"] for l in d["lines"]]))
 check("total is computed server-side", d["total_php"] > 0, str(d["total_php"]))
 blocked = {b["name"]: b["reason"] for b in d["blocked"]}
-check("no-account trainee is explained, not dropped",
-      "Cy Lim" in blocked and "account" in blocked["Cy Lim"].lower(),
-      blocked.get("Cy Lim", ""))
+check("approved applicant without an account is included explicitly",
+      any(l['name']=='Cy Lim' and l['user_id'] is None for l in d['lines']),str(d['lines']))
 check("unsubmitted trainee is explained",
       "Dee Tan" in blocked and "submit" in blocked["Dee Tan"].lower(),
       blocked.get("Dee Tan", ""))

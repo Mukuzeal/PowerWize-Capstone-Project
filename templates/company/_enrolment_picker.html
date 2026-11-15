@@ -1,0 +1,9 @@
+{% if enrolments|length > 1 %}
+<form method="post" action="/portal/enrolment" class="info-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="active-enrolment">Your enrolment</label>
+  <select id="active-enrolment" name="registration_id">
+    {% for e in enrolments %}<option value="{{ e.id }}" {% if e.id == session.get('active_registration_id',user.registration_id) %}selected{% endif %}>{{ e.company_name or 'Individual' }} · {{ e.form_type|replace('_',' ')|title }} · {{ e.id }}</option>{% endfor %}
+  </select><button type="submit" class="btn-submit">Open enrolment</button>
+</form>
+{% endif %}

@@ -179,6 +179,18 @@ def init_db():
     # would be exactly the kind of invented history to avoid.
     cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_id VARCHAR(8) NULL")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_users_registration ON users (registration_id)")
+    # An account can own multiple applications. Only explicit historical links
+    # are copied; an email match never establishes ownership.
+    cur.execute("""CREATE TABLE IF NOT EXISTS trainee_enrolments (
+        registration_id VARCHAR(8) PRIMARY KEY REFERENCES registrations(id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        verified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_enrolment_user ON trainee_enrolments(user_id)")
+    cur.execute("""INSERT INTO trainee_enrolments(registration_id,user_id)
+        SELECT u.registration_id, MIN(u.id) FROM users u JOIN registrations r ON r.id=u.registration_id
+        GROUP BY u.registration_id HAVING COUNT(*)=1
+        ON CONFLICT (registration_id) DO NOTHING""")
 
     # ── Per-user capability overrides ─────────────────────────────────────
     #
@@ -502,6 +514,19 @@ def init_db():
     # Same drift as payments.anchor_version above — backfill for tables that
     # already existed before this column was added.
     cur.execute("ALTER TABLE lms_certificates ADD COLUMN IF NOT EXISTS anchor_version SMALLINT DEFAULT 1")
+    # Returning trainees keep separate attempts, grades and certificates per
+    # explicitly owned application. Backfill once from the original account
+    # pointer; never relabel old NULL records on a later restart.
+    for table in ('lms_progress','lms_quiz_attempts','lms_exam_submissions','lms_certificates','payments'):
+        cur.execute("SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=%s AND column_name='registration_id'", (table,))
+        newly_scoped = cur.fetchone() is None
+        cur.execute(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS registration_id VARCHAR(8) REFERENCES registrations(id) ON DELETE RESTRICT')
+        if newly_scoped:
+            cur.execute(f'UPDATE {table} row SET registration_id=u.registration_id FROM users u JOIN registrations r ON r.id=u.registration_id WHERE row.user_id=u.id')
+        cur.execute(f'CREATE INDEX IF NOT EXISTS idx_{table}_enrolment ON {table}(user_id,registration_id)')
+    cur.execute('ALTER TABLE lms_progress DROP CONSTRAINT IF EXISTS uq_user_module')
+    cur.execute('CREATE UNIQUE INDEX IF NOT EXISTS uq_progress_enrolment ON lms_progress(user_id,module_id,registration_id) WHERE registration_id IS NOT NULL')
+    cur.execute('CREATE UNIQUE INDEX IF NOT EXISTS uq_progress_legacy ON lms_progress(user_id,module_id) WHERE registration_id IS NULL')
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lms_exam_questions (
@@ -649,6 +674,30 @@ def init_db():
         )
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_regdoc_review_reg ON registration_document_reviews (reg_id)")
+    cur.execute("ALTER TABLE registrations ADD COLUMN IF NOT EXISTS review_version INT NOT NULL DEFAULT 1")
+    cur.execute("ALTER TABLE registration_document_reviews ADD COLUMN IF NOT EXISTS review_version INT NOT NULL DEFAULT 1")
+    cur.execute("ALTER TABLE registration_document_reviews DROP CONSTRAINT IF EXISTS uq_regdoc_review")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_regdoc_revision ON registration_document_reviews(reg_id,field,review_version)")
+    cur.execute("""CREATE TABLE IF NOT EXISTS registration_corrections (
+        id SERIAL PRIMARY KEY, reg_id VARCHAR(8) NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+        version INT NOT NULL, token_hash VARCHAR(64) NOT NULL UNIQUE,
+        fields TEXT[] NOT NULL, note TEXT NOT NULL, requested_by INT REFERENCES users(id) ON DELETE SET NULL,
+        expires_at TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, used_at TIMESTAMP,
+        UNIQUE(reg_id,version)
+    )""")
+    cur.execute("ALTER TABLE registration_corrections ADD COLUMN IF NOT EXISTS prior_status VARCHAR(20) NOT NULL DEFAULT 'pending'")
+    cur.execute("""CREATE TABLE IF NOT EXISTS registration_retired_uploads (
+        id SERIAL PRIMARY KEY, reg_id VARCHAR(8) NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+        field VARCHAR(30) NOT NULL, filename VARCHAR(255) NOT NULL, review_version INT NOT NULL,
+        purged_at TIMESTAMP, last_error VARCHAR(120), UNIQUE(reg_id,field,filename)
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS registration_review_history (
+        id SERIAL PRIMARY KEY, reg_id VARCHAR(8) NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+        review_version INT NOT NULL, action VARCHAR(40) NOT NULL, snapshot TEXT NOT NULL,
+        actor_id INT REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
 
     # ── Company intake and roster ─────────────────────────────────────────
     #
@@ -764,6 +813,10 @@ def init_db():
         )
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_corp_notif_intake ON corporate_notifications (intake_id, kind)")
+    # Applicant notices use the same durable delivery leases, including those
+    # for an individual application with no company intake.
+    cur.execute("ALTER TABLE corporate_notifications ALTER COLUMN intake_id DROP NOT NULL")
+    cur.execute("ALTER TABLE corporate_intakes ADD COLUMN IF NOT EXISTS registration_delivery_secret TEXT NULL")
     # Delivery ownership. A send is CLAIMED by generating an attempt_id and
     # leasing the row until attempt_expires_at; completion must quote the same
     # attempt_id. Without this, two requests could both believe they owned the
@@ -871,6 +924,17 @@ def init_db():
             FOREIGN KEY (user_id)              REFERENCES users(id)              ON DELETE CASCADE
         )
     """)
+    cur.execute("ALTER TABLE corporate_payment_items ALTER COLUMN user_id DROP NOT NULL")
+    cur.execute("ALTER TABLE corporate_payment_items ADD COLUMN IF NOT EXISTS registration_id VARCHAR(8) REFERENCES registrations(id) ON DELETE RESTRICT")
+    cur.execute("ALTER TABLE corporate_payment_items ADD COLUMN IF NOT EXISTS trainee_name VARCHAR(200)")
+    cur.execute("ALTER TABLE corporate_payment_items ADD COLUMN IF NOT EXISTS trainee_email VARCHAR(150)")
+    # Safe only for explicitly linked accounts; preserve ambiguous old lines.
+    cur.execute("""UPDATE corporate_payment_items it SET registration_id=u.registration_id,
+        trainee_name=COALESCE(it.trainee_name,trim(u.fname || ' ' || u.lname)),
+        trainee_email=COALESCE(it.trainee_email,u.email)
+        FROM users u JOIN registrations r ON r.id=u.registration_id
+        WHERE it.user_id=u.id AND it.registration_id IS NULL""")
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_corp_item_registration ON corporate_payment_items(corporate_payment_id,registration_id) WHERE registration_id IS NOT NULL")
 
     # ── Training classes and their join codes ─────────────────────────────
     #

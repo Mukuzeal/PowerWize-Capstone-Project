@@ -160,9 +160,18 @@ def get_registrations():
     return rows
 
 
-def set_registration_status(reg_id, status, is_qualified=None):
+def set_registration_status(reg_id, status, is_qualified=None, expected_version=None, actor_id=None):
     conn = get_db()
     cur  = conn.cursor()
+    cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ('registration-review:'+reg_id,))
+    cur.execute('SELECT status,selfie_outcome,review_version FROM registrations WHERE id=%s FOR UPDATE', (reg_id,))
+    old = cur.fetchone()
+    if not old or (expected_version is not None and str(old[2]) != str(expected_version)):
+        conn.rollback(); cur.close(); conn.close(); return False
+    import json
+    cur.execute("""INSERT INTO registration_review_history(reg_id,review_version,action,snapshot,actor_id)
+        VALUES(%s,%s,%s,%s,%s)""", (reg_id,old[2],'application_'+status,
+        json.dumps({'status':old[0],'selfie_outcome':old[1]}),actor_id))
     if is_qualified is not None:
         cur.execute(
             "UPDATE registrations SET status = %s, is_qualified = %s WHERE id = %s",
@@ -173,6 +182,7 @@ def set_registration_status(reg_id, status, is_qualified=None):
     conn.commit()
     cur.close()
     conn.close()
+    return True
 
 
 # Shared by account pricing and the staff trainee picker. A linked account
@@ -189,10 +199,16 @@ ACCOUNT_REGISTRATION_JOIN_SQL = """
 """
 
 
-def get_registration_for_user(user_id):
+def get_registration_for_user(user_id, registration_id=None):
     """Account-bound registration facts; None when identity is unresolved."""
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
+        from .workflow import selected_registration_id, _owned
+        selected = registration_id or selected_registration_id(user_id)
+        if selected:
+            row = _owned(cur, user_id, selected)
+            # An invalid selection never falls back to somebody else's record.
+            return dict(row) if row else None
         cur.execute("""SELECT r.id,r.form_type,r.form_label,r.training_type,
                               r.status,r.submitted_at
                          FROM users u """ + ACCOUNT_REGISTRATION_JOIN_SQL +
@@ -218,7 +234,9 @@ def get_registration_by_email(email):
 def get_registration_full(reg_id):
     """The whole row, for review_policy.readiness()."""
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM registrations WHERE id = %s", (reg_id,))
+    cur.execute("""SELECT r.*, ARRAY(SELECT DISTINCT field FROM registration_document_reviews d
+        WHERE d.reg_id=r.id AND d.outcome='accepted' AND d.sha256 IS NOT NULL
+          AND d.note='deleted') AS reviewed_document_fields FROM registrations r WHERE r.id=%s""", (reg_id,))
     row = cur.fetchone()
     cur.close(); conn.close()
     return dict(row) if row else None
@@ -272,15 +290,23 @@ def get_pending_selfies():
 DOC_FIELDS = ("photo_id", "resume", "expired_doe", "valid_id", "selfie_with_id")
 
 
-def record_selfie_review(reg_id, outcome, reviewed_by=None):
+def record_selfie_review(reg_id, outcome, reviewed_by=None, expected_version=None):
     """Close the selfie gate. Idempotent: only the first decision sticks."""
     conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ('registration-review:'+reg_id,))
     cur.execute(
         "UPDATE registrations SET selfie_reviewed_at = NOW(), selfie_outcome = %s "
-        "WHERE id = %s AND selfie_reviewed_at IS NULL",
-        (outcome, reg_id),
+        "WHERE id = %s AND selfie_reviewed_at IS NULL "
+        "AND (%s IS NULL OR review_version::text=%s) "
+        "AND (%s<>'approved' OR NULLIF(trim(selfie_with_id),'') IS NOT NULL)",
+        (outcome, reg_id, str(expected_version) if expected_version is not None else None,
+         str(expected_version) if expected_version is not None else None,outcome),
     )
     changed = cur.rowcount
+    if changed:
+        cur.execute("""INSERT INTO registration_review_history(reg_id,review_version,action,snapshot,actor_id)
+            SELECT id,review_version,%s,'{}',%s FROM registrations WHERE id=%s""",
+            ('identity_'+outcome, reviewed_by, reg_id))
     conn.commit(); cur.close(); conn.close()
     return changed == 1
 
@@ -289,7 +315,7 @@ def registration_review_state(reg_id):
     """(status, selfie_reviewed, has_selfie, already_purged) for one row."""
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
-        SELECT status, selfie_reviewed_at, selfie_with_id, documents_purged_at
+        SELECT status, form_type, selfie_reviewed_at, selfie_with_id, documents_purged_at
         FROM registrations WHERE id = %s
     """, (reg_id,))
     row = cur.fetchone()
@@ -298,6 +324,7 @@ def registration_review_state(reg_id):
         return None
     return {
         "status":          row["status"],
+        "form_type":       row['form_type'],
         "selfie_reviewed": row["selfie_reviewed_at"] is not None,
         "has_selfie":      bool((row["selfie_with_id"] or "").strip()),
         "purged":          row["documents_purged_at"] is not None,
@@ -339,13 +366,13 @@ def record_document_purge(reg_id, entries, outcome, reviewed_by=None):
         for e in entries:
             cur.execute("""
                 INSERT INTO registration_document_reviews
-                    (reg_id, field, sha256, byte_size, file_ext, outcome, reviewed_by, note)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (reg_id, field) DO UPDATE
+                    (reg_id, field, sha256, byte_size, file_ext, outcome, reviewed_by, note, review_version)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,(SELECT review_version FROM registrations WHERE id=%s))
+                ON CONFLICT (reg_id, field, review_version) DO UPDATE
                    SET sha256 = COALESCE(EXCLUDED.sha256, registration_document_reviews.sha256),
                        note   = EXCLUDED.note
             """, (reg_id, e["field"], e.get("sha256"), e.get("byte_size"),
-                  e.get("file_ext"), outcome, reviewed_by, e.get("note")))
+                  e.get("file_ext"), outcome, reviewed_by, e.get("note"), reg_id))
         if gone:
             cur.execute(
                 "UPDATE registrations SET " +

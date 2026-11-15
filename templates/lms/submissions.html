@@ -138,7 +138,7 @@
               {% endif %}
             </td>
             <td>
-              <button class="btn-sm btn-outline" style="white-space:nowrap"
+              <button class="btn-sm btn-outline" style="white-space:nowrap" data-sub-id="{{ s.id }}"
                 onclick="openGradeModal({{ s.id}}, '{{ s.fname}} {{ s.lname}}', '{{ initials}}', {{ s.grade if s.grade is not none else 'null'}}, `{{ (s.feedback or '') | replace('`', "'")}}`, '{{ s.file_path or ''}}')">
                 <i class="fa-solid fa-pen-to-square"></i>
                 {{ 'Re-grade' if s.grade is not none else 'Grade'}}
@@ -289,5 +289,15 @@ function updateGradeBar(val) {
   fill.style.width = n + '%';
   fill.style.background = n >= 70 ? '#16A34A' : n >= 50 ? '#D97706' : '#DC2626';
 }
+
+// Deep link from the Trainer Console ("Grade"/"Re-grade" on the Exam
+// submissions pane links here with ?open=<submission id>) — reuses the same
+// button the table already renders instead of re-building the modal args.
+(function openFromQuery() {
+  var id = new URLSearchParams(location.search).get('open');
+  if (!id) return;
+  var btn = document.querySelector('[data-sub-id="' + id + '"]');
+  if (btn) btn.click();
+})();
 </script>
 {% endblock %}

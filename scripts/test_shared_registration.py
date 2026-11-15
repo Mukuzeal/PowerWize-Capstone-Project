@@ -19,6 +19,7 @@ from _testdb import test_db_url, use_test_db, assert_isolated
 
 test_db_url()  # Validate local destination before ensure_test_db connects.
 os.environ['MAIL_TRANSPORT'] = 'mock'
+os.environ['APP_BASE_URL'] = 'http://localhost'
 os.environ.setdefault('SECRET_KEY', 'shared-registration-email-test')
 use_test_db()
 sys.path.insert(0, str(ROOT / 'src'))

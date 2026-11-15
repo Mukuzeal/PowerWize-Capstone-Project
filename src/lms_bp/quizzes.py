@@ -164,6 +164,12 @@ def quiz_submit(module_id):
     attempt    = lms_get_attempt(attempt_id)
     if not attempt or attempt['user_id'] != _uid():
         abort(403)
+    from db import get_db, dict_cur, lms_registration_id
+    conn=get_db();cur=dict_cur(conn)
+    try:
+        if attempt.get('registration_id') != lms_registration_id(_uid(),cur):
+            abort(403)
+    finally:cur.close();conn.close()
     if _is_trainee():
         quiz_row = lms_get_quiz(quiz_id=attempt['quiz_id'])
         if quiz_row and _quiz_locked_reason(_uid(), module_id, quiz_row):
@@ -184,6 +190,13 @@ def quiz_tabswitch(module_id):
     data = request.get_json() or {}
     aid  = data.get('attempt_id')
     if aid:
+        attempt=lms_get_attempt(int(aid))
+        from db import get_db,dict_cur,lms_registration_id
+        conn=get_db();cur=dict_cur(conn)
+        try:
+            if not attempt or attempt['user_id']!=_uid() or attempt.get('registration_id')!=lms_registration_id(_uid(),cur):
+                abort(403)
+        finally:cur.close();conn.close()
         lms_record_tab_switch(int(aid))
     return jsonify(ok=True)
 

@@ -79,7 +79,7 @@ def company_register(token):
             if request.method == 'GET':
                 return _no_leak(render_template(template, schedules=get_schedules(), errors=[],
                     form_data={'email': grant['email_key'], 'company_name': intake['company_name'],
-                               'full_name': slot['full_name']}, uploaded={}))
+                               'full_name': slot['full_name'], 'training_type':intake.get('training_type') or ''}, uploaded={}))
             if action == 'submit_registration':
                 if request.form.get('intake_invite', grant['token']) != grant['token']:
                     abort(400)

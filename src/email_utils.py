@@ -159,6 +159,8 @@ def send_password_reset_email(to_email, full_name, token, base_url):
 
 
 def send_acceptance_email(to_email, full_name, token, is_qualified, base_url):
+    from html import escape
+    full_name=escape(full_name or '')
     account_link = f"{base_url.rstrip('/')}/create-account/{token}"
 
     unqualified_notice = ""
@@ -189,17 +191,21 @@ def send_acceptance_email(to_email, full_name, token, is_qualified, base_url):
     <p style="color:#374151;line-height:1.7;margin:0 0 12px">Dear <strong>{full_name}</strong>,</p>
     <p style="color:#374151;line-height:1.7;margin:0 0 16px">
       We are pleased to inform you that your registration has been <strong>accepted</strong>.
-      Click the button below to create your EnergyWize account and access your training dashboard.
+      Activate your approved enrolment below. If this is your first account,
+      choose and confirm your own password. If you already have an account,
+      sign in on the activation page and confirm the new enrolment.
     </p>
     {unqualified_notice}
     <div style="text-align:center;margin:28px 0">
       <a href="{account_link}"
          style="background:#16583C;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:600;display:inline-block">
-        Create Your Account &rarr;
+        Activate Your Enrolment &rarr;
       </a>
     </div>
     <p style="color:#6B7280;font-size:12px;line-height:1.6;margin:0 0 8px">
-      This link expires in <strong>7 days</strong>. If you did not apply, please ignore this email.
+      This private link can be used once and expires in <strong>7 days</strong>.
+      If your company booked this enrolment, it can handle its invoice while you activate your account.
+      If you did not apply, please ignore this email.
     </p>
     <p style="color:#9CA3AF;font-size:11px;word-break:break-all;margin:0">
       Or copy: {account_link}
@@ -316,8 +322,9 @@ def send_company_correction_notice(to_email, company_name, trainee_name,
       <p style="color:#78350F;margin:0;line-height:1.7;font-size:14px">{correction_note}</p>
     </div>
     <p style="margin:0 0 16px;line-height:1.7">
-      We have contacted them directly as well. They can resubmit using the same
-      registration link you shared with them.
+      A separate private correction link is queued for the trainee's registered
+      email. Staff can check its delivery outcome. The shared company link
+      cannot edit an existing application.
     </p>
     <p style="margin:0;line-height:1.7;color:#6B7280;font-size:13px">
       You can check the status of everyone on your roster using the company
@@ -373,3 +380,12 @@ def send_company_payment_link(to_email, company_name, contact_person, reference,
 </body>
 </html>"""
     return _send(to_email, f"Payment link — {company_name} training invoice {reference}", html)
+
+
+def send_trainee_correction(to_email, name, note, correction_url):
+    from html import escape
+    return _send(to_email, 'Correct your EnergyWize requirements',
+        '<html><body><h2>Correct your requirements</h2><p>Hello ' + escape(name or '') +
+        ',</p><p>' + escape(note) + '</p><p><a href="' + escape(correction_url, quote=True) +
+        '">Correct my requirements</a></p><p>This private link expires in seven days and can be used once. '
+        'It updates your existing application. Do not share it.</p></body></html>')

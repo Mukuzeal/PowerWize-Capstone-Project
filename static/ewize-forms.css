@@ -257,6 +257,20 @@ input[type=file] { display: none; }
   display: flex; border-color: var(--ember); color: var(--ember-fg);
   background: color-mix(in oklab, var(--ember) 10%, var(--ink-200));
 }
+/* Service failure, NOT a rejection: amber and advisory rather than red and
+   accusatory, and it carries its own Retry control. */
+.upload-validation[data-status="error"] .uv-error,
+.selfie-validation[data-status="error"] .uv-error {
+  display: flex; flex-wrap: wrap; align-items: center;
+  border: 1px solid var(--amber, #C98A14); color: var(--amber-fg, #8A5A00);
+  background: color-mix(in oklab, var(--amber, #C98A14) 10%, var(--ink-200));
+}
+.uv-retry {
+  margin-left: auto; cursor: pointer; font: inherit; font-weight: 600;
+  padding: 0.25rem 0.6rem; border-radius: 6px;
+  border: 1px solid currentColor; background: transparent; color: inherit;
+}
+.uv-retry:hover { background: color-mix(in oklab, currentColor 12%, transparent); }
 
 /* --------------------------------------------------------------------------
    6. SELFIE / LIVENESS WIDGET

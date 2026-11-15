@@ -26,6 +26,9 @@ def _require_unpaid():
     uid = session.get("user_id")
     if not uid:
         return None
+    from db import sponsored_enrolment
+    if sponsored_enrolment(uid):
+        raise PaymentPricingError('Your company handles payment for this enrolment. Open your trainee portal for its status.')
     return uid if get_user_payment_status(uid) == "unpaid" else None
 
 
@@ -94,7 +97,9 @@ def _settle_trainee_payment(user_id, paymongo_id):
     burns the discount redemption; the rest are no-ops.
     """
     first = mark_payment_paid(paymongo_id)
-    mark_user_paid(user_id)
+    from db import get_payment_by_paymongo_id
+    record=get_payment_by_paymongo_id(paymongo_id)
+    mark_user_paid(user_id, registration_id=record.get('registration_id') if record else None)
     if first:
         _redeem_for_payment(paymongo_id)
     return first
@@ -120,6 +125,9 @@ def payment():
         return redirect("/auth")
     if is_staff():
         return redirect(home_url_for(session.get("user_role")))
+    from db import sponsored_enrolment
+    if sponsored_enrolment(session['user_id']):
+        return redirect('/portal')
     if get_user_payment_status(session["user_id"]) == "paid":
         return redirect("/portal")
 

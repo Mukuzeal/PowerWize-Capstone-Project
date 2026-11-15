@@ -11,7 +11,7 @@ def _digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def issue_registration_token(intake_id, created_by=None, with_class=False):
+def issue_registration_token(intake_id, created_by=None, with_class=False, replace=True):
     """Issue a link and ensure its class/code exist in the SAME transaction.
 
     Replacing a link reuses the open class and its code. The optional response
@@ -19,6 +19,8 @@ def issue_registration_token(intake_id, created_by=None, with_class=False):
     """
     from .classes import _new_code
     from .lms import normalize_training_type
+    import json
+    from secretbox import encrypt, decrypt
     token = secrets.token_urlsafe(32)
     conn = get_db(); cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
@@ -28,6 +30,26 @@ def issue_registration_token(intake_id, created_by=None, with_class=False):
         if not intake:
             conn.rollback()
             return None
+        if not replace and intake['registration_token_hash'] and not intake['registration_revoked_at']:
+            cur.execute('SELECT registration_expires_at>NOW() AS active FROM corporate_intakes WHERE id=%s', (intake_id,))
+            if cur.fetchone()['active']:
+                plain = decrypt(intake.get('registration_delivery_secret'))
+                recovered = json.loads(plain) if plain else None
+                # Older links may be recoverable from their existing encrypted
+                # delivery record. Never rotate a distributed link implicitly.
+                if not recovered:
+                    from urllib.parse import urlsplit
+                    cur.execute("SELECT payload FROM corporate_notifications WHERE intake_id=%s AND kind='registration_link' ORDER BY id DESC", (intake_id,))
+                    for previous in cur.fetchall():
+                        decoded = decrypt(previous['payload'])
+                        if decoded:
+                            data = json.loads(decoded)
+                            candidate = urlsplit(data.get('registration_url','')).path.rsplit('/',1)[-1]
+                            if secrets.compare_digest(_digest(candidate), intake['registration_token_hash']):
+                                recovered = {'token':candidate}; break
+                if not recovered or not secrets.compare_digest(_digest(recovered.get('token','')), intake['registration_token_hash']):
+                    raise ValueError('The existing registration link cannot be recovered. Check delivery history, then replace it explicitly if needed.')
+                token = recovered['token']
         program = normalize_training_type(intake['form_type'], intake['training_type'])
         cur.execute("""SELECT * FROM training_classes
                          WHERE intake_id=%s AND program_code=%s AND join_open=TRUE
@@ -55,12 +77,15 @@ def issue_registration_token(intake_id, created_by=None, with_class=False):
                     break
             if not cls:
                 raise RuntimeError('Could not allocate a unique class code. Try again.')
+        stored = encrypt(json.dumps({'token':token}))
         cur.execute("""
             UPDATE corporate_intakes
-               SET registration_token_hash=%s, registration_expires_at=NOW() + INTERVAL '30 days',
-                   registration_revoked_at=NULL
+               SET registration_token_hash=%s,
+                   registration_expires_at=CASE WHEN registration_token_hash=%s AND registration_expires_at>NOW()
+                     THEN registration_expires_at ELSE NOW() + INTERVAL '30 days' END,
+                   registration_revoked_at=NULL,registration_delivery_secret=%s
              WHERE id=%s AND status IN ('open','ready')
-        """, (_digest(token), intake_id))
+        """, (_digest(token), _digest(token), stored, intake_id))
         conn.commit()
         if with_class:
             return {'token': token, 'class_id': cls['id'], 'class_code': cls['join_code'],
@@ -90,7 +115,7 @@ def registration_link_access(token):
 def revoke_registration_token(intake_id):
     conn = get_db(); cur = conn.cursor()
     try:
-        cur.execute("UPDATE corporate_intakes SET registration_revoked_at=NOW() WHERE id=%s", (intake_id,))
+        cur.execute("UPDATE corporate_intakes SET registration_revoked_at=NOW(),registration_delivery_secret=NULL WHERE id=%s", (intake_id,))
         conn.commit()
     except Exception:
         conn.rollback()
@@ -147,7 +172,7 @@ def registration_email_payload(intake_id, url, class_id, origin):
         cur.close(); conn.close()
 
 
-def queue_registration_link_email(intake_id, url, class_id, origin, actor_id):
+def queue_registration_link_email(intake_id, url, class_id, origin, actor_id, reuse_existing=False):
     """Commit encrypted content with its dedupe guard, before any transport call."""
     import json
     from secretbox import encrypt
@@ -166,8 +191,13 @@ def queue_registration_link_email(intake_id, url, class_id, origin, actor_id):
                                  'Company trainee registration - EnergyWize',
                                  f'registration:{intake_id}:{fingerprint}', created_by=actor_id)
         if nid is None:
-            conn.rollback()
-            return None, 'This link and class code already have a delivery record. Check Company notices and use Retry if needed.'
+            if not reuse_existing:
+                conn.rollback()
+                return None, 'This link and class code already have a delivery record. Check delivery history and use Retry if needed.'
+            cur.execute('SELECT id FROM corporate_notifications WHERE dedupe_key=%s', (f'registration:{intake_id}:{fingerprint}',))
+            nid = cur.fetchone()['id']
+            conn.commit()
+            return nid, None
         cur.execute('UPDATE corporate_notifications SET payload=%s WHERE id=%s', (stored, nid))
         conn.commit()
         return nid, None

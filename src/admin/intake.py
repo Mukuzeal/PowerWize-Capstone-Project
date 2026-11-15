@@ -24,7 +24,7 @@ from db import (audit_log, create_intake, get_intake, get_intakes, get_slots,
                 queue_registration_link_email, registration_email_payload,
                 get_notification, notification_payload, begin_attempt, finish_attempt,
                 force_retry_uncertain)
-from permissions import require
+from permissions import require, current_can
 from pricing import program_label
 from utils import base_url
 
@@ -36,16 +36,63 @@ FORM_TYPES = ("training", "cea_training", "cem_renewal", "cea_renewal",
               "gemp_lgu", "gemp_oge")
 
 
+def _intake_display_status(row):
+    """Invoice authority takes priority over the historical email timestamp."""
+    invoice = row.get('invoice_status')
+    if invoice in ('paid', 'pending'):
+        roster = row.get('roster_registrations') or []
+        covered = row.get('invoice_registrations') or []
+        if not roster or None in roster or None in covered or set(roster) != set(covered):
+            return 'Roster changed - review billing', 'b-pending'
+    if invoice == 'paid':
+        return 'Paid', 'b-accepted'
+    if invoice == 'cancelled':
+        return 'Invoice cancelled', 'b-rejected'
+    if invoice == 'expired':
+        return 'Invoice expired', 'b-pending'
+    if row.get('payment_link_sent_at'):
+        return 'Payment link sent', 'b-pending'
+    if invoice == 'pending':
+        return 'Awaiting company payment', 'b-pending'
+    return row['status'].replace('_', ' ').capitalize(), 'b-pending'
+
+
 def dashboard_context():
     """Data for the console's Company Intake pane."""
     records = get_intakes()
+    for row in records:
+        row['display_status'], row['status_class'] = _intake_display_status(row)
+    from db import class_instructors
     return {
         "intake_records":    records,
         "intake_active_count": sum(r["archived_at"] is None for r in records),
         "intake_archived_count": sum(r["archived_at"] is not None for r in records),
         "intake_form_types": FORM_TYPES,
         "intake_program_labels": {code: program_label(code) for code in FORM_TYPES},
+        'intake_instructors': class_instructors(),
     }
+
+
+@admin_bp.route('/admin/intake/list')
+def intake_live_list():
+    response = require('review_registrations')
+    if response:
+        return response
+    records = []
+    for row in get_intakes():
+        label, badge = _intake_display_status(row)
+        # Never serialize i.*: the database row also carries private link secrets.
+        records.append({
+            'id': row['id'], 'company_name': row['company_name'],
+            'program_label': program_label(row['form_type']),
+            'contact_person': row['contact_person'], 'contact_email': row['contact_email'],
+            'archived': row['archived_at'] is not None,
+            'submitted_count': row['submitted_count'], 'slot_count': row['slot_count'],
+            'display_status': label, 'status_class': badge,
+        })
+    response = jsonify(records=records)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 def _invite_url(token):
@@ -99,15 +146,36 @@ def intake_new():
         errors.append("A valid contact email is required.")
     if form_type not in FORM_TYPES:
         errors.append("Select a training program.")
+    names=f.getlist('trainee_name');emails=f.getlist('trainee_email')
+    roster=[]
+    if len(names)!=len(emails) or len(names)>200:
+        errors.append('Supply one name and email per trainee, up to 200 at a time.')
+    else:
+        seen=set()
+        for name,email in zip(names,emails):
+            name,email=name.strip(),email.strip().lower()
+            if not name and not email:continue
+            if not name or len(name)>200 or len(email)>150 or email.count('@')!=1 or any(c.isspace() for c in email):
+                errors.append('Each trainee needs a valid name and email.');continue
+            if email in seen:errors.append('A trainee email is listed more than once: '+email)
+            seen.add(email);roster.append((name,email))
+    try:
+        instructor_id=int(f.get('instructor_id')) if f.get('instructor_id') else None
+    except ValueError:
+        errors.append('Select a valid instructor.');instructor_id=None
     if errors:
         return jsonify(errors=errors), 400
 
-    iid = create_intake(company_name, contact_person, contact_email,
-                        f.get("contact_number", "").strip(), form_type,
-                        f.get("training_type", "").strip(), session.get("user_id"))
+    try:
+        iid = create_intake(company_name, contact_person, contact_email,
+                            f.get('contact_number','').strip(), form_type,
+                            f.get('training_type','').strip(), session.get('user_id'),
+                            roster=roster,instructor_id=instructor_id)
+    except ValueError as exc:
+        return jsonify(errors=[str(exc)]),400
     audit_log(session.get("user_id"), "intake_created", "corporate_intake", iid,
               f"Created intake for {company_name} ({form_type})")
-    return jsonify(ok=True, id=iid)
+    return jsonify(ok=True, id=iid,added=len(roster))
 
 
 @admin_bp.route("/admin/intake/<int:intake_id>/slots", methods=["POST"])
@@ -174,7 +242,16 @@ def intake_panel(intake_id):
     intake = get_intake(intake_id=intake_id)
     if not intake:
         return jsonify(error="No such intake."), 404
-    eligible, reason, detail = payment_link_eligibility(intake_id)
+    roster = get_slots(intake_id)
+    eligible, reason, detail = payment_link_eligibility(intake_id, intake=intake, slots=roster)
+    from db import intake_invoices,invoiceable_roster
+    from pricing import calculate_fee
+    invoices = intake_invoices(intake_id) if current_can('corporate_payments') else []
+    price_blockers = [s['full_name'] for s in roster if s['registration_id'] and
+                      calculate_fee(s['form_type'],s['training_type']) is None]
+    _,billability_blockers=invoiceable_roster(intake_id,rows=roster)
+    active_invoice = next((p for p in invoices if p['status'] in ('pending','paid')),None)
+    coverage_ok=not active_invoice or set(active_invoice['covered_registrations'])=={s['registration_id'] for s in roster}
     slots = [{
         "id":            s["id"],
         "full_name":     s["full_name"],
@@ -186,11 +263,13 @@ def intake_panel(intake_id):
         "identity_label": s['readiness']['identity_label'] if s['readiness'] else 'Not submitted',
         "review_blockers": s['readiness']['blockers'] if s['readiness'] else [],
         "registration":  s["registration_id"],
+        "review_version": s.get('review_version'),
+        "account_active": s.get('user_id') is not None,
         "submitted_at":  s["submitted_at"].isoformat() if s["submitted_at"] else None,
         "correction":    s["correction_note"],
         "invite_used":   s["invite_used_at"] is not None,
         "invite_revoked": s["invite_revoked_at"] is not None,
-    } for s in get_slots(intake_id)]
+    } for s in roster]
     return jsonify(intake={
         "id": intake["id"], "company_name": intake["company_name"],
         "contact_person": intake["contact_person"],
@@ -205,6 +284,22 @@ def intake_panel(intake_id):
                                   and not intake["coord_revoked_at"]),
         "registration_link_active": bool(intake.get("registration_token_hash")
             and not intake.get("registration_revoked_at")),
+    }, billing={
+        'allowed': current_can('corporate_payments'),
+        'can_create': current_can('corporate_payments') and eligible and not billability_blockers and not active_invoice,
+        'price_blockers': price_blockers,
+        'coverage_ok':coverage_ok,
+        'blockers':[{'name':b['full_name'],'reason':b['reason']} for b in billability_blockers] if not active_invoice else [],
+        'invoices': [{'id':p['id'],'reference':p['reference'],'status':p['status'],
+                      'amount_php':p['amount_centavos']/100} for p in invoices],
+    }, summary={
+        'total':len(slots), 'submitted':sum(s['registration'] is not None for s in slots),
+        'approved':sum(s['status']=='approved' for s in slots),
+        'activated':sum(s['account_active'] for s in slots),
+        'stage':('roster' if not slots else 'review' if any(s['status']!='approved' for s in slots) and any(s['registration'] for s in slots) else
+                 'billing' if not coverage_ok else 'training' if active_invoice and active_invoice['status']=='paid' else
+                 'payment' if active_invoice else 'billing' if eligible and not price_blockers else
+                 'review' if any(s['registration'] for s in slots) else 'registration' if slots else 'roster')
     }, slots=slots, eligibility={"eligible": eligible, "reason": reason,
                                  "detail": detail},
        notifications=[{
@@ -226,7 +321,11 @@ def intake_issue_registration_link(intake_id):
     resp = require("review_registrations")
     if resp:
         return resp
-    issued = issue_registration_token(intake_id, created_by=session.get("user_id"), with_class=True)
+    from secretbox import SecretUnavailable
+    try:
+        issued = issue_registration_token(intake_id, created_by=session.get("user_id"), with_class=True)
+    except SecretUnavailable:
+        return jsonify(error='Link storage is unavailable. Install server requirements and configure SECRET_KEY.'), 503
     if not issued:
         return jsonify(error="Only an open intake can receive a registration link."), 409
     audit_log(session.get("user_id"), "intake_registration_link_issued", "corporate_intake",
@@ -253,11 +352,22 @@ def _deliver_registration_notice(notif_id):
         return jsonify(error=error), 409
     if current['class_code'] != stored.get('class_code') or current['to_email'] != notice['to_email']:
         return jsonify(error='The class code or company contact has changed. Send the current link and code as a new notice.'), 409
-    if notice['status'] in ('submitted', 'in_flight', 'uncertain'):
+    if notice['status'] == 'submitted':
+        return jsonify(ok=True,status='submitted',notification_id=notif_id,
+                       message='This invitation was already submitted to the mail server. The same link remains active. Check delivery history before explicitly resending.')
+    if notice['status'] in ('in_flight', 'uncertain'):
         return jsonify(error='This notice was submitted, is in flight, or needs explicit delivery recovery. Check its delivery history.'), 409
     attempt_id, _, error = begin_attempt(notif_id)
     if not attempt_id:
         return jsonify(error=error), 409
+    # Contact edits lock notice rows and refuse in-flight sends. Re-read AFTER
+    # taking ownership so an edit between validation and claim cannot send an
+    # old link to the previous coordinator address.
+    current, error = registration_email_payload(notice['intake_id'],stored.get('registration_url'),
+                                                stored.get('class_id'),base_url())
+    if error or current['to_email'] != notice['to_email'] or current['class_code'] != stored.get('class_code'):
+        finish_attempt(notif_id,attempt_id,error='The company contact or registration access changed before sending.')
+        return jsonify(error='Company contact or registration access changed. Send the current invitation as a new notice.'),409
     try:
         outcome = email_utils.send_company_registration_link(
             current['to_email'], current['company_name'], current['contact_person'],
@@ -290,18 +400,32 @@ def intake_send_registration_link(intake_id):
     resp = require('review_registrations')
     if resp:
         return resp
-    try:
-        class_id = int(request.form.get('class_id', ''))
-    except ValueError:
-        return jsonify(error='Generate a registration link and class code first.'), 400
     from secretbox import SecretUnavailable
     try:
+        registration_url = request.form.get('registration_url', '')
+        if registration_url:
+            try:
+                class_id = int(request.form.get('class_id', ''))
+            except ValueError:
+                return jsonify(error='Select the class belonging to this link.'), 400
+        else:
+            issued = issue_registration_token(intake_id, created_by=session.get('user_id'), with_class=True, replace=False)
+            if not issued:
+                return jsonify(error='Only an open intake can receive an invitation.'), 409
+            class_id = issued['class_id']
+            registration_url = base_url().rstrip('/') + '/company/register/' + issued['token']
         notif_id, error = queue_registration_link_email(intake_id,
-            request.form.get('registration_url', ''), class_id, base_url(), session.get('user_id'))
+            registration_url, class_id, base_url(), session.get('user_id'), reuse_existing=True)
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 409
     except SecretUnavailable:
         return jsonify(error='Email retry storage is unavailable. Configure the application encryption key before sending.'), 503
     if error:
         return jsonify(error=error), 409
+    notice=get_notification(notif_id)
+    if notice and notice['attempts']:
+        return jsonify(error='This registration link and class code already have a delivery record. The existing link is preserved. Check delivery history and use Retry or Resend explicitly.',
+                       notification_id=notif_id,status=notice['status']), 409
     return _deliver_registration_notice(notif_id)
 
 
@@ -317,6 +441,17 @@ def intake_retry_registration_link(intake_id, notif_id):
         if request.form.get('confirm_resend') != 'yes':
             return jsonify(error='The earlier send has an unknown outcome. Confirm a possible duplicate email before retrying.'), 409
         force_retry_uncertain(notif_id, f'Operator {session.get("user_id")} confirmed a possible duplicate registration email')
+    if notice['status']=='submitted':
+        if request.form.get('confirm_resend')!='yes':
+            return jsonify(error='This invitation was already submitted. Confirm a deliberate resend of the same link.'),409
+        from db import get_db
+        conn=get_db();cur=conn.cursor()
+        try:
+            cur.execute("UPDATE corporate_notifications SET status='queued' WHERE id=%s AND status='submitted'",(notif_id,))
+            conn.commit()
+        finally:cur.close();conn.close()
+        audit_log(session.get('user_id'),'registration_email_resend_requested','corporate_intake',intake_id,
+                  f'Operator requested another delivery of notice {notif_id}; existing link retained')
     return _deliver_registration_notice(notif_id)
 
 
@@ -328,7 +463,22 @@ def intake_revoke_registration_link(intake_id):
     revoke_registration_token(intake_id)
     audit_log(session.get("user_id"), "intake_registration_link_revoked", "corporate_intake",
               intake_id, "Revoked shared registration access, including outstanding verification grants")
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify(ok=True)
     return redirect('/admin#intake')
+
+
+@admin_bp.route('/admin/intake/<int:intake_id>/notifications/recover',methods=['POST'])
+def intake_recover_mail(intake_id):
+    response=require('review_registrations')
+    if response:return response
+    if not get_intake(intake_id=intake_id):
+        return jsonify(error='No such intake.'),404
+    from db import recover_stale_attempts
+    ids=recover_stale_attempts(intake_id=intake_id)
+    audit_log(session.get('user_id'),'notification_leases_recovered','corporate_intake',intake_id,
+              f'{len(ids)} expired email attempts marked uncertain; none resent')
+    return jsonify(ok=True,message=f'{len(ids)} expired email attempt(s) marked as outcome unknown. Nothing was resent. Check delivery history before an explicit retry.')
 
 
 @admin_bp.route("/admin/intake/<int:intake_id>/coordinator-link", methods=["POST"])
@@ -354,6 +504,8 @@ def intake_revoke_coord_link(intake_id):
     if ok:
         audit_log(session.get("user_id"), "intake_coord_link_revoked",
                   "corporate_intake", intake_id, "Revoked the coordinator link")
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify(ok=ok), (200 if ok else 409)
     flash("Coordinator link revoked." if ok else "No active link to revoke.",
           "warning" if ok else "error")
     return redirect("/admin#intake")

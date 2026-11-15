@@ -2468,6 +2468,7 @@
                 <button type="button" class="btn-docs" data-ik-view="all" aria-pressed="false" onclick="ikFilterIntakes('all')">All</button>
             </div>
             <div id="ik-list-out" role="status" aria-live="polite"></div>
+            <p id="ik-live-status" class="ik-help" role="status" aria-live="polite">Live updates start when this tab is open.</p>
             <div class="table-card">
                 <table id="ik-intake-table">
                     <thead>
@@ -2486,8 +2487,7 @@
                             <td>{{ i.submitted_count }} / {{ i.slot_count }} submitted</td>
                             <td>
                                 <span class="badge" data-ik-archive-badge{% if not i.archived_at %} style="display:none"{% endif %}>Archived</span>
-                                {% if i.payment_link_sent_at %}<span class="badge b-accepted">Payment link sent</span>
-                                {% else %}<span class="badge b-pending">{{ i.status }}</span>{% endif %}
+                                <span class="badge {{ i.status_class }}">{{ i.display_status }}</span>
                             </td>
                             <td style="text-align:right">
                                 <button type="button" class="btn-docs" onclick="openIntake({{ i.id }})">
@@ -3214,6 +3214,7 @@
             if (name === 'feedback')  { if (typeof loadFeedback  === 'function') loadFeedback(); }
             if (name === 'auditlog')  { if (typeof loadAuditLog  === 'function') loadAuditLog(); }
             if (name === 'corporate') { if (typeof hpQueueLoad   === 'function') hpQueueLoad(); }
+            if (typeof ikLiveRefresh === 'function') ikLiveRefresh();
         }
 
         // Batch date picker "” Fridays only + auto label preview
@@ -4179,12 +4180,14 @@
                     </div>
                     <div>
                         <label class="corp-lab" for="ik-program">Training program</label>
-                        <select class="corp-in" id="ik-program">
+                        <select class="corp-in" id="ik-program" onchange="ikDeliveryOptions()">
                             {% for ft in intake_form_types %}
                             <option value="{{ ft }}">{{ intake_program_labels[ft] }}</option>
                             {% endfor %}
                         </select>
                     </div>
+                    <div><label class="corp-lab" for="ik-delivery">Delivery mode</label><select class="corp-in" id="ik-delivery"></select></div>
+                    <div><label class="corp-lab" for="ik-instructor">Instructor (optional)</label><select class="corp-in" id="ik-instructor"><option value="">Assign later</option>{% for instructor in intake_instructors %}<option value="{{ instructor.id }}">{{ instructor.name }}</option>{% endfor %}</select></div>
                     <div>
                         <label class="corp-lab" for="ik-person">Contact person</label>
                         <input class="corp-in" id="ik-person" maxlength="200" placeholder="Jo Cruz">
@@ -5036,6 +5039,7 @@ function _ikRosterResult(data) {
 
 function openIntakeNew() {
     document.getElementById('intake-new-err').style.display = 'none';
+    if(!document.getElementById('ik-delivery').options.length) ikDeliveryOptions();
     document.getElementById('intake-new-overlay').classList.add('open');
     if (!document.getElementById('ik-roster-quantity')) {
         document.getElementById('ik-roster-controls').innerHTML = _ikRosterControls('ik-roster');
@@ -5060,9 +5064,12 @@ async function submitIntakeNew() {
         form_type:      document.getElementById('ik-program').value,
         contact_person: document.getElementById('ik-person').value.trim(),
         contact_email:  document.getElementById('ik-email').value.trim(),
-        contact_number: document.getElementById('ik-number').value.trim()
+        contact_number: document.getElementById('ik-number').value.trim(),
+        training_type: document.getElementById('ik-delivery').value,
+        instructor_id: document.getElementById('ik-instructor').value
     });
 
+    roster.forEach(function(value,key){body.append(key,value);});
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
     try {
@@ -5079,26 +5086,9 @@ async function submitIntakeNew() {
             err.style.display = 'block';
             return;
         }
-        var rosterResult = null;
-        if (roster.has('trainee_name')) {
-            try {
-                var rosterResponse = await fetch('/admin/intake/' + data.id + '/slots', {
-                method: 'POST',
-                headers: {'X-CSRFToken': _ikCsrf(), 'Content-Type': 'application/x-www-form-urlencoded'},
-                body: roster
-                });
-                var rosterData = await rosterResponse.json();
-                if (!rosterResponse.ok) throw new Error('Roster request failed');
-                rosterResult = _ikRosterResult(rosterData);
-            } catch (rosterError) {
-                rosterResult = '<div class="corp-note corp-note--err">Intake created, but trainee additions could not be confirmed. Check the roster below before adding them again.</div>';
-            }
-        }
         closeIntakeNew();
         await openIntake(data.id);
-        if (rosterResult && IK_CURRENT === data.id && document.getElementById('ik-add-out')) {
-            document.getElementById('ik-add-out').innerHTML = rosterResult;
-        }
+        ikNotice('Company batch created with '+data.added+' expected trainee(s). Send the registration invitation next.',true);
         document.getElementById('ik-roster').innerHTML = _ikTraineeRow();
         ikUpdateTraineeCount('ik-roster');
     } catch (e) {
@@ -5113,6 +5103,7 @@ async function submitIntakeNew() {
 var IK_CURRENT = null;
 
 function openIntake(id) {
+    if (IK_CURRENT !== id) IK_TAB = 'overview';
     IK_CURRENT = id;
     document.getElementById('intake-overlay').classList.add('open');
     document.getElementById('intake-body').innerHTML =
@@ -5122,16 +5113,28 @@ function openIntake(id) {
 function closeIntake(e) {
     if (e && e.target !== e.currentTarget) return;
     document.getElementById('intake-overlay').classList.remove('open');
+    document.getElementById('intake-body').innerHTML='';
     IK_CURRENT = null;
+    HP_CID=null;
+    CORP_DETAIL_ID=null;
 }
 
 async function loadIntake() {
     var id = IK_CURRENT;
+    var requestId = ++IK_REQUEST;
     try {
         var res = await fetch('/admin/intake/' + id + '/panel');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var d = await res.json();
-        if (IK_CURRENT !== id) return;
+        if (IK_CURRENT !== id || requestId !== IK_REQUEST) return;
+        var previousNotice = document.getElementById('ik-workspace-notice');
+        var noticeText = previousNotice && !previousNotice.hidden ? previousNotice.textContent : '';
+        var noticeOK = previousNotice && previousNotice.classList.contains('corp-note--ok');
+        var previousBilling = document.getElementById('ik-billing-detail');
+        var billingNodes = previousBilling ? Array.from(previousBilling.childNodes) : [];
+        var previousReview=document.querySelector('#ik-review-panel [data-review-id]');
+        var previousCoord = document.getElementById('ik-coord-link-out');
+        var coordHtml = previousCoord ? previousCoord.innerHTML : '';
         // These links are returned only once. Keep them in this open panel
         // while refreshing status; do not persist them in browser storage.
         var previousLink = document.getElementById('ik-link-out');
@@ -5147,7 +5150,15 @@ async function loadIntake() {
         document.getElementById('intake-body').innerHTML = _ikRender(d);
         // Separate fetch, so a slow or failing class list never blocks
         // the roster the operator actually came here for.
-        ikClassesLoad();
+        var billingMount = document.getElementById('ik-billing-detail');
+        billingNodes.forEach(function(node){billingMount.appendChild(node);});
+        if(previousReview) {
+            var reviewSlot=d.slots.find(function(r){return r.registration===previousReview.dataset.reviewId;});
+            if(reviewSlot&&String(reviewSlot.review_version)===previousReview.dataset.reviewVersion) document.getElementById('ik-review-panel').appendChild(previousReview);
+        }
+        document.getElementById('ik-coord-link-out').innerHTML = coordHtml;
+        ikTab(IK_TAB);
+        if (noticeText) ikNotice(noticeText,noticeOK);
         document.getElementById('ik-link-out').innerHTML = linkHtml;
         document.getElementById('ik-upload-link-out').innerHTML = uploadLinkHtml;
         document.getElementById('ik-add-out').innerHTML = addedHtml;
@@ -5158,165 +5169,14 @@ async function loadIntake() {
         }
         ikUpdateTraineeCount('ik-more');
     } catch (e) {
-        if (IK_CURRENT !== id) return;
-        document.getElementById('intake-body').innerHTML =
-            '<div class="corp-note corp-note--err">Could not load this roster. ' +
-            '<button type="button" class="btn-docs" onclick="loadIntake()">Retry</button></div>';
+        if (IK_CURRENT !== id || requestId !== IK_REQUEST) return;
+        var oldError=document.getElementById('ik-load-error');
+        if (oldError) oldError.remove();
+        document.getElementById('intake-body').insertAdjacentHTML('afterbegin',
+            '<div id="ik-load-error" class="corp-note corp-note--err">Could not refresh this roster. Existing inputs are preserved. ' +
+            '<button type="button" class="btn-docs" onclick="loadIntake()">Retry</button></div>');
     }
 }
-
-function _ikRender(d) {
-    var h = '<p class="corp-note"><strong>' + d.slots.length +
-        '</strong> trainee' + (d.slots.length === 1 ? '' : 's') + ' currently on this roster.</p>';
-    h += '<div class="corp-note">' +
-         (d.intake.archived_at ? '<strong>Archived.</strong> Archived on ' +
-          _ikEsc(d.intake.archived_at.slice(0, 10)) + '. ' : '') +
-         'Archiving moves this intake out of Active. Its roster, links, invoices and classes stay available.' +
-         '<div style="margin-top:.5rem"><button type="button" class="btn-docs" onclick="ikSetArchived(' +
-         d.intake.id + ',' + (d.intake.archived_at ? 'false' : 'true') + ',this)">' +
-         (d.intake.archived_at ? 'Restore to Active' : 'Archive intake') +
-         '</button></div><div id="ik-archive-out" role="status" aria-live="polite"></div></div>';
-
-    /* Eligibility banner - the authoritative reason, naming who blocks it. */
-    if (d.intake.payment_link_sent_at) {
-        h += '<div class="corp-note">A company payment link was already sent on ' +
-             _ikEsc(d.intake.payment_link_sent_at.slice(0, 10)) + '.</div>';
-    } else if (d.eligibility.eligible) {
-        h += '<div class="corp-note corp-note--ok"><strong>Ready.</strong> ' +
-             _ikEsc(d.eligibility.reason) + '</div>';
-    } else {
-        h += '<div class="corp-note corp-note--err"><strong>Not ready to send a payment link.</strong><br>' +
-             _ikEsc(d.eligibility.reason);
-        var out = (d.eligibility.detail || {}).outstanding || [];
-        if (out.length) {
-            h += '<ul style="margin:.5rem 0 0 1.1rem;padding:0">' + out.map(function (o) {
-                return '<li>' + _ikEsc(o.name) + ' - ' +
-                       _ikEsc(o.label || (IK_LABELS[o.state] || [o.state])[0]) + '</li>';
-            }).join('') + '</ul>';
-        }
-        h += '</div>';
-    }
-
-    /* One shared trainee entry URL, separate from the coordinator roster. */
-    h += '<div class="table-card" style="padding:1rem;margin:1rem 0">' +
-         '<strong>Trainee registration and uploads</strong>' +
-         '<p style="font-size:12px;color:var(--text-secondary);margin:.5rem 0 .75rem">Generate a link to prepare the class code automatically. Share both with all trainees; each enters the code and their roster email to submit requirements.</p>' +
-         '<button type="button" class="btn-add" onclick="ikRegistrationLink(this)">' +
-         (d.intake.registration_link_active ? 'Replace shared registration link' : 'Generate shared registration link') + '</button>';
-    if (d.intake.registration_link_active) {
-        h += '<form method="POST" action="/admin/intake/' + d.intake.id + '/registration-link/revoke" style="display:inline;margin-left:.5rem">' +
-             '<input type="hidden" name="csrf_token" value="' + _ikCsrf() + '">' +
-             '<button type="submit" class="btn-docs">Revoke shared link</button></form>';
-    }
-    h += '<div id="ik-upload-link-out"></div><div id="ik-registration-send-out" role="status" aria-live="polite"></div></div>';
-    /* Coordinator-only status link. Do not share it with the trainee group. */
-    h += '<strong>Company coordinator status access</strong>';
-    h += '<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0 1.25rem">' +
-         '<button type="button" class="btn-add" onclick="ikCoordLink()">' +
-         '<i class="fa-solid fa-link"></i> ' +
-         (d.intake.coord_link_active ? 'Replace status link' : 'Generate status link') + '</button>';
-    if (d.intake.coord_link_active) {
-        h += '<form method="POST" action="/admin/intake/' + d.intake.id +
-             '/coordinator-link/revoke" style="display:inline">' +
-             '<input type="hidden" name="csrf_token" value="' + _ikCsrf() + '">' +
-             '<button type="submit" class="btn-docs"><i class="fa-solid fa-link-slash"></i> ' +
-             'Revoke company link</button></form>';
-    }
-    h += '</div><p style="font-size:12px;color:var(--text-secondary)">Refreshing hides displayed links but does not revoke them. If you did not save a link, replace it here; the previous version will stop working.</p>';
-
-    /* Billing handover. Offered only when EVERY expected trainee is approved —
-       the same server-side rule the invoice endpoint enforces, so the button
-       cannot promise something the POST would refuse. */
-    if (d.eligibility && d.eligibility.eligible) {
-        h += '<div style="margin:0 0 1.25rem">' +
-             '<button type="button" class="btn-add" onclick="ikInvoicePreview()">' +
-             '<i class="fa-solid fa-file-invoice-dollar"></i> Create corporate invoice' +
-             '</button></div>';
-    }
-
-    /* Classes for this intake. Loaded separately so the roster view does not
-       wait on it, and so creating one does not reload the whole panel. */
-    h += '<div class="corp-sub">Training classes</div>' +
-         '<div id="ik-classes"><div class="empty">' +
-         '<i class="fa-solid fa-spinner fa-spin"></i> Loading classes&hellip;' +
-         '</div></div>';
-    h += '<div id="ik-link-out"></div>';
-
-    /* Add more roster entries */
-    h += '<div class="table-card" style="padding:1rem;margin-bottom:1.25rem">' +
-         '<div class="corp-lab">Add expected trainees</div>' +
-         _ikRosterControls('ik-more') +
-         '<div id="ik-more" oninput="ikUpdateTraineeCount(\'ik-more\')">' + _ikTraineeRow() + '</div>' +
-         '<button type="button" class="btn-docs" onclick="ikAddTrainee(\'ik-more\')">' +
-         '<i class="fa-solid fa-plus"></i> Add another trainee</button>' +
-         '<button type="button" class="btn-add" style="margin-top:.6rem" onclick="ikAddSlots()">' +
-         '<i class="fa-solid fa-user-plus"></i> Add to roster</button>' +
-         '<div id="ik-add-out" style="margin-top:.6rem"></div></div>';
-
-    /* Roster */
-    /* Notification history - durable states, honest wording, retry. */
-    if ((d.notifications || []).length) {
-        h += '<div class="table-card" style="margin-bottom:1.25rem"><table><thead><tr>' +
-             '<th>Company notice</th><th>To</th><th>State</th><th>Tries</th><th></th>' +
-             '</tr></thead><tbody>';
-        d.notifications.forEach(function (n) {
-            var cls = n.status === 'submitted' ? 'badge b-accepted'
-                    : n.status === 'failed'    ? 'badge b-rejected' : 'badge b-pending';
-            var label = n.status === 'submitted' ? 'Submitted to mail server'
-                      : n.status === 'queued'    ? 'Queued'
-                      : n.status === 'failed'    ? 'Failed'
-                      : n.status === 'previewed' ? 'Previewed only - NOT emailed'
-                      : n.status === 'mocked'    ? 'Mocked only - NOT emailed'
-                      : n.status === 'in_flight' ? 'Sending'
-                      : 'Outcome unknown';
-            h += '<tr><td>' + _ikEsc(n.slot_name || (n.kind === 'registration_link' ? 'Registration link and class code' : n.kind)) + '</td>' +
-                 '<td style="font-size:12px">' + _ikEsc(n.to_email) + '</td>' +
-                 '<td><span class="' + cls + '">' + _ikEsc(label) + '</span>' +
-                 (n.error ? '<br><span style="font-size:11px;color:var(--text-secondary)">' +
-                            _ikEsc(n.error) + '</span>' : '') + '</td>' +
-                 '<td>' + n.attempts + '</td>' +
-                 '<td style="text-align:right">' +
-                   (n.status === 'submitted' || n.status === 'in_flight' ? '' : n.kind === 'registration_link' ?
-                     '<button type="button" class="btn-docs" onclick="ikRetryRegistrationNotice(' + n.id + ',' +
-                     (n.status === 'uncertain' ? 'true' : 'false') + ',this)">Retry</button>' :
-                     '<button type="button" class="btn-docs" onclick="ikRetryNotice(' +
-                     n.id + ')">Retry</button>') + '</td></tr>';
-        });
-        h += '</tbody></table>' +
-             '<p style="font-size:11.5px;color:var(--text-secondary);padding:.5rem 1rem 0;margin:0">' +
-             '"Submitted" means the mail server accepted the message. It is not ' +
-             'confirmation that it reached the recipient.</p></div>';
-    }
-
-    if (!d.slots.length) {
-        h += '<div class="empty" style="padding:2rem;text-align:center">' +
-             'No trainees on this roster yet. Add them above, then share the registration link.</div>';
-        return h;
-    }
-
-    h += '<div class="table-card"><table><thead><tr>' +
-         '<th>Name</th><th>Email</th><th>Status</th><th>Identity</th>' +
-         '<th>Submitted</th><th>Registration access</th><th></th></tr></thead><tbody>';
-    d.slots.forEach(function (s) {
-        var lab = IK_LABELS[s.status] || [s.status, 'badge'];
-        h += '<tr><td>' + _ikEsc(s.full_name) + '</td><td>' + _ikEsc(s.email) + '</td>' +
-             '<td><span class="' + lab[1] + '">' + _ikEsc(s.status_label || lab[0]) + '</span>' +
-             (s.correction ? '<br><span style="font-size:12px;color:var(--text-secondary)">' +
-                             _ikEsc(s.correction) + '</span>' : '') + '</td>' +
-             '<td style="font-size:12px">' + _ikEsc(s.identity_label || s.identity || '-') +
-             (s.identity === 'pending' ? '<br><button type="button" class="btn-docs" onclick="ikReviewIdentity(\'' +
-                _ikEsc(s.registration) + '\')">Review identity</button>' : '') + '</td>' +
-             '<td style="font-size:12px">' + (s.submitted_at ? _ikEsc(s.submitted_at.slice(0, 10)) : '-') + '</td>' +
-             '<td style="font-size:12px">' +
-                (s.invite_revoked ? 'Revoked' : s.invite_used ? 'Submitted' : 'Can register') + '</td>' +
-             '<td style="text-align:right">' +
-                (!s.invite_used && !s.invite_revoked
-                    ? '<button type="button" class="btn-docs" onclick="ikRevoke(' + s.id + ')">Revoke</button>'
-                    : '') + '</td></tr>';
-    });
-    return h + '</tbody></table></div>';
-}
-
 
 /* ── Training classes ───────────────────────────────────────────────────────
    The join code is shown in plain text on purpose: a trainer has to be able
@@ -5331,15 +5191,19 @@ async function ikClassesLoad() {
     var box = document.getElementById('ik-classes');
     if (!box || !IK_CURRENT) return;
     var want = IK_CURRENT;
+    var revision=Number(box.dataset.revision||0)+1;
+    box.dataset.revision=revision;box.dataset.loading='yes';
     try {
         var res = await fetch('/admin/intake/' + want + '/classes');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         var d = await res.json();
-        if (IK_CURRENT !== want) return;          // the panel moved on
+        if (IK_CURRENT !== want||String(revision)!==box.dataset.revision) return;          // the panel moved on
         if (!box.isConnected) return;
         box.innerHTML = _ikClassesRender(d.classes || [], d.instructors || []);
+        box.dataset.loaded='yes';box.dataset.loading='';
     } catch (e) {
-        if (IK_CURRENT !== want) return;
+        if (IK_CURRENT !== want||String(revision)!==box.dataset.revision) return;
+        box.dataset.loaded='';box.dataset.loading='';
         box.innerHTML = '<div class="corp-note corp-note--err">Could not load ' +
             'classes (' + _ikEsc(String(e && e.message || e)) + '). ' +
             '<button type="button" class="btn-docs" onclick="ikClassesLoad()">' +
@@ -5474,22 +5338,30 @@ async function ikClassOpen(cid, wantOpen) {
     }
 }
 
-async function ikClassPanel(cid) {
+async function ikClassPanel(cid, options) {
+    options=options||{};
     var slot = document.getElementById('ik-cls-' + cid);
     if (!slot) return;
-    slot.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+    if(options.background && (ikLiveEditing(slot)||slot.dataset.loading==='yes')) return;
+    var intakeId=IK_CURRENT, revision=Number(slot.dataset.requestRevision||0)+1;
+    slot.dataset.requestRevision=revision;slot.dataset.loading='yes';slot.dataset.liveClassOpen='yes';
+    if(!options.background) slot.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
     var panel, prog;
     try {
-        var a = await fetch('/admin/class/' + cid + '/panel');
-        var b = await fetch('/api/class/' + cid + '/progress');
-        if (!a.ok) throw new Error('HTTP ' + a.status);
-        panel = await a.json();
-        prog = b.ok ? await b.json() : null;
+        var parts=await Promise.all([ikLiveJson('/admin/class/'+cid+'/panel'),ikLiveJson('/api/class/'+cid+'/progress')]);
+        panel=parts[0];prog=parts[1];
     } catch (e) {
+        if(IK_CURRENT!==intakeId || !slot.isConnected || String(revision)!==slot.dataset.requestRevision) return;
+        slot.dataset.loading='';
+        if(options.background) throw e;
         slot.innerHTML = '<div class="corp-note corp-note--err">Could not load ' +
             'this class (' + _ikEsc(String(e && e.message || e)) + ').</div>';
         return;
     }
+    if(IK_CURRENT!==intakeId || !slot.isConnected || String(revision)!==slot.dataset.requestRevision) return;
+    slot.dataset.loading='';
+    var signature=JSON.stringify(parts);
+    if(options.background && (!ikLiveVisible() || IK_TAB!=='training' || slot.dataset.liveSignature===signature)) return;
 
     var h = '<div class="corp-note" style="margin-top:.5rem">';
     if (prog && prog.batch) {
@@ -5552,7 +5424,10 @@ async function ikClassPanel(cid) {
         });
         h += '</ul></div>';
     }
-    slot.innerHTML = h + '<div id="ik-clsmsg-' + cid + '"></div></div>';
+    var previousMessage=document.getElementById('ik-clsmsg-'+cid);
+    var messageHTML=options.background&&previousMessage?previousMessage.innerHTML:'';
+    ikLiveReplace(slot,h + '<div id="ik-clsmsg-' + cid + '">'+messageHTML+'</div></div>');
+    slot.dataset.liveSignature=signature;
 }
 
 async function ikClassAdd(cid, uid) {
@@ -5597,7 +5472,7 @@ async function ikRegistrationLink(button) {
             return;
         }
         out.innerHTML = _ikLinkBox('Shared trainee registration link', data.url,
-            'Send this same link and class code to every trainee. Valid for 30 days; each enters their roster email.') +
+            'Send this same link and class code to every trainee. Valid for 30 days; each enters their roster email.',true) +
             '<div class="corp-note corp-note--ok"><strong>Class code</strong>' +
             '<div style="display:flex;gap:.75rem;align-items:center;margin-top:.5rem">' +
             '<code style="font-size:18px;letter-spacing:.12em">' + _ikEsc(data.class_code) + '</code>' +
@@ -5631,20 +5506,17 @@ async function ikRegistrationEmailResult(intakeId, result) {
 async function ikSendRegistrationLink(classId, btn) {
     var intakeId = IK_CURRENT;
     var input = document.querySelector('#ik-upload-link-out input');
-    if (!input) return;
     btn.disabled = true;
     try {
         var result = await hpPost('/admin/intake/' + intakeId + '/registration-link/send',
-                                  {registration_url: input.value, class_id: classId});
-        // loadIntake preserves this link box, so restore the button before
-        // its HTML is captured instead of preserving a permanently disabled copy.
+            input && classId ? {registration_url:input.value,class_id:classId} : {});
         btn.disabled = false;
         await ikRegistrationEmailResult(intakeId, result);
     } finally { btn.disabled = false; }
 }
 
 async function ikRetryRegistrationNotice(notifId, uncertain, btn) {
-    if (uncertain && !confirm('The earlier email may already have been sent. Retry anyway and risk a duplicate email?')) return;
+    if (uncertain && !confirm('Send this invitation again using the same active link? The recipient may receive a duplicate email.')) return;
     var intakeId = IK_CURRENT;
     btn.disabled = true;
     try {
@@ -5655,7 +5527,7 @@ async function ikRetryRegistrationNotice(notifId, uncertain, btn) {
 }
 
 async function ikCoordLink() {
-    var out = document.getElementById('ik-link-out');
+    var out = document.getElementById('ik-coord-link-out');
     out.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Generating...</div>';
     try {
         var res = await fetch('/admin/intake/' + IK_CURRENT + '/coordinator-link', {
@@ -5671,11 +5543,11 @@ async function ikCoordLink() {
             'Generating a new one replaces the previous link.');
         await loadIntake();
     } catch (e) {
-        out.innerHTML = '<div class="corp-note corp-note--err">Network error - no link was generated.</div>';
+        out.innerHTML = '<div class="corp-note corp-note--err">Could not confirm link creation. Check the active status before replacing it.</div>';
     }
 }
 
-function _ikLinkBox(title, url, note) {
+function _ikLinkBox(title, url, note, recoverable) {
     var id = 'ikl' + Math.random().toString(36).slice(2, 8);
     return '<div class="corp-note corp-note--ok"><strong>' + _ikEsc(title) + '</strong><br>' +
            '<input class="corp-in" id="' + id + '" readonly value="' + _ikEsc(url) + '" ' +
@@ -5683,7 +5555,7 @@ function _ikLinkBox(title, url, note) {
            '<button type="button" class="btn-docs" onclick="ikCopy(&quot;' + id + '&quot;, this)">' +
            '<i class="fa-regular fa-copy"></i> Copy</button>' +
            '<div style="font-size:12px;color:var(--text-secondary);margin-top:.4rem">' +
-           _ikEsc(note) + ' This link is shown once and cannot be retrieved later.</div></div>';
+           _ikEsc(note) + (recoverable?' Copy it before closing, or use Send invitation to email the active link again.':' This status link is shown once and cannot be retrieved later.') + '</div></div>';
 }
 
 function ikCopy(inputId, btn) {
@@ -5767,12 +5639,13 @@ async function ikInvoicePreview() {
                 'Resolve the items above first.</div>') + '</div>';
         out.innerHTML = h;
     } catch (e) {
-        out.innerHTML = '<div class="corp-note corp-note--err">Network error — nothing was created.</div>';
+        out.innerHTML = '<div class="corp-note corp-note--err">Could not load the invoice preview. Try loading prices again.</div>';
     }
 }
 
 async function ikCreateInvoice() {
     var out = document.getElementById('ik-link-out');
+    var intakeId=IK_CURRENT;
     out.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Creating…</div>';
     try {
         var res = await fetch('/admin/intake/' + IK_CURRENT + '/invoice', {
@@ -5787,40 +5660,54 @@ async function ikCreateInvoice() {
         // Confirm first, hand over on an explicit click. Auto-switching the
         // view mid-dispatch raced the modal machinery, and it also moved the
         // operator away before they had read the confirmation.
-        out.innerHTML = '<div class="corp-note corp-note--ok">' +
+        var confirmation = '<div class="corp-note corp-note--ok">' +
             '<strong>Invoice ' + _ikEsc(d.reference) + ' created</strong> for ' +
             d.trainee_count + ' trainee(s), PHP ' +
             d.total_php.toLocaleString(undefined, {minimumFractionDigits: 2}) +
             '.<div style="margin-top:.6rem">' +
             '<button type="button" class="btn-add" onclick="ikOpenInvoice(' +
             d.id + ')"><i class="fa-solid fa-arrow-right"></i> ' +
-            'Open in Corporate Payments</button></div></div>';
+            'Open invoice</button></div></div>';
+        await loadIntake();
+        if (IK_CURRENT===intakeId) document.getElementById('ik-link-out').innerHTML=confirmation;
     } catch (e) {
         // Could be the network, could be a bug in this script. Saying
         // "network error" for a TypeError sent us chasing the server.
+        out=document.getElementById('ik-link-out');
+        if (!out||IK_CURRENT!==intakeId) return;
         out.innerHTML = '<div class="corp-note corp-note--err">' +
-            'Nothing was created — the request failed in the browser: ' +
+            'Could not confirm invoice creation. Check the invoice list before retrying: ' +
             _ikEsc(String(e && e.message || e)) + '</div>';
     }
 }
 
-function ikOpenInvoice(cid) {
-    closeIntake();
-    hpGoToCorporate();
-    openCorpDetail(cid);
+async function ikOpenInvoice(cid) {
+    ikTab('billing');
+    var id=IK_CURRENT, mount=document.getElementById('ik-billing-detail');
+    CORP_DETAIL_ID=cid;
+    document.getElementById('corp-body').innerHTML='';
+    document.getElementById('corp-overlay').classList.remove('open');
+    mount.innerHTML='<p class="corp-note">Loading invoice...</p>';
+    try {
+        var res=await fetch('/admin/corporate/'+cid+'/panel');
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        var html=await res.text();
+        if (IK_CURRENT!==id||CORP_DETAIL_ID!==cid) return;
+        mount=document.getElementById('ik-billing-detail');
+        if (!mount) return;
+        mount.innerHTML=html;
+        var hp=mount.querySelector('#corp-hp');
+        if(hp) hpMount(hp.dataset.cid);
+    } catch(error) {
+        if(IK_CURRENT===id) mount.innerHTML='<p class="corp-note corp-note--err">Could not load invoice. <button type="button" class="btn-docs" onclick="ikOpenInvoice('+cid+')">Retry</button></p>';
+    }
 }
 
-async function ikRetryNotice(id) {
-    try {
-        var res = await fetch('/admin/notification/' + id + '/retry', {
-            method: 'POST', headers: {'X-CSRFToken': _ikCsrf()}
-        });
-        var d = await res.json();
-        alert(d.message || (res.ok ? 'Retried.' : 'Retry failed.'));
-    } catch (e) {
-        alert('Network error - the notification is still queued.');
-    }
-    loadIntake();
+async function ikRetryNotice(id,uncertain) {
+    if(uncertain&&!confirm('This email may already have been sent. Retry and risk a duplicate?'))return;
+    var result=await hpPost('/admin/notification/'+id+'/retry',uncertain?{confirm_resend:'yes'}:{});
+    await loadIntake();
+    ikNotice(result.data.message||result.data.error||'Could not confirm the notification outcome.',result.ok);
 }
 
 async function ikReplaceInvite(slotId, button) {
@@ -5942,6 +5829,7 @@ function filterCorp(status, btn) {
 var CORP_DETAIL_ID = null;
 
 function openCorpDetail(id, btn) {
+    if (IK_CURRENT && document.getElementById('intake-overlay').classList.contains('open')) return ikOpenInvoice(id);
     var sameRecord = CORP_DETAIL_ID === id;
     CORP_DETAIL_ID = id;
     var overlay = document.getElementById('corp-overlay');
@@ -6129,18 +6017,39 @@ function hpMount(cid) {
     hpLoad();
 }
 
-async function hpLoad() {
+async function hpLoad(options) {
+    options=options||{};
     var box = document.getElementById('corp-hp');
+    var cid = HP_CID;
     if (!box) return;
+    // A background status check must never erase an operator's evidence or
+    // attention note, nor replace a control while its action is in flight.
+    if(options.background && (box.dataset.loading==='yes'||ikLiveEditing(box)||
+        box.querySelector('button:disabled')||Array.from(box.querySelectorAll('input:not([readonly]):not([type=hidden]),textarea')).some(function(input){return input.value!=='';}))) return;
+    var revision=Number(box.dataset.requestRevision||0)+1;
+    box.dataset.requestRevision=revision;box.dataset.loading='yes';
     try {
-        var res = await fetch('/admin/corporate/' + HP_CID + '/attempts');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        box.innerHTML = hpRender(await res.json());
+        var data=await ikLiveJson('/admin/corporate/'+cid+'/attempts');
+        if (HP_CID!==cid||!box.isConnected||String(revision)!==box.dataset.requestRevision) return;
+        if(options.background && !ikLiveVisible()) return;
+        var signature=JSON.stringify(data);
+        if(options.background && box.dataset.liveSignature===signature) return;
+        var preserved=[];
+        if(options.background) ['hp-link-out','hp-send-out','hp-resolve-out'].forEach(function(id){
+            var node=document.getElementById(id);
+            if(node && (id!=='hp-link-out'||(String(data.invoice.link_version)===box.dataset.linkVersion&&data.invoice.collectable&&data.invoice.link_active))) preserved.push({id:id,nodes:Array.from(node.childNodes)});
+        });
+        if(options.background) {if(!ikLiveReplace(box,hpRender(data))) return;}
+        else box.innerHTML=hpRender(data);
+        preserved.forEach(function(entry){var node=document.getElementById(entry.id);if(node) entry.nodes.forEach(function(child){node.appendChild(child);});});
+        box.dataset.liveSignature=signature;box.dataset.linkVersion=data.invoice.link_version;
     } catch (e) {
+        if (HP_CID!==cid||!box.isConnected||String(revision)!==box.dataset.requestRevision) return;
+        if(options.background) throw e;
         box.innerHTML = '<div class="corp-note corp-note--err">Could not load ' +
             'payment operations. <button type="button" class="btn-docs" ' +
             'onclick="hpLoad()">Retry</button></div>';
-    }
+    } finally {if(String(revision)===box.dataset.requestRevision) box.dataset.loading='';}
 }
 
 function hpRender(d) {
@@ -6290,7 +6199,7 @@ function hpRender(d) {
 }
 
 async function hpPost(url, body) {
-    var opts = {method: 'POST', headers: {'X-CSRFToken': _ikCsrf()}};
+    var opts = {method: 'POST', headers: {'X-CSRFToken': _ikCsrf(), 'Accept':'application/json'}};
     if (body) {
         opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
         opts.body = new URLSearchParams(body);
@@ -6354,6 +6263,9 @@ async function hpIssue() {
     var issuingCid = HP_CID;
     out.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Creating…</div>';
     var r = await hpPost('/admin/corporate/' + issuingCid + '/payment-link');
+    if (HP_CID!==issuingCid) return;
+    out=document.getElementById('hp-link-out');
+    if(!out)return;
     if (r.ok || r.data.url) corpFreezePrice(issuingCid);
     if (!r.ok) {
         await hpReloadNotice('hp-link-out', false,
@@ -6386,26 +6298,32 @@ function hpCopy(inputId, btn) {
 }
 
 async function hpRevoke() {
+    var actingCid=HP_CID;
     if (!confirm('Revoke this payment link? The company will not be able to pay with it.')) return;
     var r = await hpPost('/admin/corporate/' + HP_CID + '/payment-link/revoke');
+    if (HP_CID!==actingCid) return;
     await hpReloadNotice('hp-link-out', r.ok,
         _hpEsc(r.data.message || r.data.error ||
                (r.ok ? 'Link revoked.' : 'Could not revoke this link.')));
 }
 
 async function hpSend(inputId) {
+    var actingCid=HP_CID;
     var out = document.getElementById('hp-send-out');
     var url = document.getElementById(inputId).value;
     out.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Sending…</div>';
     var r = await hpPost('/admin/corporate/' + HP_CID + '/send-link', {pay_url: url});
+    if (HP_CID!==actingCid) return;
     await hpReloadNotice('hp-send-out', r.ok,
         _hpEsc(r.data.message || r.data.error || 'Send failed.'));
 }
 
 async function hpRetry(notifId) {
+    var actingCid=HP_CID;
     var out = document.getElementById('hp-send-out');
     out.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Retrying…</div>';
     var r = await hpPost('/admin/notification/' + notifId + '/retry-link');
+    if (HP_CID!==actingCid) return;
     if (r.data.recovery === 'payload_unreadable') {
         /* NOT "no link stored" — a real link may already be with the company. */
         await hpReloadNotice('hp-send-out', false,
@@ -6417,8 +6335,10 @@ async function hpRetry(notifId) {
 }
 
 async function hpClearAttention() {
+    var actingCid=HP_CID;
     var note = (document.getElementById('hp-att-note') || {}).value || '';
     var r = await hpPost('/admin/corporate/' + HP_CID + '/attention/clear', {note: note});
+    if (HP_CID!==actingCid) return;
     await hpReloadNotice('hp-send-out', r.ok,
         _hpEsc(r.data.message || r.data.error ||
                (r.ok ? 'Marked resolved.' : 'Could not clear this flag.')));
@@ -6430,6 +6350,7 @@ async function hpClearAttention() {
    session. An event that matches NEITHER — a webhook for a session we never
    recorded, say — belongs to no invoice and would be invisible without this.
    Money may already have moved, so it has to be reachable from the console. */
+
 async function hpQueueLoad() {
     var box = document.getElementById('hp-queue');
     if (!box) return;
@@ -6597,6 +6518,7 @@ function hpResolve(ref, canRetrieve, canReplay) {
 }
 
 async function hpResolveDo(ref, mode) {
+    var actingCid=HP_CID;
     var out = document.getElementById('hp-resolve-out');
     var body = {mode: mode};
     if (mode === 'verified') {
@@ -6605,6 +6527,7 @@ async function hpResolveDo(ref, mode) {
     }
     out.innerHTML = '<div class="corp-note"><i class="fa-solid fa-spinner fa-spin"></i> Working…</div>';
     var r = await hpPost('/admin/corporate/attempt/' + encodeURIComponent(ref) + '/resolve', body);
+    if (HP_CID!==actingCid) return;
     var extra = (r.data.verification === 'manual')
         ? '<div style="font-size:11px;margin-top:.3rem">Recorded as MANUAL verification.</div>' : '';
     await hpReloadNotice('hp-resolve-out', r.ok,
@@ -6785,6 +6708,8 @@ document.addEventListener('keydown', function (e) {
 });
 </script>
 <script src="/static/admin-theme.js"></script>
+<link rel="stylesheet" href="/static/company-workspace.css">
+<script src="/static/company-workspace.js"></script>
 </body>
 
 </html>

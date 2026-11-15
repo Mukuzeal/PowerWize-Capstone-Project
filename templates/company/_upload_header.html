@@ -7,3 +7,16 @@
   <input type="hidden" name="action" value="change_email">
   <button class="btn" type="submit">Use a different email</button>
 </form>
+{% if company_registration.training_type %}
+<div class="info-card" data-company-delivery="{{ company_registration.training_type }}"><strong>Company delivery mode</strong><p>{{ company_registration.training_type }}</p><p class="form-hint">Your company selected this delivery mode for the batch.</p></div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var mode=document.querySelector('[data-company-delivery]').dataset.companyDelivery;
+  var fields=document.querySelectorAll('input[name="training_type"],select[name="training_type"]');
+  if(!fields.length)return;
+  var form=fields[0].form;
+  fields.forEach(function(field){field.disabled=true;});
+  var hidden=document.createElement('input');hidden.type='hidden';hidden.name='training_type';hidden.value=mode;form.appendChild(hidden);
+});
+</script>
+{% endif %}

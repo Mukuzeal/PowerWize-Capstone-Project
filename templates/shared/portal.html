@@ -24,12 +24,14 @@
       ) }}
 
       {# ── Training (the primary action for a trainee, so it leads the page) ── #}
+      {% include 'company/_enrolment_picker.html' %}
       {% if session.get('user_role') == 'trainee' %}
       <div class="dsub"><p class="mono mono--fg">Training</p></div>
 
       <div class="decision-card decision-card--spotlight">
         <h3>Training</h3>
         <p>Your course materials, quizzes and practical exams.</p>
+        {% if learning_allowed %}
         <div class="decision-grid">
           <a class="dec-btn" href="/lms/learn">
             <span class="dec-icon"><i class="fa-solid fa-book-open"></i></span>
@@ -48,6 +50,7 @@
             <i class="fa-solid fa-arrow-right dec-go"></i>
           </a>
         </div>
+        {% else %}<p class="notice-box">{{ learning_reason }}</p>{% endif %}
       </div>
       {% endif %}
 
@@ -207,6 +210,14 @@
       {% if session.get('user_role') == 'trainee' %}
       <div class="decision-card">
         <h3>My class</h3>
+        {% if assigned_classes %}
+        {% for c in assigned_classes %}
+        <div class="info-card"><strong>{{ c.name }}</strong>
+        {% if c.joined %}<p>You have joined this class.</p>
+        {% elif c.can_join %}<form method="post" action="/portal/join-class"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="class_id" value="{{ c.id }}"><p>Your registration already identifies your company batch.</p><button type="submit" class="btn-submit">Join your assigned class</button></form>
+        {% else %}<p>{{ c.reason }}</p>{% endif %}</div>
+        {% endfor %}
+        {% else %}
         {% if my_classes %}
         <p>You are in {{ my_classes|length }}
            class{{ '' if my_classes|length == 1 else 'es' }}.
@@ -241,6 +252,7 @@
           Case and spacing do not matter. You can only join a class your
           company has already enrolled and paid you into.
         </p>
+        {% endif %}
       </div>
       {% endif %}
 

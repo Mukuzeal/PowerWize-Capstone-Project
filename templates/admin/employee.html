@@ -36,6 +36,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-forms.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='ewize-dash.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='batch-progress.css') }}">
 <style>
   /* Toast notifications */
   .dnotes { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 900;
@@ -366,12 +367,12 @@
     <div class="dhead"><div><p class="mono mono--signal">Assigned training</p>
       <h1 id="h-company-batches">My company batches</h1></div></div>
     {% for batch in assigned_classes %}
-    <article class="dcard" style="margin-bottom:1rem;padding:1rem">
+    <article class="dcard batch-card">
       <h2 style="margin-top:0">{{ batch.name }}</h2>
       <p>{{ batch.company_name or 'Company batch' }} · {{ batch.member_count }} joined trainee(s)</p>
       <p>Class code: <strong>{{ batch.join_code }}</strong> · {{ 'Open to joins' if batch.join_open else 'Joining closed' }}</p>
       <button type="button" class="act" onclick="loadAssignedBatch({{ batch.id }},this)">Members &amp; progress</button>
-      <div id="assigned-batch-{{ batch.id }}" role="status" aria-live="polite" style="margin-top:1rem;overflow-x:auto"></div>
+      <div class="batch-results" id="assigned-batch-{{ batch.id }}" aria-live="polite"></div>
     </article>
     {% else %}
     <p>No company batches assigned yet. An administrator can assign you from Company Intake.</p>
@@ -599,7 +600,7 @@
               <span class="status-pill st-pending"><i class="fa-solid fa-clock"></i> Pending</span>
               {% endif %}
             </td>
-            <td><a class="act act--go" href="/lms/submissions/{{ sub.id }}/answers"><i class="fa-solid fa-eye"></i> Review</a></td>
+            <td><a class="act act--go" href="/lms/submissions?open={{ sub.id }}"><i class="fa-solid fa-pen-to-square"></i> {{ 'Re-grade' if sub.grade is not none else 'Grade' }}</a></td>
           </tr>
           {% endfor %}
         </tbody>
@@ -775,26 +776,55 @@ async function loadAssignedBatch(id,button) {
     if (!res.ok) throw new Error(res.status === 403 ? 'This batch is no longer assigned to you, or your training access changed.' : 'Could not load this batch (HTTP '+res.status+').');
     var d = await res.json();
     out.replaceChildren();
-    var summary = document.createElement('p');
-    summary.textContent = d.batch.members+' joined trainee(s) · '+d.batch.pct+'% batch progress';
+    function el(tag,cls,text) {
+      var node=document.createElement(tag);node.className=cls || '';
+      if (text !== undefined) node.textContent=text;
+      return node;
+    }
+    function meter(value,label) {
+      var bar=el('progress','batch-meter');bar.max=100;
+      bar.value=Math.max(0,Math.min(100,Number(value)||0));
+      bar.setAttribute('aria-label',label);bar.textContent=bar.value+'%';return bar;
+    }
+    var summary=el('div','batch-summary');
+    var overview=el('div','batch-overview');
+    overview.appendChild(el('span','batch-eyebrow','Overall batch progress'));
+    overview.appendChild(el('strong','batch-total',d.batch.pct+'%'));
+    overview.appendChild(meter(d.batch.pct,'Overall batch progress'));
+    overview.appendChild(el('span','batch-caption',d.batch.modules_completed+' of '+d.batch.modules_total+' module completions across joined trainees'));
+    summary.appendChild(overview);
+    var stats=el('div','batch-stats');
+    [[d.batch.members,'Joined trainees'],[d.batch.finished,'Finished training'],[d.batch.members-d.batch.finished,'Still learning']].forEach(function(stat) {
+      var item=el('div','batch-stat');item.appendChild(el('strong','',stat[0]));item.appendChild(el('span','',stat[1]));stats.appendChild(item);
+    });
+    summary.appendChild(stats);
     out.appendChild(summary);
     if (!d.members.length) {
       var empty = document.createElement('p');empty.textContent = 'No trainees have joined this batch yet.';out.appendChild(empty);
     } else {
-      var table = document.createElement('table');table.style.width='100%';
+      var wrap=el('div','batch-table-wrap');
+      var table=el('table','batch-table');
       var head = table.createTHead().insertRow();
-      ['Trainee','Email','Modules completed','Progress','Next requirement'].forEach(function(label) {
+      ['Trainee','Modules completed','Progress','Next requirement'].forEach(function(label) {
         var cell=document.createElement('th');cell.scope='col';cell.textContent=label;head.appendChild(cell);
       });
       var body=table.createTBody();
       d.members.forEach(function(member) {
         var row=body.insertRow();
-        [member.name,member.email,member.completed+' / '+member.total,member.pct+'%',
-          member.next ? member.next.module+' — '+member.next.label : 'No outstanding module requirements'].forEach(function(value) {
-            var cell=row.insertCell();cell.textContent=value;
-          });
+        var identity=el('div','batch-identity');
+        identity.appendChild(el('span','batch-avatar',member.name.split(/\s+/).map(function(s){return s.charAt(0);}).slice(0,2).join('')));
+        var person=el('div','');person.appendChild(el('strong','',member.name));person.appendChild(el('span','batch-email',member.email));
+        identity.appendChild(person);row.insertCell().appendChild(identity);
+        row.insertCell().textContent=member.completed+' / '+member.total;
+        var progress=row.insertCell();progress.className='batch-person-progress';
+        var meta=el('div','batch-progress-meta');
+        meta.appendChild(el('strong','',member.pct+'%'));
+        var finished=member.total>0 && member.completed===member.total;
+        meta.appendChild(el('span','batch-badge'+(finished?' is-complete':''),finished?'Completed':member.pct>0?'In progress':'Not started'));
+        progress.appendChild(meta);progress.appendChild(meter(member.pct,member.name+' training progress'));
+        row.insertCell().appendChild(el('span','batch-next',member.next ? member.next.module+' — '+member.next.label : 'No outstanding module requirements'));
       });
-      out.appendChild(table);
+      wrap.appendChild(table);out.appendChild(wrap);
     }
   } catch(e) {out.textContent=String(e.message || e)+' Use Members & progress to retry.';}
   finally {button.disabled=false;}
